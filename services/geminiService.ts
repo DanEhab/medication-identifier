@@ -1,11 +1,30 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
 import type { DrugInfo, ProfessionalDrugInfo } from '../types';
 
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable not set");
-}
+/**
+ * Helper function to call the backend serverless function
+ */
+const callBackend = async (model: string, contents: any, config?: any): Promise<string> => {
+    const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model,
+            contents,
+            config
+        })
+    });
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.message || errorData.error || 'Backend request failed');
+    }
+
+    const data = await response.json();
+    return data.text;
+};
 
 const drugInfoSchema = {
     type: Type.OBJECT,
@@ -41,9 +60,9 @@ const drugInfoSchema = {
 
 
 export const identifyDrugFromImage = async (base64Image: string, mimeType: string): Promise<string> => {
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: {
+    const text = await callBackend(
+        'gemini-2.5-flash',
+        {
             parts: [
                 {
                     inlineData: {
@@ -55,31 +74,30 @@ export const identifyDrugFromImage = async (base64Image: string, mimeType: strin
                     text: 'Identify the drug name, strength, and form from this image. Provide only the name and strength, for example: "Amoxicillin 500mg". If you cannot identify it, say "Unknown".',
                 },
             ],
-        },
-    });
+        }
+    );
 
-    const text = response.text.trim();
-    if (text.toLowerCase() === 'unknown') {
+    const trimmedText = text.trim();
+    if (trimmedText.toLowerCase() === 'unknown') {
         throw new Error('Could not identify the drug from the image. Please try again with a clearer picture.');
     }
-    return text;
+    return trimmedText;
 };
 
 const translateDrugInfo = async (drugInfo: DrugInfo): Promise<DrugInfo> => {
     const prompt = `Translate the following JSON object's string values into simple, understandable Egyptian layperson Arabic. Do not translate the JSON keys. Keep the exact same structure and types (string arrays should remain string arrays). Return ONLY the translated JSON object. Original English JSON: ${JSON.stringify(drugInfo, null, 2)}`;
     
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
+    const text = await callBackend(
+        'gemini-2.5-flash',
+        prompt,
+        {
             responseMimeType: 'application/json',
             responseSchema: drugInfoSchema
         }
-    });
+    );
 
     try {
-        const jsonText = response.text;
-        const translatedInfo: DrugInfo = JSON.parse(jsonText);
+        const translatedInfo: DrugInfo = JSON.parse(text);
         return translatedInfo;
     } catch (e) {
         console.error("Failed to parse translated JSON from Gemini, returning original English text.", e);
@@ -89,18 +107,17 @@ const translateDrugInfo = async (drugInfo: DrugInfo): Promise<DrugInfo> => {
 };
 
 export const fetchDrugInformation = async (drugName: string, language: 'en' | 'ar'): Promise<DrugInfo> => {
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Provide patient-friendly information for the drug: ${drugName}. Please format the output as a JSON object adhering to the provided schema. The information should be simple, clear, and based on reliable sources like the FDA and MedlinePlus.`,
-        config: {
+    const text = await callBackend(
+        'gemini-2.5-flash',
+        `Provide patient-friendly information for the drug: ${drugName}. Please format the output as a JSON object adhering to the provided schema. The information should be simple, clear, and based on reliable sources like the FDA and MedlinePlus.`,
+        {
             responseMimeType: 'application/json',
             responseSchema: drugInfoSchema
         }
-    });
+    );
     
     try {
-        const jsonText = response.text;
-        let drugInfo: DrugInfo = JSON.parse(jsonText);
+        let drugInfo: DrugInfo = JSON.parse(text);
 
         if (language === 'ar') {
             drugInfo = await translateDrugInfo(drugInfo);
@@ -114,10 +131,10 @@ export const fetchDrugInformation = async (drugName: string, language: 'en' | 'a
 };
 
 export const fetchProfessionalDrugInformation = async (drugName: string): Promise<ProfessionalDrugInfo> => {
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Provide detailed technical information for the drug: ${drugName}, intended for a healthcare professional. Include sections on chemistry, its BCS class, pharmacology, pharmacokinetics, mechanism of action, adverse effects, and drug interactions. Finally, provide a list of references or sources used to compile this information. Format the output as a JSON object. Use reliable sources like medical journals, FDA documentation, and pharmacology databases.`,
-        config: {
+    const text = await callBackend(
+        'gemini-2.5-flash',
+        `Provide detailed technical information for the drug: ${drugName}, intended for a healthcare professional. Include sections on chemistry, its BCS class, pharmacology, pharmacokinetics, mechanism of action, adverse effects, and drug interactions. Finally, provide a list of references or sources used to compile this information. Format the output as a JSON object. Use reliable sources like medical journals, FDA documentation, and pharmacology databases.`,
+        {
             responseMimeType: 'application/json',
             responseSchema: {
                 type: Type.OBJECT,
@@ -134,11 +151,10 @@ export const fetchProfessionalDrugInformation = async (drugName: string): Promis
                 required: ["chemistry", "bcsClass", "pharmacology", "pharmacokinetics", "mechanismOfAction", "adverseEffects", "drugInteractions", "references"]
             }
         }
-    });
+    );
 
     try {
-        const jsonText = response.text;
-        const profInfo: ProfessionalDrugInfo = JSON.parse(jsonText);
+        const profInfo: ProfessionalDrugInfo = JSON.parse(text);
         return profInfo;
     } catch (e) {
         console.error("Failed to parse professional JSON response from Gemini:", e);

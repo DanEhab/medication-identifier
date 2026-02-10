@@ -12,9 +12,32 @@ View your app in AI Studio: https://ai.studio/apps/drive/1eINieURnMCMgKjpJ90u7X6
 
 **Prerequisites:**  Node.js
 
-
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Create a `.env` file (copy from `.env.example`) and set your `GEMINI_API_KEY`:
+   ```
+   GEMINI_API_KEY=your_api_key_here
+   ```
 3. Run the app:
    `npm run dev`
+
+## Deploy to Vercel
+
+This app uses a serverless backend to securely handle API requests.
+
+1. Install the Vercel CLI:
+   `npm install -g vercel`
+2. Deploy:
+   `vercel`
+3. Set the `GEMINI_API_KEY` environment variable in your Vercel project settings:
+   - Go to your project in Vercel Dashboard
+   - Navigate to Settings → Environment Variables
+   - Add `GEMINI_API_KEY` with your API key
+
+## Architecture
+
+- **Frontend**: React + TypeScript + Vite
+- **Backend**: Vercel Serverless Functions ([api/generate.js](api/generate.js))
+- **AI**: Google Gemini API
+
+The application uses a secure backend architecture where the Gemini API key is stored on the server, not exposed to the client.
