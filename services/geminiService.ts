@@ -18,6 +18,28 @@ const callBackend = async (model: string, contents: any, config?: any): Promise<
     });
 
     if (!response.ok) {
+        // Handle rate limiting and service unavailability gracefully
+        if (response.status === 429 || response.status === 503) {
+            // Check for Retry-After header to get the actual wait time
+            const retryAfter = response.headers.get('Retry-After');
+            let waitTime = 10; // Default fallback
+            
+            if (retryAfter) {
+                // Retry-After can be in seconds or as an HTTP date
+                const retrySeconds = parseInt(retryAfter, 10);
+                if (!isNaN(retrySeconds)) {
+                    waitTime = retrySeconds;
+                } else {
+                    // If it's a date, calculate the difference
+                    const retryDate = new Date(retryAfter);
+                    const now = new Date();
+                    waitTime = Math.ceil((retryDate.getTime() - now.getTime()) / 1000);
+                }
+            }
+            
+            throw new Error(`We are experiencing high traffic right now. Please wait ${waitTime} seconds and try again.`);
+        }
+        
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
         throw new Error(errorData.message || errorData.error || 'Backend request failed');
     }
@@ -61,7 +83,7 @@ const drugInfoSchema = {
 
 export const identifyDrugFromImage = async (base64Image: string, mimeType: string): Promise<string> => {
     const text = await callBackend(
-        'gemini-2.5-flash',
+        'gemini-1.5-flash',
         {
             parts: [
                 {
@@ -88,7 +110,7 @@ const translateDrugInfo = async (drugInfo: DrugInfo): Promise<DrugInfo> => {
     const prompt = `Translate the following JSON object's string values into simple, understandable Egyptian layperson Arabic. Do not translate the JSON keys. Keep the exact same structure and types (string arrays should remain string arrays). Return ONLY the translated JSON object. Original English JSON: ${JSON.stringify(drugInfo, null, 2)}`;
     
     const text = await callBackend(
-        'gemini-2.5-flash',
+        'gemini-1.5-flash',
         prompt,
         {
             responseMimeType: 'application/json',
@@ -108,7 +130,7 @@ const translateDrugInfo = async (drugInfo: DrugInfo): Promise<DrugInfo> => {
 
 export const fetchDrugInformation = async (drugName: string, language: 'en' | 'ar'): Promise<DrugInfo> => {
     const text = await callBackend(
-        'gemini-2.5-flash',
+        'gemini-1.5-flash',
         `Provide patient-friendly information for the drug: ${drugName}. Please format the output as a JSON object adhering to the provided schema. The information should be simple, clear, and based on reliable sources like the FDA and MedlinePlus.`,
         {
             responseMimeType: 'application/json',
@@ -132,7 +154,7 @@ export const fetchDrugInformation = async (drugName: string, language: 'en' | 'a
 
 export const fetchProfessionalDrugInformation = async (drugName: string): Promise<ProfessionalDrugInfo> => {
     const text = await callBackend(
-        'gemini-2.5-flash',
+        'gemini-1.5-flash',
         `Provide detailed technical information for the drug: ${drugName}, intended for a healthcare professional. Include sections on chemistry, its BCS class, pharmacology, pharmacokinetics, mechanism of action, adverse effects, and drug interactions. Finally, provide a list of references or sources used to compile this information. Format the output as a JSON object. Use reliable sources like medical journals, FDA documentation, and pharmacology databases.`,
         {
             responseMimeType: 'application/json',
