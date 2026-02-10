@@ -1,0 +1,7 @@
+{
+  "name": "Medication Identifier",
+  "description": "An application that uses your camera to identify medications from a photo and provides patient-friendly information about their use, dosage, side effects, and more.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
