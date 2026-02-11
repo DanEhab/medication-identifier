@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Medication Identifier</string>
+    <string name="title_activity_main">Medication Identifier</string>
+    <string name="package_name">com.medication.app</string>
+    <string name="custom_url_scheme">com.medication.app</string>
+</resources>
