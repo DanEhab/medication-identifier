@@ -1,5 +1,5 @@
 // api/generate.js
-const { GoogleGenAI } = require("@google/genai");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 module.exports = async (req, res) => {
   // --- 1. SET CORS HEADERS (The Handshake) ---
@@ -28,18 +28,32 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: "Server Configuration Error: API Key missing" });
     }
 
-    // Initialize AI with the API key
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-    // Call the new Genai SDK with the exact structure frontend sends
-    const response = await ai.models.generateContent({
-      model: model || 'gemini-1.5-flash',
-      contents,
-      config
+    // Initialize AI with the older, stable SDK
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const aiModel = genAI.getGenerativeModel({ 
+      model: model || 'gemini-1.5-flash'
     });
 
+    // Generate content - but we need to adapt the request format
+    let result;
+    if (config && config.responseMimeType) {
+      result = await aiModel.generateContent({
+        contents: Array.isArray(contents) ? contents : [{ role: "user", parts: [{ text: contents }] }],
+        generationConfig: config
+      });
+    } else {
+      result = await aiModel.generateContent(
+        Array.isArray(contents) ? contents : contents
+      );
+    }
+    
+    const response = await result.response;
+
+    const response = await result.response;
+    const text = response.text();
+
     // Return in the format frontend expects: { text: "..." }
-    res.status(200).json({ text: response.text });
+    res.status(200).json({ text: text });
 
   } catch (error) {
     console.error("Detailed Server Error:", error);
