@@ -1,60 +1,20 @@
-// api/generate.js
+// api/generate.js - BARE BONES VERSION FOR TESTING
 
 module.exports = async (req, res) => {
-  try {
-    // --- 1. SET CORS HEADERS (The Handshake) ---
-    res.setHeader('Access-Control-Allow-Credentials', true);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-    res.setHeader(
-      'Access-Control-Allow-Headers',
-      'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-    );
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    // --- 2. HANDLE PRE-FLIGHT (OPTIONS) ---
-    if (req.method === 'OPTIONS') {
-      return res.status(200).end();
-    }
-
-    // Only load Google AI when actually needed (not for OPTIONS)
-    const { GoogleGenerativeAI } = require("@google/generative-ai");
-    
-    // Parse the body - MUST match what frontend sends: { model, contents, config }
-    const { model, contents, config } = req.body || {};
-
-    // Safety Check: Is the key actually set in Vercel?
-    if (!process.env.GEMINI_API_KEY) {
-      console.error("Server Error: Missing GEMINI_API_KEY");
-      return res.status(500).json({ error: "Server Configuration Error: API Key missing" });
-    }
-
-    // Initialize AI with the stable SDK
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const aiModel = genAI.getGenerativeModel({ 
-      model: model || 'gemini-1.5-flash'
-    });
-
-    // Generate content - adapt the request format
-    let result;
-    if (config && config.responseMimeType) {
-      result = await aiModel.generateContent({
-        contents: Array.isArray(contents) ? contents : [{ role: "user", parts: [{ text: contents }] }],
-        generationConfig: config
-      });
-    } else {
-      result = await aiModel.generateContent(
-        Array.isArray(contents) ? contents : contents
-      );
-    }
-    
-    const response = await result.response;
-    const text = response.text();
-
-    // Return in the format frontend expects: { text: "..." }
-    return res.status(200).json({ text: text });
-
-  } catch (error) {
-    console.error("Detailed Server Error:", error);
-    return res.status(500).json({ error: error.message || "Internal Server Error" });
+  // Handle OPTIONS
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
+
+  // For now, return a simple response
+  return res.status(200).json({ 
+    text: "Backend is working! Google AI will be re-enabled once this works.",
+    method: req.method,
+    hasApiKey: !!process.env.GEMINI_API_KEY
+  });
 };
