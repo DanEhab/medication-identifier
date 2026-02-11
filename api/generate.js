@@ -13,8 +13,7 @@ export default async function handler(req, res) {
 
   // --- 2. HANDLE PRE-FLIGHT (OPTIONS) ---
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
   // --- 3. MAIN LOGIC ---
@@ -39,10 +38,10 @@ export default async function handler(req, res) {
     });
 
     // Return in the format frontend expects: { text: "..." }
-    res.status(200).json({ text: response.text });
+    return res.status(200).json({ text: response.text });
 
   } catch (error) {
     console.error("Detailed Server Error:", error);
-    res.status(500).json({ error: error.message || "Internal Server Error" });
+    return res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 }
