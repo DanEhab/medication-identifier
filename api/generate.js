@@ -1,8 +1,8 @@
 // api/generate.js
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenAI } = require("@google/genai");
 
 // Access the API key safely
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 module.exports = async (req, res) => {
   // --- 1. SET CORS HEADERS (The Handshake) ---
@@ -22,8 +22,8 @@ module.exports = async (req, res) => {
 
   // --- 3. MAIN LOGIC ---
   try {
-    // Parse the body safely
-    const { model, prompt, image } = req.body || {};
+    // Parse the body - MUST match what frontend sends: { model, contents, config }
+    const { model, contents, config } = req.body || {};
 
     // Safety Check: Is the key actually set in Vercel?
     if (!process.env.GEMINI_API_KEY) {
@@ -31,28 +31,15 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: "Server Configuration Error: API Key missing" });
     }
 
-    // Select Model (Defaulting to 1.5 Flash if not specified)
-    const aiModel = genAI.getGenerativeModel({ model: model || 'gemini-1.5-flash' });
+    // Call the new Genai SDK with the exact structure frontend sends
+    const response = await ai.models.generateContent({
+      model: model || 'gemini-1.5-flash',
+      contents,
+      config
+    });
 
-    let result;
-    if (image) {
-      const imageParts = [
-        {
-          inlineData: {
-            data: image,
-            mimeType: "image/jpeg",
-          },
-        },
-      ];
-      result = await aiModel.generateContent([prompt, ...imageParts]);
-    } else {
-      result = await aiModel.generateContent(prompt);
-    }
-
-    const response = await result.response;
-    const text = response.text();
-    
-    res.status(200).json(text);
+    // Return in the format frontend expects: { text: "..." }
+    res.status(200).json({ text: response.text });
 
   } catch (error) {
     console.error("Detailed Server Error:", error);
