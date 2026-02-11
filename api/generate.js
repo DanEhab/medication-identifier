@@ -1,24 +1,24 @@
 // api/generate.js
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 module.exports = async (req, res) => {
-  // --- 1. SET CORS HEADERS (The Handshake) ---
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
-
-  // --- 2. HANDLE PRE-FLIGHT (OPTIONS) ---
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-
-  // --- 3. MAIN LOGIC ---
   try {
+    // --- 1. SET CORS HEADERS (The Handshake) ---
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    );
+
+    // --- 2. HANDLE PRE-FLIGHT (OPTIONS) ---
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+
+    // Only load Google AI when actually needed (not for OPTIONS)
+    const { GoogleGenerativeAI } = require("@google/generative-ai");
+    
     // Parse the body - MUST match what frontend sends: { model, contents, config }
     const { model, contents, config } = req.body || {};
 
@@ -51,10 +51,10 @@ module.exports = async (req, res) => {
     const text = response.text();
 
     // Return in the format frontend expects: { text: "..." }
-    res.status(200).json({ text: text });
+    return res.status(200).json({ text: text });
 
   } catch (error) {
     console.error("Detailed Server Error:", error);
-    res.status(500).json({ error: error.message || "Internal Server Error" });
+    return res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 };
