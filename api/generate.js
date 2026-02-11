@@ -1,7 +1,7 @@
 // api/generate.js
-import { GoogleGenAI } from "@google/genai";
+const { GoogleGenAI } = require("@google/genai");
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   // --- 1. SET CORS HEADERS (The Handshake) ---
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,7 +13,8 @@ export default async function handler(req, res) {
 
   // --- 2. HANDLE PRE-FLIGHT (OPTIONS) ---
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    res.status(200).end();
+    return;
   }
 
   // --- 3. MAIN LOGIC ---
@@ -38,10 +39,10 @@ export default async function handler(req, res) {
     });
 
     // Return in the format frontend expects: { text: "..." }
-    return res.status(200).json({ text: response.text });
+    res.status(200).json({ text: response.text });
 
   } catch (error) {
     console.error("Detailed Server Error:", error);
-    return res.status(500).json({ error: error.message || "Internal Server Error" });
+    res.status(500).json({ error: error.message || "Internal Server Error" });
   }
-}
+};
