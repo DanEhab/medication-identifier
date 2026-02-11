@@ -1,31 +1,39 @@
 import { Type } from "@google/genai";
 import type { DrugInfo, ProfessionalDrugInfo } from '../types';
+import { CapacitorHttp } from '@capacitor/core';
 
 /**
  * Helper function to call the backend serverless function
  */
 const callBackend = async (model: string, contents: any, config?: any): Promise<string> => {
-// 10.0.2.2 is the special IP for the Android Emulator to reach your laptop
-// If you test on a REAL phone later, you will need your real Laptop IP (e.g., 192.168.1.5)
-const baseUrl =  'https://medication-identifier-gamma.vercel.app'; 
-const response = await fetch(`${baseUrl}/api/generate`, {        method: 'POST',
+// TEMPORARY: Using local server for testing
+// Switch back to Vercel once deployment issues are resolved
+const baseUrl =  'http://10.0.2.2:3001'; 
+console.log('[geminiService] Calling backend:', baseUrl);
+console.log('[geminiService] Payload:', { model, contents: typeof contents, config });
+
+const response = await CapacitorHttp.post({
+        url: `${baseUrl}/api/generate`,
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
+        data: {
             model,
             contents,
             config
-        })
+        }
     });
 
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    console.log('[geminiService] Response status:', response.status);
+    
+    if (response.status !== 200) {
+        const errorData = response.data || { error: 'Unknown error' };
+        console.error('[geminiService] Error response:', errorData);
         throw new Error(errorData.message || errorData.error || 'Backend request failed');
     }
 
-    const data = await response.json();
-    return data.text;
+    console.log('[geminiService] Success! Got response');
+    return response.data.text;
 };
 
 const drugInfoSchema = {

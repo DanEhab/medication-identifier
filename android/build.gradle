@@ -22,6 +22,15 @@ allprojects {
         google()
         mavenCentral()
     }
+    
+    //This will be used to resolve the conflict between the different versions of the Kotlin standard library
+    configurations.all {
+        resolutionStrategy {
+            force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
+            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
+            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
+        }
+    }
 }
 
 task clean(type: Delete) {
