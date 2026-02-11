@@ -1,10 +1,7 @@
 // api/generate.js
-const { GoogleGenAI } = require("@google/genai");
+import { GoogleGenAI } from "@google/genai";
 
-// Access the API key safely
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   // --- 1. SET CORS HEADERS (The Handshake) ---
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -31,6 +28,9 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: "Server Configuration Error: API Key missing" });
     }
 
+    // Initialize AI with the API key
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
     // Call the new Genai SDK with the exact structure frontend sends
     const response = await ai.models.generateContent({
       model: model || 'gemini-1.5-flash',
@@ -42,7 +42,7 @@ module.exports = async (req, res) => {
     res.status(200).json({ text: response.text });
 
   } catch (error) {
-    console.error("Detailed Server Error:", error);
+   console.error("Detailed Server Error:", error);
     res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 };
