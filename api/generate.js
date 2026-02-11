@@ -42,7 +42,7 @@ export default async function handler(req, res) {
     res.status(200).json({ text: response.text });
 
   } catch (error) {
-   console.error("Detailed Server Error:", error);
+    console.error("Detailed Server Error:", error);
     res.status(500).json({ error: error.message || "Internal Server Error" });
   }
-};
+}
