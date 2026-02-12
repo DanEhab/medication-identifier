@@ -11,23 +11,43 @@ interface ProfessionalScreenProps {
 }
 
 const InfoSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
+    // Convert markdown bold (**text**) to HTML bold
+    const formatMarkdown = (text: string): React.ReactNode => {
+        const parts = text.split(/(\*\*.*?\*\*)/);
+        return parts.map((part, idx) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+                return <strong key={idx} className="font-bold">{part.slice(2, -2)}</strong>;
+            }
+            return <span key={idx}>{part}</span>;
+        });
+    };
+
     // Handle both string and object/array values
     const renderValue = (value: any): React.ReactNode => {
         if (typeof value === 'string') {
-            return value;
+            return <div>{formatMarkdown(value)}</div>;
         }
         if (Array.isArray(value)) {
-            return value.map((item, idx) => (
-                <div key={idx} className="mb-2">• {typeof item === 'string' ? item : JSON.stringify(item, null, 2)}</div>
-            ));
+            return (
+                <ul className="list-none space-y-2 ms-4">
+                    {value.map((item, idx) => (
+                        <li key={idx} className="flex items-start">
+                            <span className="text-brand-primary me-2">•</span>
+                            <span className="flex-1">{typeof item === 'string' ? formatMarkdown(item) : renderValue(item)}</span>
+                        </li>
+                    ))}
+                </ul>
+            );
         }
         if (typeof value === 'object' && value !== null) {
             return (
-                <div className="space-y-2">
+                <div className="space-y-4">
                     {Object.entries(value).map(([key, val]) => (
                         <div key={key}>
-                            <strong className="text-brand-primary">{key.replace(/([A-Z])/g, ' $1').trim()}:</strong>
-                            <div className="ms-4 mt-1">{typeof val === 'string' ? val : JSON.stringify(val, null, 2)}</div>
+                            <strong className="text-brand-primary font-semibold">
+                                {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim()}:
+                            </strong>
+                            <div className="ms-4 mt-1">{renderValue(val)}</div>
                         </div>
                     ))}
                 </div>
@@ -44,7 +64,7 @@ const InfoSection: React.FC<{ title: string; children: React.ReactNode }> = ({ t
                 </div>
                 <h3 className="text-xl font-bold text-brand-dark">{title}</h3>
             </div>
-            <div className="text-gray-700 prose max-w-none" style={{ whiteSpace: 'pre-line' }}>
+            <div className="text-gray-700 leading-relaxed">
                 {renderValue(children)}
             </div>
         </div>

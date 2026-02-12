@@ -12,14 +12,14 @@ export interface DrugInfo {
 }
 
 export interface ProfessionalDrugInfo {
-    chemistry: string;
+    chemistry: any;  // Can be string or object with nested properties
     bcsClass: string;
-    pharmacology: string;
-    pharmacokinetics: string;
+    pharmacology: any;  // Can be string or object with nested properties
+    pharmacokinetics: any;  // Can be string or object with nested properties
     mechanismOfAction: string;
-    adverseEffects: string;
-    drugInteractions: string;
-    references: string;
+    adverseEffects: any;  // Can be string or object with nested properties
+    drugInteractions: any;  // Can be string or object with nested properties
+    references: string[] | string;  // Can be array of strings or single string
 }
 
 export interface PatientInfo {
