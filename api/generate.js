@@ -1,24 +1,14 @@
-// api/generate.js - Working Vercel serverless function with round-robin key rotation
+// api/generate.js - Vercel serverless function with paid key priority
 
-// Multiple API keys for quota rotation (each gets 20 requests/day)
-// Create more keys at: https://aistudio.google.com/apikey
+// Multiple API keys - PAID key gets priority, free keys as backup
 const API_KEYS = [
-  'AIzaSyAb9nvFgWx7VeRZd5GVBuJQfCQC55tLscI',  // Key 1 - PAID (PRIORITY - unlimited quota)
-  'AIzaSyAHjBQkcO9P8vLR64hi1Tw5AJhB12nx4Z8',  // Key 2 - Free tier
-  'AIzaSyDJ7Yp_GIkrYPpRY9hEBVYHZDC6iAK719E',  // Key 3 - Free tier
-  'AIzaSyDyJA-cn64iiISBH3siNvLfeuCiFYztRqY',  // Key 4 - Free tier
-  'AIzaSyA_iaXOu5tiAHMfHIOsaGgHMKRSlyLjqUQ',  // Key 5 - Free tier
-  'AIzaSyANffwVxE9L7_UJINzPpZ0MZXJWB0AsYD0',  // Key 6 - Free tier
+  'AIzaSyAb9nvFgWx7VeRZd5GVBuJQfCQC55tLscI',  // PAID KEY (unlimited - always try first)
+  'AIzaSyAHjBQkcO9P8vLR64hi1Tw5AJhB12nx4Z8',  // Free backup
+  'AIzaSyDJ7Yp_GIkrYPpRY9hEBVYHZDC6iAK719E',  // Free backup
+  'AIzaSyDyJA-cn64iiISBH3siNvLfeuCiFYztRqY',  // Free backup
+  'AIzaSyA_iaXOu5tiAHMfHIOsaGgHMKRSlyLjqUQ',  // Free backup
+  'AIzaSyANffwVxE9L7_UJINzPpZ0MZXJWB0AsYD0',  // Free backup
 ];
-
-let currentKeyIndex = 0;
-
-// Get next key in round-robin fashion
-function getNextKey() {
-  const key = API_KEYS[currentKeyIndex];
-  currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length; // Always rotate
-  return key;
-}
 
 module.exports = async (req, res) => {
   // CORS headers
