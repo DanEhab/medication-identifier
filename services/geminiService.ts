@@ -6,9 +6,7 @@ import { CapacitorHttp } from '@capacitor/core';
  * Helper function to call the backend serverless function
  */
 const callBackend = async (model: string, contents: any, config?: any): Promise<string> => {
-// TEMPORARY: Using local server for testing
-// Switch back to Vercel once deployment issues are resolved
-const baseUrl =  'http://10.0.2.2:3001'; 
+const baseUrl = 'https://medication-identifier-gamma.vercel.app';
 console.log('[geminiService] Calling backend:', baseUrl);
 console.log('[geminiService] Payload:', { model, contents: typeof contents, config });
 
