@@ -106,7 +106,7 @@ export const fetchProfessionalDrugInformation = async (drugName: string): Promis
     const prompt = `Provide detailed technical information for the drug: ${drugName}, intended for a healthcare professional. Include sections on chemistry, its BCS class, pharmacology, pharmacokinetics, mechanism of action, adverse effects, and drug interactions. Finally, provide a list of references or sources used to compile this information. Format the output as a JSON object with these exact keys: "chemistry", "bcsClass", "pharmacology", "pharmacokinetics", "mechanismOfAction", "adverseEffects", "drugInteractions", "references". Use reliable sources like medical journals, FDA documentation, and pharmacology databases. Return ONLY the JSON object, no additional text.`;
     
     const text = await callBackend(prompt);
-Backend
+    
     try {
         // Extract JSON from response
         const jsonMatch = text.match(/\{[\s\S]*\}/);

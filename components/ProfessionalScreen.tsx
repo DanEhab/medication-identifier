@@ -10,19 +10,46 @@ interface ProfessionalScreenProps {
   onBackToPatientView: () => void;
 }
 
-const InfoSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div className="bg-white rounded-2xl shadow-lg p-6">
-        <div className="flex items-center mb-4">
-            <div className="bg-brand-accent text-brand-primary p-2 rounded-full me-4">
-                <BookOpenIcon className="w-6 h-6" />
+const InfoSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
+    // Handle both string and object/array values
+    const renderValue = (value: any): React.ReactNode => {
+        if (typeof value === 'string') {
+            return value;
+        }
+        if (Array.isArray(value)) {
+            return value.map((item, idx) => (
+                <div key={idx} className="mb-2">• {typeof item === 'string' ? item : JSON.stringify(item, null, 2)}</div>
+            ));
+        }
+        if (typeof value === 'object' && value !== null) {
+            return (
+                <div className="space-y-2">
+                    {Object.entries(value).map(([key, val]) => (
+                        <div key={key}>
+                            <strong className="text-brand-primary">{key.replace(/([A-Z])/g, ' $1').trim()}:</strong>
+                            <div className="ms-4 mt-1">{typeof val === 'string' ? val : JSON.stringify(val, null, 2)}</div>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+        return String(value);
+    };
+
+    return (
+        <div className="bg-white rounded-2xl shadow-lg p-6">
+            <div className="flex items-center mb-4">
+                <div className="bg-brand-accent text-brand-primary p-2 rounded-full me-4">
+                    <BookOpenIcon className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-bold text-brand-dark">{title}</h3>
             </div>
-            <h3 className="text-xl font-bold text-brand-dark">{title}</h3>
+            <div className="text-gray-700 prose max-w-none" style={{ whiteSpace: 'pre-line' }}>
+                {renderValue(children)}
+            </div>
         </div>
-        <div className="text-gray-700 prose max-w-none" style={{ whiteSpace: 'pre-line' }}>
-            {children}
-        </div>
-    </div>
-);
+    );
+};
 
 export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({ drugName, onBackToPatientView }) => {
   const [profInfo, setProfInfo] = useState<ProfessionalDrugInfo | null>(null);
