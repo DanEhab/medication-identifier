@@ -37,16 +37,15 @@ module.exports = async (req, res) => {
       formattedContents = [contents];
     }
 
-    // Try with round-robin key rotation (distributes load evenly)
+    // Try paid key first (unlimited), then free keys as backup
     const maxRetries = API_KEYS.length;
     let lastError = null;
     
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      // Get next key in round-robin sequence
-      const apiKey = getNextKey();
-      const keyNumber = ((currentKeyIndex - 1 + API_KEYS.length) % API_KEYS.length) + 1;
+    for (let keyIndex = 0; keyIndex < maxRetries; keyIndex++) {
+      const apiKey = API_KEYS[keyIndex];
+      const isPaidKey = keyIndex === 0;
       
-      console.log(`Request ${attempt + 1}: Using Key ${keyNumber}`);
+      console.log(`Attempt ${keyIndex + 1}: Using ${isPaidKey ? 'PAID' : 'FREE'} Key`);
       
       // Call Gemini API directly
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
@@ -71,9 +70,9 @@ module.exports = async (req, res) => {
                               data.error?.message?.includes('RESOURCE_EXHAUSTED') ||
                               response.status === 429;
           
-          if (isQuotaError && attempt < maxRetries - 1) {
+          if (isQuotaError && keyIndex < maxRetries - 1) {
             // This key is exhausted, try next one
-            console.log(`Key ${keyNumber} quota exhausted, trying next key...`);
+            console.log(`${isPaidKey ? 'PAID' : 'FREE'} key exhausted, trying next...`);
             lastError = data.error?.message || 'Quota exceeded';
             continue; // Try next key
           }
@@ -86,14 +85,14 @@ module.exports = async (req, res) => {
         }
 
         // Success - return response
-        conso`All ${API_KEYS.length} API keys have exhausted their quotas. Last error: ${lastError}. Please try again later.`
+        console.log(`✅ Success with ${isPaidKey ? 'PAID' : 'FREE'} Key`);
         const text = data.candidates[0].content.parts[0].text;
         return res.status(200).json({ text });
         
       } catch (fetchError) {
-        console.error(`Fetch error with Key ${keyNumber}:`, fetchError);
+        console.error(`Fetch error:`, fetchError);
         lastError = fetchError.message;
-        if (attempt < maxRetries - 1) {
+        if (keyIndex < maxRetries - 1) {
           continue; // Try next key
         }
       }
