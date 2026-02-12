@@ -1,6 +1,18 @@
 import type { DrugInfo, ProfessionalDrugInfo } from '../types';
 
 /**
+ * Extract JSON from response, handling markdown code blocks and other formatting
+ */
+const extractJSON = (text: string): string => {
+    // Remove markdown code blocks (```json ... ``` or ``` ... ```)
+    let cleaned = text.replace(/```json\s*/g, '').replace(/```\s*$/g, '').trim();
+    
+    // Extract JSON object using regex
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    return jsonMatch ? jsonMatch[0] : cleaned;
+};
+
+/**
  * Call Vercel backend with Gemini API
  */
 const callBackend = async (prompt: string, image?: string, mimeType?: string): Promise<string> => {
@@ -69,8 +81,7 @@ const translateDrugInfo = async (drugInfo: DrugInfo): Promise<DrugInfo> => {
     const text = await callBackend(prompt);
 
     try {
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        const jsonText = jsonMatch ? jsonMatch[0] : text;
+        const jsonText = extractJSON(text);
         const translatedInfo: DrugInfo = JSON.parse(jsonText);
         return translatedInfo;
     } catch (e) {
@@ -86,8 +97,7 @@ export const fetchDrugInformation = async (drugName: string, language: 'en' | 'a
     
     try {
         // Extract JSON from response
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        const jsonText = jsonMatch ? jsonMatch[0] : text;
+        const jsonText = extractJSON(text);
         let drugInfo: DrugInfo = JSON.parse(jsonText);
 
         if (language === 'ar') {
@@ -109,8 +119,7 @@ export const fetchProfessionalDrugInformation = async (drugName: string): Promis
     
     try {
         // Extract JSON from response
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        const jsonText = jsonMatch ? jsonMatch[0] : text;
+        const jsonText = extractJSON(text);
         const profInfo: ProfessionalDrugInfo = JSON.parse(jsonText);
         return profInfo;
     } catch (e) {
