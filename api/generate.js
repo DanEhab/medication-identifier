@@ -1,4 +1,4 @@
-// api/generate.js - Working Vercel serverless function with key rotation
+// api/generate.js - Working Vercel serverless function with round-robin key rotation
 
 // Multiple API keys for quota rotation (each gets 20 requests/day)
 // Create more keys at: https://aistudio.google.com/apikey
@@ -11,6 +11,13 @@ const API_KEYS = [
 ];
 
 let currentKeyIndex = 0;
+
+// Get next key in round-robin fashion
+function getNextKey() {
+  const key = API_KEYS[currentKeyIndex];
+  currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length; // Always rotate
+  return key;
+}
 
 module.exports = async (req, res) => {
   // CORS headers
@@ -39,51 +46,66 @@ module.exports = async (req, res) => {
       formattedContents = [contents];
     }
 
-    // Try with automatic key rotation on quota errors
+    // Try with round-robin key rotation (distributes load evenly)
     const maxRetries = API_KEYS.length;
+    let lastError = null;
     
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-      const apiKey = API_KEYS[currentKeyIndex];
+      // Get next key in round-robin sequence
+      const apiKey = getNextKey();
+      const keyNumber = ((currentKeyIndex - 1 + API_KEYS.length) % API_KEYS.length) + 1;
+      
+      console.log(`Request ${attempt + 1}: Using Key ${keyNumber}`);
       
       // Call Gemini API directly
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: formattedContents,
-          generationConfig: config || {}
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        // Check if it's a quota error
-        const isQuotaError = data.error?.message?.includes('quota') || 
-                            data.error?.message?.includes('RESOURCE_EXHAUSTED') ||
-                            response.status === 429;
-        
-        if (isQuotaError && attempt < maxRetries - 1) {
-          // Rotate to next key and retry
-          console.log(`Key ${currentKeyIndex + 1} quota exhausted, rotating to key ${currentKeyIndex + 2}...`);
-          currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
-          continue; // Retry with next key
-        }
-        
-        // Not quota error or last retry - return error
-        console.error('Gemini API Error:', data);
-        return res.status(response.status).json({ 
-          error: data.error?.message || 'API Error' 
+      try {
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: formattedContents,
+            generationConfig: config || {}
+          })
         });
-      }
 
-      // Success - return response
-      const text = data.candidates[0].content.parts[0].text;
-      return res.status(200).json({ text });
+        const data = await response.json();
+
+        if (!response.ok) {
+          // Check if it's a quota error
+          const isQuotaError = data.error?.message?.includes('quota') || 
+                              data.error?.message?.includes('RESOURCE_EXHAUSTED') ||
+                              response.status === 429;
+          
+          if (isQuotaError && attempt < maxRetries - 1) {
+            // This key is exhausted, try next one
+            console.log(`Key ${keyNumber} quota exhausted, trying next key...`);
+            lastError = data.error?.message || 'Quota exceeded';
+            continue; // Try next key
+          }
+          
+          // Not quota error or last retry - return error
+          console.error('Gemini API Error:', data);
+          return res.status(response.status).json({ 
+            error: data.error?.message || 'API Error' 
+          });
+        }
+
+        // Success - return response
+        conso`All ${API_KEYS.length} API keys have exhausted their quotas. Last error: ${lastError}. Please try again later.`
+        const text = data.candidates[0].content.parts[0].text;
+        return res.status(200).json({ text });
+        
+      } catch (fetchError) {
+        console.error(`Fetch error with Key ${keyNumber}:`, fetchError);
+        lastError = fetchError.message;
+        if (attempt < maxRetries - 1) {
+          continue; // Try next key
+        }
+      }
     }
     
     // All keys exhausted
