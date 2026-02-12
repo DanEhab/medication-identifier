@@ -50,9 +50,13 @@ module.exports = async (req, res) => {
     const data = await response.json();
 
     if (!response.ok) {
+      // Mask API key for security (show last 6 chars for debugging)
+      const maskedKey = GEMINI_API_KEY ? `...${GEMINI_API_KEY.slice(-6)}` : 'UNKNOWN';
       console.error('Gemini API Error:', data);
+      console.error('API Key used:', maskedKey);
+      
       return res.status(response.status).json({ 
-        error: data.error?.message || 'API Error' 
+        error: `${data.error?.message || 'API Error'} [API Key: ${maskedKey}]`
       });
     }
 
