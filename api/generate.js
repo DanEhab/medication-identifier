@@ -1,8 +1,12 @@
 // api/generate.js - Vercel serverless function with PAID API key (unlimited quota)
 
-const GEMINI_API_KEY = 'AIzaSyAb9nvFgWx7VeRZd5GVBuJQfCQC55tLscI'; // PAID - Unlimited quota
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 module.exports = async (req, res) => {
+  // Validate API key is present
+  if (!GEMINI_API_KEY) {
+    return res.status(500).json({ error: 'GEMINI_API_KEY environment variable not configured' });
+  }
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
