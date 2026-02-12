@@ -3,11 +3,12 @@
 // Multiple API keys for quota rotation (each gets 20 requests/day)
 // Create more keys at: https://aistudio.google.com/apikey
 const API_KEYS = [
-  'AIzaSyAHjBQkcO9P8vLR64hi1Tw5AJhB12nx4Z8',  // Key 1 - Original
-  'AIzaSyDJ7Yp_GIkrYPpRY9hEBVYHZDC6iAK719E',  // Key 2 - New project 1
-  'AIzaSyDyJA-cn64iiISBH3siNvLfeuCiFYztRqY',  // Key 3 - New project 2
-  'AIzaSyA_iaXOu5tiAHMfHIOsaGgHMKRSlyLjqUQ',  // Key 4 - New project 3
-  'AIzaSyANffwVxE9L7_UJINzPpZ0MZXJWB0AsYD0',  // Key 5 - New project 4
+  'AIzaSyAb9nvFgWx7VeRZd5GVBuJQfCQC55tLscI',  // Key 1 - PAID (PRIORITY - unlimited quota)
+  'AIzaSyAHjBQkcO9P8vLR64hi1Tw5AJhB12nx4Z8',  // Key 2 - Free tier
+  'AIzaSyDJ7Yp_GIkrYPpRY9hEBVYHZDC6iAK719E',  // Key 3 - Free tier
+  'AIzaSyDyJA-cn64iiISBH3siNvLfeuCiFYztRqY',  // Key 4 - Free tier
+  'AIzaSyA_iaXOu5tiAHMfHIOsaGgHMKRSlyLjqUQ',  // Key 5 - Free tier
+  'AIzaSyANffwVxE9L7_UJINzPpZ0MZXJWB0AsYD0',  // Key 6 - Free tier
 ];
 
 let currentKeyIndex = 0;
