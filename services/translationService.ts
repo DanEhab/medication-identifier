@@ -3,7 +3,7 @@ import type { DrugInfo } from '../types';
 const TRANSLATION_API_URL = 'https://medication-identifier-gamma.vercel.app/api/translate';
 
 /**
- * Translate text to Arabic using our Vercel translation API
+ * Translate text to Arabic using MyMemory API (via our serverless function)
  */
 export const translateToArabic = async (text: string): Promise<string> => {
     try {
@@ -62,6 +62,7 @@ const translateArray = async (arr: string[]): Promise<string[]> => {
 
 /**
  * Translate entire DrugInfo object to Arabic
+ * MyMemory API is fast and reliable - can process all at once
  */
 export const translateDrugInfo = async (drugInfo: DrugInfo): Promise<DrugInfo> => {
     try {
