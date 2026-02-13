@@ -24,10 +24,18 @@ const InfoSection: React.FC<{ title: string; children: React.ReactNode }> = ({ t
 
     // Handle both string and object/array values
     const renderValue = (value: any): React.ReactNode => {
+        // Handle undefined or null values
+        if (value === undefined || value === null || value === '') {
+            return <div className="text-gray-400 italic">No information available</div>;
+        }
+        
         if (typeof value === 'string') {
             return <div>{formatMarkdown(value)}</div>;
         }
         if (Array.isArray(value)) {
+            if (value.length === 0) {
+                return <div className="text-gray-400 italic">No information available</div>;
+            }
             return (
                 <ul className="list-none space-y-2 ms-4">
                     {value.map((item, idx) => (
