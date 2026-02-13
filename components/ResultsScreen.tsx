@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import type { DrugInfo, PatientInfo } from '../types';
 import { PillIcon, UtensilsIcon, AlertTriangleIcon, ClockIcon, BookOpenIcon, ChevronLeftIcon, BookmarkIcon, CheckIcon, PrinterIcon, ArrowDownTrayIcon } from './Icons';
 import { useLocalization } from '../context/LanguageContext';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+import { Capacitor } from '@capacitor/core';
 
 interface ResultsScreenProps {
   drugInfo: DrugInfo;
@@ -61,72 +64,340 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({ drugInfo, patientI
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleDownloadWord = () => {
-    const content = `
-      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-      <head>
-        <meta charset='utf-8'>
-        <title>${drugInfo.drugName}</title>
-        <style>
-          body { font-family: 'Arial', sans-serif; line-height: 1.6; }
-          h1 { color: #2D3748; border-bottom: 2px solid #007B8A; padding-bottom: 10px; }
-          h2 { color: #007B8A; margin-top: 20px; }
-          h3 { color: #2D3748; background-color: #EBF4F5; padding: 5px; }
-          ul { margin-bottom: 10px; }
-          li { margin-bottom: 5px; }
-        </style>
-      </head>
-      <body dir="${language === 'ar' ? 'rtl' : 'ltr'}">
-        <h1>${t('report')}</h1>
+  const generateReportHTML = () => {
+    return `<!DOCTYPE html>
+<html dir="${language === 'ar' ? 'rtl' : 'ltr'}">
+<head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>${drugInfo.drugName} - ${t('report')}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: Arial, sans-serif; 
+            line-height: 1.6; 
+            padding: 40px 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+        }
+        h1 { 
+            color: #2D3748; 
+            border-bottom: 3px solid #007B8A; 
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+        h3 { 
+            color: #2D3748; 
+            background-color: #EBF4F5; 
+            padding: 10px 15px;
+            margin-top: 25px;
+            margin-bottom: 10px;
+            font-size: 18px;
+            border-left: 4px solid #007B8A;
+        }
+        .patient-info { 
+            background: #f9f9f9; 
+            padding: 15px; 
+            border-left: 4px solid #007B8A; 
+            margin-bottom: 25px;
+            line-height: 1.8;
+        }
+        .patient-info p {
+            margin: 5px 0;
+        }
+        p { 
+            margin: 10px 0;
+            color: #333;
+        }
+        ul { 
+            margin: 10px 0;
+            padding-${language === 'ar' ? 'right' : 'left'}: 25px;
+        }
+        li { 
+            margin-bottom: 8px;
+            color: #333;
+        }
+        .emphasis {
+            font-weight: bold;
+            color: #d97706;
+            font-style: italic;
+            margin-bottom: 8px;
+            display: block;
+        }
+        @media print {
+            body { padding: 20px; }
+            h1 { page-break-after: avoid; }
+            h3 { page-break-after: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <h1>${t('report')}</h1>
+    <div class="patient-info">
         <p><strong>${t('drugName')}:</strong> ${drugInfo.drugName}</p>
         <p><strong>${t('strength')}:</strong> ${drugInfo.strength}</p>
         ${patientInfo.name ? `<p><strong>${t('name')}:</strong> ${patientInfo.name}</p>` : ''}
         ${patientInfo.age ? `<p><strong>${t('age')}:</strong> ${patientInfo.age}</p>` : ''}
-        <hr />
-        
-        <h3>${t('commonUse')}</h3>
-        <p>${drugInfo.commonUse}</p>
-        
-        <h3>${t('dosageAdministration')}</h3>
-        <p>${drugInfo.dosageAdministration}</p>
-        
-        <h3>${t('missedDose')}</h3>
-        <p>${drugInfo.missedDose}</p>
-        
-        <h3>${t('foodDrinkInteractions')}</h3>
-        <p>${drugInfo.foodDrinkEffect}</p>
-        
-        <h3>${t('commonSideEffects')}</h3>
-        <ul>${drugInfo.commonSideEffects.map(e => `<li>${e}</li>`).join('')}</ul>
-        
-        <h3>${t('seriousSideEffects')}</h3>
-        <p><em>${t('seekMedicalAttention')}</em></p>
-        <ul>${drugInfo.seriousSideEffects.map(e => `<li>${e}</li>`).join('')}</ul>
-        
-        <h3>${t('whenToConsultDoctor')}</h3>
-        <ul>${drugInfo.consultDoctorWhen.map(e => `<li>${e}</li>`).join('')}</ul>
-        
-        <h3>${t('storage')}</h3>
-        <p>${drugInfo.storage}</p>
-      </body>
-      </html>
-    `;
-
-    const blob = new Blob(['\ufeff', content], {
-      type: 'application/msword'
-    });
+    </div>
     
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${drugInfo.drugName}_Report.doc`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    <h3>${t('commonUse')}</h3>
+    <p>${drugInfo.commonUse}</p>
+    
+    <h3>${t('dosageAdministration')}</h3>
+    <p>${drugInfo.dosageAdministration}</p>
+    
+    <h3>${t('missedDose')}</h3>
+    <p>${drugInfo.missedDose}</p>
+    
+    <h3>${t('foodDrinkInteractions')}</h3>
+    <p>${drugInfo.foodDrinkEffect}</p>
+    
+    <h3>${t('commonSideEffects')}</h3>
+    <ul>${drugInfo.commonSideEffects.map(e => `<li>${e}</li>`).join('')}</ul>
+    
+    <h3>${t('seriousSideEffects')}</h3>
+    <span class="emphasis">${t('seekMedicalAttention')}</span>
+    <ul>${drugInfo.seriousSideEffects.map(e => `<li>${e}</li>`).join('')}</ul>
+    
+    <h3>${t('whenToConsultDoctor')}</h3>
+    <ul>${drugInfo.consultDoctorWhen.map(e => `<li>${e}</li>`).join('')}</ul>
+    
+    <h3>${t('storage')}</h3>
+    <p>${drugInfo.storage}</p>
+</body>
+</html>`;
+  };
+
+  const handlePrint = async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const htmlContent = generateReportHTML();
+        const timestamp = new Date().getTime();
+        const fileName = `${drugInfo.drugName.replace(/[^a-zA-Z0-9]/g, '_')}_${timestamp}.html`;
+        
+        // Write to Documents/Downloads directory
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: htmlContent,
+          directory: Directory.External,
+          encoding: Encoding.UTF8
+        });
+
+        // Show success message
+        alert(`✓ File saved to: /storage/emulated/0/${fileName}\n\n📱 Next Steps:\n1. Choose Chrome from the share menu\n2. The report will open in your browser\n3. Tap menu (⋮) → Print → Save as PDF\n\nNote: Android doesn't allow apps to create PDFs directly. We save as HTML which Chrome can convert to PDF easily.`);
+
+        // Share the file with browsers that can print to PDF
+        await Share.share({
+          title: 'Open in Chrome to Save as PDF',
+          text: `1. Choose Chrome\n2. Report opens in browser\n3. Menu → Print → Save as PDF`,
+          url: result.uri,
+          dialogTitle: 'Select Chrome Browser',
+          files: [result.uri]
+        });
+      } catch (error) {
+        console.error('Error creating PDF:', error);
+        if ((error as any).message !== 'Share canceled') {
+          // Fallback: Share as text
+          try {
+            const reportText = generateReportText();
+            await Share.share({
+              title: `${drugInfo.drugName} Report`,
+              text: reportText,
+              dialogTitle: 'Share Report'
+            });
+          } catch (e) {
+            alert('Could not share report. Please try again.');
+          }
+        }
+      }
+    } else {
+      // On web, use print dialog
+      window.print();
+    }
+  };
+
+  const generateReportText = () => {
+    const lines = [
+      `${t('report').toUpperCase()}`,
+      `${'='.repeat(50)}`,
+      '',
+      `${t('drugName')}: ${drugInfo.drugName}`,
+      `${t('strength')}: ${drugInfo.strength}`,
+    ];
+    
+    if (patientInfo.name) lines.push(`${t('name')}: ${patientInfo.name}`);
+    if (patientInfo.age) lines.push(`${t('age')}: ${patientInfo.age}`);
+    
+    lines.push(
+      '',
+      `${'='.repeat(50)}`,
+      `${t('commonUse').toUpperCase()}`,
+      `${'-'.repeat(50)}`,
+      drugInfo.commonUse,
+      '',
+      `${t('dosageAdministration').toUpperCase()}`,
+      `${'-'.repeat(50)}`,
+      drugInfo.dosageAdministration,
+      '',
+      `${t('missedDose').toUpperCase()}`,
+      `${'-'.repeat(50)}`,
+      drugInfo.missedDose,
+      '',
+      `${t('foodDrinkInteractions').toUpperCase()}`,
+      `${'-'.repeat(50)}`,
+      drugInfo.foodDrinkEffect,
+      '',
+      `${t('commonSideEffects').toUpperCase()}`,
+      `${'-'.repeat(50)}`,
+      ...drugInfo.commonSideEffects.map(e => `• ${e}`),
+      '',
+      `${t('seriousSideEffects').toUpperCase()}`,
+      `${'-'.repeat(50)}`,
+      `⚠️ ${t('seekMedicalAttention')}`,
+      ...drugInfo.seriousSideEffects.map(e => `• ${e}`),
+      '',
+      `${t('whenToConsultDoctor').toUpperCase()}`,
+      `${'-'.repeat(50)}`,
+      ...drugInfo.consultDoctorWhen.map(e => `• ${e}`),
+      '',
+      `${t('storage').toUpperCase()}`,
+      `${'-'.repeat(50)}`,
+      drugInfo.storage,
+      '',
+      `${'='.repeat(50)}`,
+      `Report generated: ${new Date().toLocaleString()}`
+    );
+    
+    return lines.join('\n');
+  };
+
+  const handleDownloadWord = async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        // Generate simple RTF-like content that Google Docs can handle
+        const docContent = generateDocContent();
+        const timestamp = new Date().getTime();
+        const fileName = `${drugInfo.drugName.replace(/[^a-zA-Z0-9]/g, '_')}_${timestamp}.txt`;
+        
+        // Save to external storage
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: docContent,
+          directory: Directory.External,
+          encoding: Encoding.UTF8
+        });
+
+        // Show success message
+        alert(`✓ Document saved to: /storage/emulated/0/${fileName}\n\n📱 Saved to your phone's storage!\n\nYou can:\n• Open in Google Docs to convert to .docx\n• Open in Microsoft Word\n• Find it in "My Files" app anytime\n• Share via email, WhatsApp, etc.`);
+
+        // Share with apps that can handle documents
+        await Share.share({
+          title: 'Open with Document App',
+          text: `Choose Google Docs or Microsoft Word to edit and save as document`,
+          url: result.uri,
+          dialogTitle: 'Select Document App',
+          files: [result.uri]
+        });
+      } catch (error) {
+        console.error('Error sharing document:', error);
+        if ((error as any).message !== 'Share canceled') {
+          // Fallback: Share as text
+          try {
+            const reportText = generateReportText();
+            await Share.share({
+              title: `${drugInfo.drugName} Report`,
+              text: reportText,
+              dialogTitle: 'Share Report'
+            });
+          } catch (e) {
+            alert('Could not share document. Please try again.');
+          }
+        }
+      }
+    } else {
+      // On web, generate HTML and download as .doc
+      const htmlContent = generateReportHTML();
+      const blob = new Blob(['\ufeff', htmlContent], {
+        type: 'application/msword'
+      });
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${drugInfo.drugName}_Report.doc`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const generateDocContent = () => {
+    // Generate formatted text that works well in document editors
+    const lines = [
+      `${t('report').toUpperCase()}`,
+      `${drugInfo.drugName}`,
+      `${'='.repeat(60)}`,
+      '',
+      `${t('drugName')}: ${drugInfo.drugName}`,
+      `${t('strength')}: ${drugInfo.strength}`,
+    ];
+    
+    if (patientInfo.name) lines.push(`${t('name')}: ${patientInfo.name}`);
+    if (patientInfo.age) lines.push(`${t('age')}: ${patientInfo.age}`);
+    
+    lines.push(
+      '',
+      '',
+      `${t('commonUse').toUpperCase()}`,
+      `${'-'.repeat(60)}`,
+      drugInfo.commonUse,
+      '',
+      '',
+      `${t('dosageAdministration').toUpperCase()}`,
+      `${'-'.repeat(60)}`,
+      drugInfo.dosageAdministration,
+      '',
+      '',
+      `${t('missedDose').toUpperCase()}`,
+      `${'-'.repeat(60)}`,
+      drugInfo.missedDose,
+      '',
+      '',
+      `${t('foodDrinkInteractions').toUpperCase()}`,
+      `${'-'.repeat(60)}`,
+      drugInfo.foodDrinkEffect,
+      '',
+      '',
+      `${t('commonSideEffects').toUpperCase()}`,
+      `${'-'.repeat(60)}`,
+      ...drugInfo.commonSideEffects.map((e, i) => `${i + 1}. ${e}`),
+      '',
+      '',
+      `${t('seriousSideEffects').toUpperCase()}`,
+      `${'-'.repeat(60)}`,
+      `⚠️ ${t('seekMedicalAttention')}`,
+      '',
+      ...drugInfo.seriousSideEffects.map((e, i) => `${i + 1}. ${e}`),
+      '',
+      '',
+      `${t('whenToConsultDoctor').toUpperCase()}`,
+      `${'-'.repeat(60)}`,
+      ...drugInfo.consultDoctorWhen.map((e, i) => `${i + 1}. ${e}`),
+      '',
+      '',
+      `${t('storage').toUpperCase()}`,
+      `${'-'.repeat(60)}`,
+      drugInfo.storage,
+      '',
+      '',
+      `${'='.repeat(60)}`,
+      `Generated: ${new Date().toLocaleString()}`
+    );
+    
+    return lines.join('\n');
   };
 
   const renderContent = () => {

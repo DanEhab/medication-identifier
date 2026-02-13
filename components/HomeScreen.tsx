@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import { CameraIcon, MagnifyingGlassIcon, UserIcon, DocumentArrowUpIcon } from './Icons';
 import type { PatientInfo } from '../types';
 import { useLocalization } from '../context/LanguageContext';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
 
 interface HomeScreenProps {
   onIdentify: (image: File | null, drugName: string) => void;
@@ -37,8 +39,35 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patie
     fileInputRef.current?.click();
   }
   
-  const triggerCamera = () => {
-    cameraInputRef.current?.click();
+  const triggerCamera = async () => {
+    // Use native camera on mobile, fallback to file input on web
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const photo = await Camera.getPhoto({
+          resultType: CameraResultType.DataUrl,
+          source: CameraSource.Camera,
+          quality: 90,
+          allowEditing: false,
+          saveToGallery: false
+        });
+        
+        if (photo.dataUrl) {
+          // Convert data URL to file
+          const response = await fetch(photo.dataUrl);
+          const blob = await response.blob();
+          const file = new File([blob], 'camera-photo.jpg', { type: 'image/jpeg' });
+          setImage(file);
+          setImagePreview(photo.dataUrl);
+          setDrugName(''); // Clear text input when image is selected
+        }
+      } catch (error) {
+        console.error('Camera error:', error);
+        // Error handling - user cancelled or camera unavailable
+      }
+    } else {
+      // Fallback to file input on web
+      cameraInputRef.current?.click();
+    }
   }
 
   return (

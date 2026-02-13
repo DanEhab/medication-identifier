@@ -9,8 +9,11 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",
+    "@capacitor/camera": "^8.0.1",
     "@capacitor/cli": "^8.0.2",
     "@capacitor/core": "^8.0.2",
+    "@capacitor/filesystem": "^8.1.1",
+    "@capacitor/share": "^8.0.1",
     "@vitalets/google-translate-api": "^9.2.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
