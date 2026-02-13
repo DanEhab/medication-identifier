@@ -86,6 +86,16 @@ export const translations = {
     // Footer
     disclaimer: 'Disclaimer',
     disclaimerText: 'This application is for informational purposes only and does not constitute medical advice. Always consult with a qualified healthcare provider for diagnosis and treatment. In case of emergency, call emergency services immediately.',
+    privacyPolicy: 'Privacy Policy',
+    termsOfService: 'Terms of Service',
+    
+    // Network and Validation
+    offline: 'Offline',
+    noInternetConnection: 'No internet connection. Please check your network and try again.',
+    validationError: 'Validation Error',
+    invalidAge: 'Please enter a valid age (0-150)',
+    nameTooLong: 'Name is too long (max 100 characters)',
+    drugNameTooShort: 'Please enter at least 2 characters',
   },
   ar: {
     // Header
@@ -174,5 +184,15 @@ export const translations = {
     // Footer
     disclaimer: 'إخلاء مسؤولية',
     disclaimerText: 'هذا التطبيق للأغراض الإعلامية فقط ولا يشكل نصيحة طبية. استشر دائمًا مقدم رعاية صحية مؤهل للتشخيص والعلاج. في حالة الطوارئ، اتصل بخدمات الطوارئ فورًا.',
+    privacyPolicy: 'سياسة الخصوصية',
+    termsOfService: 'شروط الخدمة',
+    
+    // Network and Validation
+    offline: 'غير متصل',
+    noInternetConnection: 'لا يوجد اتصال بالإنترنت. يرجى التحقق من شبكتك والمحاولة مرة أخرى.',
+    validationError: 'خطأ في التحقق',
+    invalidAge: 'الرجاء إدخال عمر صحيح (0-150)',
+    nameTooLong: 'الاسم طويل جدًا (الحد الأقصى 100 حرف)',
+    drugNameTooShort: 'الرجاء إدخال حرفين على الأقل',
   }
 };

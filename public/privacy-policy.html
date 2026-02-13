@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - Medication Identifier</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9fafb;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #007B8A;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+        h2 {
+            color: #2D3748;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        h3 {
+            color: #2D3748;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        p, li {
+            margin-bottom: 10px;
+        }
+        ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+        .last-updated {
+            color: #6B7280;
+            font-style: italic;
+            margin-bottom: 30px;
+        }
+        .highlight {
+            background-color: #FEF3C7;
+            padding: 15px;
+            border-left: 4px solid #F59E0B;
+            margin: 20px 0;
+        }
+        a {
+            color: #007B8A;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Privacy Policy</h1>
+        <p class="last-updated">Last Updated: February 13, 2026</p>
+
+        <div class="highlight">
+            <p><strong>Your Privacy Matters:</strong> Medication Identifier is committed to protecting your privacy. This policy explains how we handle your information when you use our app.</p>
+        </div>
+
+        <h2>1. Information We Collect</h2>
+        
+        <h3>1.1 Information You Provide</h3>
+        <ul>
+            <li><strong>Patient Information:</strong> Name, age, sex, diagnosis (optional fields you fill in)</li>
+            <li><strong>Medication Queries:</strong> Drug names you search for or images you upload</li>
+            <li><strong>Saved Medications:</strong> List of medications you choose to save</li>
+        </ul>
+
+        <h3>1.2 Automatically Collected Information</h3>
+        <ul>
+            <li><strong>Device Information:</strong> Device type, operating system version</li>
+            <li><strong>Usage Data:</strong> Features used, search queries, timestamps</li>
+            <li><strong>Camera Access:</strong> Only when you explicitly use the camera feature to identify medications</li>
+        </ul>
+
+        <h3>1.3 Information We Do NOT Collect</h3>
+        <ul>
+            <li>We do NOT track your location</li>
+            <li>We do NOT access your contacts or other apps</li>
+            <li>We do NOT sell your data to third parties</li>
+        </ul>
+
+        <h2>2. How We Use Your Information</h2>
+        
+        <h3>2.1 Primary Uses</h3>
+        <ul>
+            <li><strong>Provide Drug Information:</strong> Process your queries to fetch medication details from AI services</li>
+            <li><strong>Enhance User Experience:</strong> Remember your patient information across sessions</li>
+            <li><strong>Cache Responses:</strong> Store medication information to reduce API calls and improve speed</li>
+            <li><strong>Generate Reports:</strong> Create PDF/Word documents when you request exports</li>
+        </ul>
+
+        <h3>2.2 Data Processing</h3>
+        <ul>
+            <li>Patient information is <strong>stored locally on your device only</strong> using browser localStorage</li>
+            <li>Medication queries are sent to our servers and Google Gemini API for processing</li>
+            <li>Images uploaded are processed but <strong>NOT permanently stored</strong></li>
+            <li>Search results are cached in our MongoDB database for up to 180 days</li>
+        </ul>
+
+        <h2>3. Data Storage and Security</h2>
+        
+        <h3>3.1 Local Storage (Your Device)</h3>
+        <ul>
+            <li>Patient information (name, age, sex, diagnosis)</li>
+            <li>Saved medications list</li>
+            <li>Language preference</li>
+            <li><strong>This data never leaves your device and is deleted when you clear app data</strong></li>
+        </ul>
+
+        <h3>3.2 Server Storage (MongoDB Database)</h3>
+        <ul>
+            <li>Medication search results (cached for 180 days, then auto-deleted)</li>
+            <li>Drug names and information returned by AI</li>
+            <li><strong>NO patient information is stored on our servers</strong></li>
+        </ul>
+
+        <h3>3.3 Security Measures</h3>
+        <ul>
+            <li>All data transmission uses HTTPS encryption</li>
+            <li>MongoDB database uses authentication and access controls</li>
+            <li>API keys are stored securely as environment variables</li>
+            <li>No payment or financial information is collected</li>
+        </ul>
+
+        <h2>4. Third-Party Services</h2>
+        
+        <p>We use the following third-party services:</p>
+
+        <h3>4.1 Google Gemini API</h3>
+        <ul>
+            <li><strong>Purpose:</strong> AI-powered medication identification and information retrieval</li>
+            <li><strong>Data Shared:</strong> Drug names, uploaded images (not stored by Google)</li>
+            <li><strong>Privacy Policy:</strong> <a href="https://policies.google.com/privacy" target="_blank">Google Privacy Policy</a></li>
+        </ul>
+
+        <h3>4.2 MyMemory Translation API</h3>
+        <ul>
+            <li><strong>Purpose:</strong> Translate medication information to Arabic</li>
+            <li><strong>Data Shared:</strong> English text for translation (no patient info)</li>
+            <li><strong>Privacy Policy:</strong> <a href="https://mymemory.translated.net/doc/usagelimits.php" target="_blank">MyMemory Usage Terms</a></li>
+        </ul>
+
+        <h3>4.3 MongoDB Atlas</h3>
+        <ul>
+            <li><strong>Purpose:</strong> Database for caching medication information</li>
+            <li><strong>Data Stored:</strong> Medication search results only (no patient data)</li>
+            <li><strong>Privacy Policy:</strong> <a href="https://www.mongodb.com/legal/privacy-policy" target="_blank">MongoDB Privacy Policy</a></li>
+        </ul>
+
+        <h3>4.4 Vercel (Hosting)</h3>
+        <ul>
+            <li><strong>Purpose:</strong> Web hosting and serverless functions</li>
+            <li><strong>Data Processed:</strong> API requests and responses</li>
+            <li><strong>Privacy Policy:</strong> <a href="https://vercel.com/legal/privacy-policy" target="_blank">Vercel Privacy Policy</a></li>
+        </ul>
+
+        <h2>5. Your Rights (GDPR Compliance)</h2>
+        
+        <p>Under the General Data Protection Regulation (GDPR), you have the following rights:</p>
+
+        <h3>5.1 Right to Access</h3>
+        <p>You can view all locally stored data in the app (patient info, saved medications)</p>
+
+        <h3>5.2 Right to Erasure ("Right to be Forgotten")</h3>
+        <ul>
+            <li><strong>Local Data:</strong> Clear app data or uninstall the app</li>
+            <li><strong>Cached Data:</strong> Contact us to request deletion of cached medication data</li>
+        </ul>
+
+        <h3>5.3 Right to Data Portability</h3>
+        <p>Export your medication reports as PDF or Word documents</p>
+
+        <h3>5.4 Right to Object</h3>
+        <p>You can choose not to use features that process your data (e.g., don't upload images, don't fill in patient info)</p>
+
+        <h3>5.5 Right to Rectification</h3>
+        <p>Edit or delete patient information anytime within the app</p>
+
+        <h2>6. Children's Privacy</h2>
+        <p>Our app is not intended for children under 13. We do not knowingly collect personal information from children. If you are a parent/guardian and believe your child has provided us with information, please contact us.</p>
+
+        <h2>7. Data Retention</h2>
+        <ul>
+            <li><strong>Local Storage:</strong> Until you delete app data or uninstall</li>
+            <li><strong>Cached Medication Data:</strong> 180 days (automatically deleted after expiration)</li>
+            <li><strong>Server Logs:</strong> 30 days maximum</li>
+        </ul>
+
+        <h2>8. International Data Transfers</h2>
+        <p>Our services are hosted on servers that may be located in different countries. By using the app, you consent to the transfer of your information to countries outside your residence, including the United States and EU countries where our service providers operate.</p>
+
+        <h2>9. Changes to This Policy</h2>
+        <p>We may update this Privacy Policy from time to time. Changes will be posted on this page with an updated "Last Updated" date. Continued use of the app after changes constitutes acceptance of the updated policy.</p>
+
+        <h2>10. Medical Disclaimer</h2>
+        <div class="highlight">
+            <p><strong>Important:</strong> This app provides informational content only and is NOT a substitute for professional medical advice, diagnosis, or treatment. Always consult with a qualified healthcare provider regarding any medical condition or medication.</p>
+        </div>
+
+        <h2>11. Contact Us</h2>
+        <p>If you have questions about this Privacy Policy or wish to exercise your GDPR rights, contact us at:</p>
+        <ul>
+            <li><strong>Email:</strong> danielehab05_db_user@gmail.com</li>
+            <li><strong>Response Time:</strong> We aim to respond within 72 hours</li>
+        </ul>
+
+        <h2>12. Your Consent</h2>
+        <p>By using Medication Identifier, you consent to this Privacy Policy and agree to its terms.</p>
+
+        <hr style="margin: 40px 0; border: none; border-top: 1px solid #e5e7eb;">
+        
+        <p style="text-align: center; color: #6B7280; font-size: 0.9em;">
+            © 2026 Medication Identifier. All rights reserved.<br>
+            <a href="terms-of-service.html">Terms of Service</a> | <a href="https://medication-identifier-gamma.vercel.app">Return to App</a>
+        </p>
+    </div>
+</body>
+</html>

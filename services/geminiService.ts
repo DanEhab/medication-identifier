@@ -85,7 +85,16 @@ const callBackend = async (prompt: string, language: 'en' | 'ar' = 'en', image?:
         return data.text;
     } catch (error: any) {
         console.error('[geminiService] Error:', error);
-        throw new Error(`AI service error: ${error.message}`);
+        
+        // Friendly error messages
+        if (error.message.includes('fetch') || error.message.includes('network')) {
+            throw new Error('Cannot connect to server. Please check your internet connection and try again.');
+        }
+        if (error.message.includes('timeout')) {
+            throw new Error('Request timed out. Please check your internet connection and try again.');
+        }
+        
+        throw new Error(`Service error: ${error.message}`);
     }
 };
 

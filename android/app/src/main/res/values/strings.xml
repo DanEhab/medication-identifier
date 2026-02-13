@@ -1,7 +1,43 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
+    <!-- Basic App Info -->
     <string name="app_name">Medication Identifier</string>
     <string name="title_activity_main">Medication Identifier</string>
     <string name="package_name">com.medication.app</string>
     <string name="custom_url_scheme">com.medication.app</string>
+    
+    <!-- App Description -->
+    <string name="app_description">Identify medications and get comprehensive drug information using AI-powered recognition and translation</string>
+    
+    <!-- Short Description (for Play Store - max 80 chars) -->
+    <string name="app_short_description">AI-powered medication identifier with bilingual drug information</string>
+    
+    <!-- Feature List -->
+    <string name="feature_camera">AI-Powered Camera Recognition</string>
+    <string name="feature_search">Name-Based Drug Search</string>
+    <string name="feature_bilingual">English and Arabic Support</string>
+    <string name="feature_professional">Professional Medical Information</string>
+    <string name="feature_export">PDF and Word Export</string>
+    <string name="feature_caching">Fast Cached Results</string>
+    
+    <!-- Keywords (for Play Store search) -->
+    <string name="keywords">medication, drug, medicine, pill identifier, pharmacy, prescription, dosage, side effects, drug information, medical app, healthcare, arabic medicine, drug search, pill recognition, medication tracker</string>
+    
+    <!-- Support -->
+    <string name="support_email">danielehab05_db_user@gmail.com</string>
+    <string name="privacy_policy_url">https://medication-identifier-gamma.vercel.app/privacy-policy.html</string>
+    <string name="terms_url">https://medication-identifier-gamma.vercel.app/terms-of-service.html</string>
+    
+    <!-- Version Info -->
+    <string name="version_name">1.0.0</string>
+    <string name="version_changelog">
+        Version 1.0.0 - Initial Release\n
+        • AI-powered medication identification\n
+        • Bilingual English/Arabic support\n
+        • Patient and professional views\n
+        • PDF and Word export\n
+        • Medication list management\n
+        • Fast cached results
+    </string>
 </resources>
+

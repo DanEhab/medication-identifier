@@ -16,9 +16,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patie
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [drugName, setDrugName] = useState<string>('');
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  const [validationError, setValidationError] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const { t } = useLocalization();
+
+  // Network status monitoring
+  React.useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
@@ -26,12 +42,50 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patie
       setImage(file);
       setImagePreview(URL.createObjectURL(file));
       setDrugName(''); // Clear text input when image is selected
+      setValidationError('');
     }
   };
   
+  const validateInputs = (): boolean => {
+    // Validate age
+    if (patientInfo.age) {
+      const age = parseInt(patientInfo.age);
+      if (isNaN(age) || age < 0 || age > 150) {
+        setValidationError(t('invalidAge'));
+        return false;
+      }
+    }
+    
+    // Validate name length
+    if (patientInfo.name && patientInfo.name.length > 100) {
+      setValidationError(t('nameTooLong'));
+      return false;
+    }
+    
+    // Validate drug name
+    if (drugName && drugName.trim().length < 2) {
+      setValidationError(t('drugNameTooShort'));
+      return false;
+    }
+    
+    setValidationError('');
+    return true;
+  };
+
   const handleIdentifyClick = () => {
+    // Check network connection
+    if (!isOnline) {
+      setValidationError(t('noInternetConnection'));
+      return;
+    }
+    
+    // Validate inputs
+    if (!validateInputs()) {
+      return;
+    }
+    
     if (image || drugName) {
-        onIdentify(image, drugName);
+      onIdentify(image, drugName);
     }
   };
 
@@ -92,8 +146,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patie
               type="text" 
               id="patient-name"
               value={patientInfo.name}
-              onChange={(e) => onPatientInfoChange({ name: e.target.value })}
+              onChange={(e) => {
+                // Sanitize input - remove special characters and limit length
+                const sanitized = e.target.value.slice(0, 100);
+                onPatientInfoChange({ name: sanitized });
+              }}
               placeholder={t('namePlaceholder')}
+              maxLength={100}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-brand-primary transition" />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -102,6 +161,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patie
               <input 
                 type="number" 
                 id="patient-age"
+                min="0"
+                max="150"
                 value={patientInfo.age}
                 onChange={(e) => onPatientInfoChange({ age: e.target.value })}
                 placeholder={t('agePlaceholder')}
@@ -139,6 +200,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patie
       {/* Identification Card */}
       <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-lg w-full">
         <h2 className="text-2xl font-bold text-brand-dark mb-6 text-center">{t('identifyYourMedication')}</h2>
+        
+        {!isOnline && (
+            <div className="bg-yellow-100 border-s-4 border-yellow-500 text-yellow-700 p-4 mb-6 rounded-md" role="alert">
+                <p className="font-bold">⚠️ {t('offline')}</p>
+                <p>{t('noInternetConnection')}</p>
+            </div>
+        )}
+        
+        {validationError && (
+            <div className="bg-orange-100 border-s-4 border-orange-500 text-orange-700 p-4 mb-6 rounded-md" role="alert">
+                <p className="font-bold">{t('validationError')}</p>
+                <p>{validationError}</p>
+            </div>
+        )}
         
         {error && (
             <div className="bg-red-100 border-s-4 border-red-500 text-red-700 p-4 mb-6 rounded-md" role="alert">
