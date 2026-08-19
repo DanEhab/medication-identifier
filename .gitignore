@@ -60,3 +60,13 @@ Thumbs.db
 # Deploy
 # ---------------------------------------------------------------
 .vercel
+
+# ---------------------------------------------------------------
+# Local scratch notes and generated reports.
+# These have held real credentials before — keep them out of git.
+# ---------------------------------------------------------------
+BUILD_REPORT.md
+SETUP_GUIDE.md
+project_context.md
+/SECURITY.md
+api/# Code Citations.md
