@@ -26,7 +26,7 @@ const InfoSection: React.FC<{ title: string; children: React.ReactNode }> = ({ t
     const renderValue = (value: any): React.ReactNode => {
         // Handle undefined or null values
         if (value === undefined || value === null || value === '') {
-            return <div className="text-gray-400 italic">No information available</div>;
+            return <div className="text-gray-400 dark:text-[#A1A1AA] italic">No information available</div>;
         }
         
         if (typeof value === 'string') {
@@ -34,13 +34,13 @@ const InfoSection: React.FC<{ title: string; children: React.ReactNode }> = ({ t
         }
         if (Array.isArray(value)) {
             if (value.length === 0) {
-                return <div className="text-gray-400 italic">No information available</div>;
+                return <div className="text-gray-400 dark:text-[#A1A1AA] italic">No information available</div>;
             }
             return (
                 <ul className="list-none space-y-2 ms-4">
                     {value.map((item, idx) => (
                         <li key={idx} className="flex items-start">
-                            <span className="text-brand-primary me-2">•</span>
+                            <span className="text-brand-primary dark:text-[#90E0EF] me-2">•</span>
                             <span className="flex-1">{typeof item === 'string' ? formatMarkdown(item) : renderValue(item)}</span>
                         </li>
                     ))}
@@ -52,7 +52,7 @@ const InfoSection: React.FC<{ title: string; children: React.ReactNode }> = ({ t
                 <div className="space-y-4">
                     {Object.entries(value).map(([key, val]) => (
                         <div key={key}>
-                            <strong className="text-brand-primary font-semibold">
+                            <strong className="text-brand-primary dark:text-[#90E0EF] font-semibold">
                                 {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim()}:
                             </strong>
                             <div className="ms-4 mt-1">{renderValue(val)}</div>
@@ -65,14 +65,14 @@ const InfoSection: React.FC<{ title: string; children: React.ReactNode }> = ({ t
     };
 
     return (
-        <div className="bg-white rounded-2xl shadow-lg p-6">
+        <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-lg dark:shadow-none p-6 transition-colors duration-300">
             <div className="flex items-center mb-4">
-                <div className="bg-brand-accent text-brand-primary p-2 rounded-full me-4">
+                <div className="bg-brand-accent dark:bg-[#2C2C2E] text-brand-primary dark:text-[#90E0EF] p-2 rounded-full me-4">
                     <BookOpenIcon className="w-6 h-6" />
                 </div>
-                <h3 className="text-xl font-bold text-brand-dark">{title}</h3>
+                <h3 className="text-xl font-bold text-brand-dark dark:text-white">{title}</h3>
             </div>
-            <div className="text-gray-700 leading-relaxed">
+            <div className="text-gray-700 dark:text-[#A1A1AA] leading-relaxed">
                 {renderValue(children)}
             </div>
         </div>
@@ -106,7 +106,7 @@ export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({ drugName
       return (
         <div className="flex flex-col items-center justify-center h-full pt-20">
           <Spinner />
-          <p className="text-brand-dark mt-4 text-lg">{t('loadingProfessionalData')}</p>
+          <p className="text-brand-dark dark:text-[#A1A1AA] mt-4 text-lg">{t('loadingProfessionalData')}</p>
         </div>
       );
     }
@@ -137,13 +137,13 @@ export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({ drugName
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
-      <button onClick={onBackToPatientView} className="flex items-center text-brand-primary font-semibold hover:underline mb-6">
+      <button onClick={onBackToPatientView} className="flex items-center text-brand-primary dark:text-[#90E0EF] font-semibold hover:underline mb-6">
         <ChevronLeftIcon className="w-5 h-5 me-1 rtl:rotate-180" />
         {t('backToPatientView')}
       </button>
       <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-brand-dark">{drugName}</h1>
-        <p className="text-xl text-gray-500">{t('professionalInformation')}</p>
+        <h1 className="text-4xl font-bold text-brand-dark dark:text-white">{drugName}</h1>
+        <p className="text-xl text-gray-500 dark:text-[#A1A1AA]">{t('professionalInformation')}</p>
       </div>
       {renderContent()}
     </div>

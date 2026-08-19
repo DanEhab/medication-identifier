@@ -99,14 +99,14 @@ export const translations = {
   },
   ar: {
     // Header
-    medicationIdentifier: 'محدد الأدوية',
+    medicationIdentifier: 'اعرف دوائك',
     myMedications: 'أدويتي',
     
     // Language Switcher
     language: 'English',
 
     // Home Screen
-    homeTitle: 'محدد الأدوية',
+    homeTitle: 'اعرف دوائك',
     homeSubtitle: 'تعرف على الأدوية باستخدام الكاميرا.',
     patientDetails: 'بيانات المريض',
     name: 'الاسم',
