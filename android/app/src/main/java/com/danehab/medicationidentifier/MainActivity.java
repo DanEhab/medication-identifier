@@ -1,4 +1,4 @@
-package com.medication.app;
+package com.danehab.medicationidentifier;
 
 import com.getcapacitor.BridgeActivity;
 

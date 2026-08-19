@@ -12,10 +12,37 @@ dist
 dist-ssr
 *.local
 
-# Environment variables
+# Environment variables - NEVER COMMIT THESE!
 .env
 .env.local
-.env.*.local
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Android - Local configuration files
+android/local.properties
+android/.gradle/
+android/build/
+android/app/build/
+android/app/release/
+android/.idea/
+*.iml
+*.apk
+*.aab
+
+# iOS (if you add it later)
+ios/App/Pods/
+ios/App/build/
+ios/App/*.xcworkspace
+ios/App/App.xcodeproj
+
+# Keystore files - NEVER COMMIT THESE!
+*.keystore
+*.jks
+*.p12
+*.key
+*.pem
 
 # Editor directories and files
 .vscode/*
@@ -30,4 +57,17 @@ dist-ssr
 
 .vercel
 
-.env*.local
+# Capacitor
+.capacitor/
+
+# System files
+Thumbs.db
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Documentation with potential sensitive info
+api/# Code Citations.md
