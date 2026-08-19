@@ -2,91 +2,32 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="google-site-verification" content="W5BlegyLQaWaIbR7V-Pyuy7Mfz8umIyW1lES8V1rIF4" />
+    <meta
+      name="description"
+      content="Identify medications from a photo and get clear information about their use, dosage and side effects."
+    />
     <title>Medication Identifier</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
     <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-              arabic: ['Cairo', 'sans-serif'],
-            },
-            colors: {
-              'brand-primary': '#007B8A',
-              'brand-secondary': '#5BC0BE',
-              'brand-accent': '#EBF4F5',
-              'brand-light': '#F9FAFB',
-              'brand-dark': '#2D3748',
-              'brand-success': '#48BB78',
-              'brand-danger': '#F56565',
-            },
-            animation: {
-              'fade-in': 'fadeIn 0.5s ease-out',
-              'fade-in-fast': 'fadeIn 0.3s ease-out',
-              'slide-in-right': 'slideInRight 0.35s cubic-bezier(0.34,1.1,0.64,1)',
-            },
-            keyframes: {
-              fadeIn: {
-                '0%': { opacity: 0, transform: 'translateY(10px)' },
-                '100%': { opacity: 1, transform: 'translateY(0)' },
-              },
-              slideInRight: {
-                '0%': { transform: 'translateX(100%)' },
-                '100%': { transform: 'translateX(0)' },
-              },
-            }
-          }
+      // Apply the saved theme before first paint so dark mode does not flash white.
+      try {
+        if (localStorage.getItem('app-theme') === 'dark') {
+          document.documentElement.classList.add('dark');
         }
-      }
+      } catch (e) {}
     </script>
-    <style>
-      @media print {
-        @page {
-          margin: 20mm;
-        }
-        body {
-          background: white;
-          font-family: sans-serif; /* Ensure readable font in print */
-        }
-        /* Hide everything by default in print */
-        body > * {
-          display: none;
-        }
-        /* Only display the root */
-        #root {
-          display: block;
-        }
-        /* Specific print visibility classes */
-        .print-only {
-          display: block !important;
-        }
-        .no-print {
-          display: none !important;
-        }
-      }
-    </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
-</head>
-  <body class="bg-brand-light font-sans">
+  </head>
+  <body>
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

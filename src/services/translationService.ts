@@ -1,6 +1,7 @@
 import type { DrugInfo } from '../types';
+import { API_BASE_URL } from '../config';
 
-const TRANSLATION_API_URL = 'https://medication-identifier-gamma.vercel.app/api/translate';
+const TRANSLATION_API_URL = `${API_BASE_URL}/api/translate`;
 
 /**
  * Translate text to Arabic using MyMemory API (via our serverless function)

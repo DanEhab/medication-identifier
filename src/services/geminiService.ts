@@ -1,4 +1,5 @@
 import type { DrugInfo, ProfessionalDrugInfo } from '../types';
+import { API_BASE_URL } from '../config';
 import { translateDrugInfo } from './translationService';
 
 /**
@@ -42,9 +43,6 @@ const extractJSON = (text: string): string => {
  * Call Vercel backend with Gemini API
  */
 const callBackend = async (prompt: string, language: 'en' | 'ar' = 'en', image?: string, mimeType?: string): Promise<string> => {
-    const baseUrl = 'https://medication-identifier-gamma.vercel.app';
-    console.log('[geminiService] Calling backend');
-
     try {
         let contents;
         
@@ -64,7 +62,7 @@ const callBackend = async (prompt: string, language: 'en' | 'ar' = 'en', image?:
             contents = prompt;
         }
 
-        const response = await fetch(`${baseUrl}/api/generate`, {
+        const response = await fetch(`${API_BASE_URL}/api/generate`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

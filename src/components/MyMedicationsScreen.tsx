@@ -3,6 +3,7 @@ import type { DrugInfo } from '../types';
 import { ChevronLeftIcon, TrashIcon, PillIcon } from './Icons';
 import { ThemeToggle } from './ThemeToggle';
 import { useLocalization } from '../context/LanguageContext';
+import { getSavedMedications, removeMedication } from '../lib/medicationStorage';
 
 interface MyMedicationsScreenProps {
   onBack: () => void;
@@ -14,14 +15,11 @@ export const MyMedicationsScreen: React.FC<MyMedicationsScreenProps> = ({ onBack
   const { t } = useLocalization();
 
   useEffect(() => {
-    const savedMeds = JSON.parse(localStorage.getItem('myMedications') || '[]') as DrugInfo[];
-    setMedications(savedMeds);
+    setMedications(getSavedMedications());
   }, []);
 
   const handleDelete = (drugNameToDelete: string) => {
-    const updatedMeds = medications.filter(med => med.drugName !== drugNameToDelete);
-    setMedications(updatedMeds);
-    localStorage.setItem('myMedications', JSON.stringify(updatedMeds));
+    setMedications(removeMedication(drugNameToDelete));
   };
 
   return (

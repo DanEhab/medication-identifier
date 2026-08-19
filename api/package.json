@@ -1,6 +1,7 @@
 {
+  "name": "medication-identifier-api",
+  "private": true,
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "mongodb": "^7.1.0"
   }
 }

@@ -86,19 +86,26 @@ export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({ drugName
   const { t } = useLocalization();
 
   useEffect(() => {
+    let cancelled = false;
+
     const getProfInfo = async () => {
       try {
         setIsLoading(true);
         setError(null);
         const info = await fetchProfessionalDrugInformation(drugName);
-        setProfInfo(info);
+        if (!cancelled) setProfInfo(info);
       } catch (err: any) {
-        setError(err.message || 'Failed to load professional information.');
+        if (!cancelled) setError(err.message || 'Failed to load professional information.');
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
     getProfInfo();
+
+    // Stops a slow response for a previous drug from overwriting the current one.
+    return () => {
+      cancelled = true;
+    };
   }, [drugName]);
 
   const renderContent = () => {

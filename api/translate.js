@@ -1,4 +1,7 @@
 // api/translate.js - Vercel serverless function for translation using MyMemory API
+const { applyCors } = require('./_cors');
+
+const MAX_ITEMS = 50; // guards against unbounded fan-out to MyMemory
 
 /**
  * Split text into chunks of max 500 characters (MyMemory limit)
@@ -96,40 +99,31 @@ async function translateText(text, from = 'en', to = 'ar') {
 }
 
 module.exports = async (req, res) => {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (applyCors(req, res)) return;
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { text, from = 'en', to = 'ar' } = req.body;
+    const { text, from = 'en', to = 'ar' } = req.body || {};
 
     if (!text) {
       return res.status(400).json({ error: 'Text is required' });
     }
 
-    // Handle arrays of text
     if (Array.isArray(text)) {
-      const translations = await Promise.all(
-        text.map(item => translateText(item, from, to))
-      );
+      if (text.length > MAX_ITEMS) {
+        return res.status(400).json({ error: 'Too many items to translate.' });
+      }
+      const translations = await Promise.all(text.map((item) => translateText(item, from, to)));
       return res.status(200).json({ translations });
     }
 
-    // Handle single text
     const translation = await translateText(text, from, to);
     return res.status(200).json({ translation });
-
   } catch (error) {
-    console.error('Translation error:', error);
-    return res.status(500).json({ error: error.message || 'Translation failed' });
+    console.error('[translate] request failed:', error);
+    return res.status(500).json({ error: 'Translation is unavailable right now.' });
   }
 };
