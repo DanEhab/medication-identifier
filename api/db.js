@@ -1,48 +1,46 @@
-// api/db.js - MongoDB connection utility with singleton pattern for Vercel serverless
-
-const { MongoClient } = require('mongodb');
+// api/db.js — MongoDB connection helper.
+//
+// Caching is OPTIONAL. When MONGODB_URI is unset the app still works: every
+// lookup goes straight to Gemini. This lets you run locally with nothing but a
+// Gemini key. Previously this module threw at import time, which took the whole
+// /api/generate function down whenever MONGODB_URI was missing.
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const DB_NAME = 'medication_identifier';
 
-if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable');
+const isCachingEnabled = Boolean(MONGODB_URI);
+
+// Reuse the connection across warm serverless invocations.
+let cached = global.__mongo;
+if (!cached) {
+  cached = global.__mongo = { conn: null, promise: null };
 }
 
 /**
- * Global is used here to maintain a cached connection across hot reloads
- * in development. This prevents connections from growing exponentially
- * during API Route usage.
+ * Returns { db } when caching is configured and reachable, otherwise null.
+ * Callers must treat null as "cache unavailable" and continue without it.
  */
-let cached = global.mongo;
-
-if (!cached) {
-  cached = global.mongo = { conn: null, promise: null };
-}
-
 async function connectToDatabase() {
-  if (cached.conn) {
-    return cached.conn;
-  }
+  if (!isCachingEnabled) return null;
+  if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
-    // MongoDB driver v7+ doesn't need these deprecated options
-    cached.promise = MongoClient.connect(MONGODB_URI).then((client) => {
-      return {
-        client,
-        db: client.db(DB_NAME),
-      };
-    });
+    // Required lazily so a missing/broken driver cannot break the whole function.
+    const { MongoClient } = require('mongodb');
+    cached.promise = MongoClient.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+    }).then((client) => ({ client, db: client.db(DB_NAME) }));
   }
 
   try {
     cached.conn = await cached.promise;
-  } catch (e) {
+    return cached.conn;
+  } catch (error) {
+    // Reset so a later invocation can retry rather than latching the failure.
     cached.promise = null;
-    throw e;
+    console.error('[db] connection failed, continuing without cache:', error.message);
+    return null;
   }
-
-  return cached.conn;
 }
 
-module.exports = { connectToDatabase };
+module.exports = { connectToDatabase, isCachingEnabled };

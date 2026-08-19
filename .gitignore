@@ -1,73 +1,62 @@
+# ---------------------------------------------------------------
+# Secrets — never commit anything below this block
+# ---------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+*.p12
+*.pem
+*.key
+google-services.json
+keystore.properties
+android/key.properties
+
+# ---------------------------------------------------------------
+# Dependencies & build output
+# ---------------------------------------------------------------
+node_modules
+dist
+dist-ssr
+build
+*.local
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/app/src/main/res/xml/config.xml
+*.apk
+*.aab
+
+# ---------------------------------------------------------------
 # Logs
+# ---------------------------------------------------------------
 logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Environment variables - NEVER COMMIT THESE!
-.env
-.env.local
-.env*.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Android - Local configuration files
-android/local.properties
-android/.gradle/
-android/build/
-android/app/build/
-android/app/release/
-android/.idea/
-*.iml
-*.apk
-*.aab
-
-# iOS (if you add it later)
-ios/App/Pods/
-ios/App/build/
-ios/App/*.xcworkspace
-ios/App/App.xcodeproj
-
-# Keystore files - NEVER COMMIT THESE!
-*.keystore
-*.jks
-*.p12
-*.key
-*.pem
-
-# Editor directories and files
+# ---------------------------------------------------------------
+# Editors & OS
+# ---------------------------------------------------------------
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
-*.ntvs*
-*.njsproj
-*.sln
 *.sw?
 
+# ---------------------------------------------------------------
+# Deploy
+# ---------------------------------------------------------------
 .vercel
-
-# Capacitor
-.capacitor/
-
-# System files
-Thumbs.db
-.DS_Store
-
-# Temporary files
-*.tmp
-*.temp
-.cache/
-
-# Documentation with potential sensitive info
-api/# Code Citations.md

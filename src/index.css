@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    /* Matches the root container in App.tsx so there is no seam behind it. */
+    @apply bg-brand-light font-sans dark:bg-[#0D0D0D];
+  }
+}
+
+/* Print layout: hide the app chrome and render only the report. */
+@media print {
+  @page {
+    margin: 20mm;
+  }
+
+  body {
+    background: white;
+    font-family: sans-serif;
+  }
+
+  body > * {
+    display: none;
+  }
+
+  #root {
+    display: block;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}

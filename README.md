@@ -1,43 +1,79 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Medication Identifier
 
-# Run and deploy your AI Studio app
+Identify a medication from a photo or by name, and get plain-language information
+about its use, dosage, and side effects — in English or Arabic. A separate
+professional view exposes the technical pharmacology.
 
-This contains everything you need to run your app locally.
+Live on Google Play as `com.danehab.medicationidentifier`.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1eINieURnMCMgKjpJ90u7X6SiuPzjLs7J
+> **Not medical advice.** Information is AI-generated and may be wrong or
+> incomplete. Always confirm with a pharmacist or physician.
 
-## Run Locally
+## Stack
 
-**Prerequisites:**  Node.js
+| Layer    | Technology                                   |
+| -------- | -------------------------------------------- |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS     |
+| Mobile   | Capacitor 8 (Android)                        |
+| Backend  | Vercel serverless functions (`api/`)         |
+| AI       | Google Gemini (`gemini-2.5-flash`)           |
+| Cache    | MongoDB Atlas (optional)                     |
+| i18n     | MyMemory translation API                     |
+
+## Layout
+
+```
+src/          React app — components, context, services, translations
+api/          Vercel serverless functions (CommonJS)
+  generate.js   Gemini proxy + optional caching
+  translate.js  EN→AR translation
+  db.js         MongoDB helper (no-ops when unconfigured)
+  _cors.js      shared CORS handling
+android/      Capacitor Android project
+public/       Static pages (privacy policy, terms)
+docs/         Build and release guides
+```
+
+## Running locally
 
 1. Install dependencies:
-   `npm install`
-2. Create a `.env` file (copy from `.env.example`) and set your `GEMINI_API_KEY`:
+   ```bash
+   npm install
    ```
-   GEMINI_API_KEY=your_api_key_here
+
+2. Create `.env.local` from the template and add a Gemini key
+   (free from [Google AI Studio](https://aistudio.google.com/app/apikey)):
+   ```bash
+   cp .env.example .env.local
    ```
-3. Run the app:
-   `npm run dev`
 
-## Deploy to Vercel
+3. Start the dev server:
+   ```bash
+   npm run dev
+   ```
 
-This app uses a serverless backend to securely handle API requests.
+Open <http://localhost:3000>. The serverless functions in `api/` run inside the
+Vite dev server, so the backend works without deploying. `MONGODB_URI` is
+optional — leave it blank and every lookup goes straight to Gemini.
 
-1. Install the Vercel CLI:
-   `npm install -g vercel`
-2. Deploy:
-   `vercel`
-3. Set the `GEMINI_API_KEY` environment variable in your Vercel project settings:
-   - Go to your project in Vercel Dashboard
-   - Navigate to Settings → Environment Variables
-   - Add `GEMINI_API_KEY` with your API key
+## Environment variables
 
-## Architecture
+| Variable            | Required | Purpose                                                            |
+| ------------------- | -------- | ------------------------------------------------------------------ |
+| `GEMINI_API_KEY`    | yes      | Server-side Gemini key. Never exposed to the client.               |
+| `MONGODB_URI`       | no       | Enables response caching. Omit to run without a database.          |
+| `ALLOWED_ORIGINS`   | no       | Comma-separated CORS allowlist. **Set this in production.**        |
+| `VITE_API_BASE_URL` | no       | Overrides the backend URL. Blank = same-origin.                    |
 
-- **Frontend**: React + TypeScript + Vite
-- **Backend**: Vercel Serverless Functions ([api/generate.js](api/generate.js))
-- **AI**: Google Gemini API
+Set the first three in the Vercel dashboard under Settings → Environment Variables.
 
-The application uses a secure backend architecture where the Gemini API key is stored on the server, not exposed to the client.
+## Building for Android
+
+```bash
+npm run sync:android
+npm run open:android
+```
+
+Release signing reads `android/keystore.properties` (git-ignored). Copy
+`android/keystore.properties.example` and fill it in. See
+[docs/RELEASING.md](docs/RELEASING.md).

@@ -1,242 +1,188 @@
-// api/generate.js - Vercel serverless function with MongoDB caching
+// api/generate.js — Gemini proxy with optional MongoDB caching.
+//
+// The Gemini key lives only here, server-side. Clients never see it.
 
 const { connectToDatabase } = require('./db');
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const { applyCors } = require('./_cors');
 
-/**
- * Extract JSON from response, handling markdown code blocks and other formatting
- */
+const GEMINI_MODEL = 'gemini-2.5-flash';
+const MAX_PAYLOAD_BYTES = 8 * 1024 * 1024; // Gemini caps inline image data well below this.
+
+/** Pulls a JSON object out of a response that may be wrapped in markdown fences. */
 const extractJSON = (text) => {
-  // Remove markdown code blocks (```json ... ``` or ``` ... ```)
-  let cleaned = text.replace(/```json\s*/g, '').replace(/```\s*$/g, '').trim();
-  
-  // Find the first { and track braces to find the complete JSON object
+  const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*$/g, '').trim();
+
   const startIndex = cleaned.indexOf('{');
-  if (startIndex === -1) {
-    return cleaned;
-  }
-  
+  if (startIndex === -1) return cleaned;
+
   let braceCount = 0;
-  let endIndex = -1;
-  
   for (let i = startIndex; i < cleaned.length; i++) {
-    if (cleaned[i] === '{') {
-      braceCount++;
-    } else if (cleaned[i] === '}') {
+    if (cleaned[i] === '{') braceCount++;
+    else if (cleaned[i] === '}') {
       braceCount--;
-      if (braceCount === 0) {
-        endIndex = i;
-        break;
-      }
+      if (braceCount === 0) return cleaned.substring(startIndex, i + 1);
     }
   }
-  
-  if (endIndex !== -1) {
-    return cleaned.substring(startIndex, endIndex + 1);
-  }
-  
-  // Fallback to original logic if brace tracking fails
+
   const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
   return jsonMatch ? jsonMatch[0] : cleaned;
 };
 
-/**
- * Extract drug name from prompt text
- */
 const extractDrugName = (prompt) => {
-  // Pattern: "drug: DrugName" or "for the drug: DrugName"
   const match = prompt.match(/(?:drug|medication):\s*([^.,\n]+)/i);
-  if (match) {
-    return match[1].trim();
-  }
-  return null;
+  return match ? match[1].trim() : null;
 };
 
-/**
- * Normalize drug name for consistent cache keys
- */
-const normalizeDrugName = (drugName) => {
-  if (!drugName) return null;
-  return drugName.toLowerCase().trim();
-};
+const normalizeDrugName = (drugName) => (drugName ? drugName.toLowerCase().trim() : null);
 
-/**
- * Determine which collection to use based on prompt content
- */
+/** Patient-facing and professional answers are cached separately. */
 const getCollectionName = (prompt) => {
   const lowerPrompt = prompt.toLowerCase();
-  if (lowerPrompt.includes('patient-friendly') || lowerPrompt.includes('patient information')) {
-    return 'medications';
-  }
-  if (lowerPrompt.includes('professional') || lowerPrompt.includes('technical') || lowerPrompt.includes('healthcare professional')) {
+  if (lowerPrompt.includes('healthcare professional') || lowerPrompt.includes('professional') || lowerPrompt.includes('technical')) {
     return 'professional_medications';
   }
-  // Default to patient-friendly
   return 'medications';
 };
 
-/**
- * Call Gemini API
- */
 const callGeminiAPI = async (formattedContents, config) => {
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-  
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+
   const response = await fetch(apiUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      // Header auth keeps the key out of URLs and therefore out of access logs.
+      'x-goog-api-key': process.env.GEMINI_API_KEY,
     },
-    body: JSON.stringify({
-      contents: formattedContents,
-      generationConfig: config || {}
-    })
+    body: JSON.stringify({ contents: formattedContents, generationConfig: config || {} }),
   });
 
   const data = await response.json();
 
   if (!response.ok) {
-    const maskedKey = GEMINI_API_KEY ? `...${GEMINI_API_KEY.slice(-6)}` : 'UNKNOWN';
-    console.error('Gemini API Error:', data);
-    console.error('API Key used:', maskedKey);
-    throw new Error(`${data.error?.message || 'API Error'} [API Key: ${maskedKey}]`);
+    // Log detail server-side; never return provider internals to the client.
+    console.error('[generate] Gemini error:', response.status, JSON.stringify(data));
+    const error = new Error('The medication service is temporarily unavailable. Please try again.');
+    error.statusCode = response.status === 429 ? 429 : 502;
+    if (response.status === 429) {
+      error.message = 'Too many requests right now. Please wait a moment and try again.';
+    }
+    throw error;
   }
 
-  return data.candidates[0].content.parts[0].text;
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    console.error('[generate] Unexpected Gemini response shape:', JSON.stringify(data));
+    throw Object.assign(new Error('Received an unreadable response. Please try again.'), { statusCode: 502 });
+  }
+
+  return text;
+};
+
+/** Normalises the several shapes the client may send into Gemini's `contents`. */
+const normalizeContents = (contents) => {
+  if (typeof contents === 'string') {
+    return { formattedContents: [{ parts: [{ text: contents }] }], promptText: contents };
+  }
+  if (Array.isArray(contents)) {
+    const textPart = contents[0]?.parts?.find((part) => part.text);
+    return { formattedContents: contents, promptText: textPart?.text || '' };
+  }
+  const textPart = contents?.parts?.find((part) => part.text);
+  return { formattedContents: [contents], promptText: textPart?.text || '' };
 };
 
 module.exports = async (req, res) => {
-  // Validate API key is present
-  if (!GEMINI_API_KEY) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY environment variable not configured' });
-  }
-
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (applyCors(req, res)) return;
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  if (!process.env.GEMINI_API_KEY) {
+    console.error('[generate] GEMINI_API_KEY is not configured');
+    return res.status(500).json({ error: 'Server is not configured. Please try again later.' });
+  }
+
+  const contentLength = Number(req.headers['content-length'] || 0);
+  if (contentLength > MAX_PAYLOAD_BYTES) {
+    return res.status(413).json({ error: 'Image is too large. Please use a smaller photo.' });
+  }
+
   try {
-    const { contents, config, language = 'en' } = req.body;
-
-    // Format contents for Gemini API
-    let formattedContents;
-    let promptText = '';
-
-    if (typeof contents === 'string') {
-      formattedContents = [{ parts: [{ text: contents }] }];
-      promptText = contents;
-    } else if (Array.isArray(contents)) {
-      formattedContents = contents;
-      // Extract text from array format
-      const textPart = contents[0]?.parts?.find(part => part.text);
-      promptText = textPart?.text || '';
-    } else {
-      formattedContents = [contents];
-      // Extract text from object format
-      const textPart = contents?.parts?.find(part => part.text);
-      promptText = textPart?.text || '';
+    const { contents, config } = req.body || {};
+    if (!contents) {
+      return res.status(400).json({ error: 'Request is missing content.' });
     }
 
-    // Try to extract drug name and determine if this is cacheable
-    const drugName = extractDrugName(promptText);
-    const normalizedName = normalizeDrugName(drugName);
+    const { formattedContents, promptText } = normalizeContents(contents);
+    const normalizedName = normalizeDrugName(extractDrugName(promptText));
     const collectionName = getCollectionName(promptText);
 
-    // Only cache drug information requests (not image identification)
-    const isCacheable = normalizedName && !promptText.toLowerCase().includes('identify the drug name');
+    // Image identification results are never cached — only named drug lookups.
+    const isCacheable =
+      Boolean(normalizedName) && !promptText.toLowerCase().includes('identify the drug name');
 
-    let cachedData = null;
-
-    // Try to get from cache if cacheable
     if (isCacheable) {
-      try {
-        const { db } = await connectToDatabase();
-        const collection = db.collection(collectionName);
-        
-        // Always check for English cache (translation happens on frontend)
-        cachedData = await collection.findOne({
-          normalizedName: normalizedName,
-          language: 'en'
-        });
+      const connection = await connectToDatabase();
+      if (connection) {
+        try {
+          const cached = await connection.db
+            .collection(collectionName)
+            .findOne({ normalizedName, language: 'en' });
 
-        if (cachedData) {
-          console.log(`[Cache HIT] ${normalizedName} (en) from ${collectionName}`);
-          
-          // Return data as-is if it's already an object, otherwise as text
-          const responseData = typeof cachedData.data === 'object' 
-            ? JSON.stringify(cachedData.data, null, 0) 
-            : cachedData.data;
-            
-          return res.status(200).json({ 
-            text: responseData,
-            cached: true 
-          });
+          if (cached) {
+            console.log(`[cache HIT] ${normalizedName} in ${collectionName}`);
+            const text =
+              typeof cached.data === 'object' ? JSON.stringify(cached.data) : cached.data;
+            return res.status(200).json({ text, cached: true });
+          }
+          console.log(`[cache MISS] ${normalizedName} in ${collectionName}`);
+        } catch (dbError) {
+          console.error('[generate] cache read failed, continuing:', dbError.message);
         }
-
-        console.log(`[Cache MISS] ${normalizedName} (en) in ${collectionName}`);
-      } catch (dbError) {
-        console.error('MongoDB error (will continue with Gemini):', dbError);
-        // Continue to Gemini call even if DB fails
       }
     }
 
-    // Call Gemini API (always in English for drug information)
+    // Always generated in English; the client translates for display.
     const text = await callGeminiAPI(formattedContents, config);
 
-    // Save to cache if this was a cacheable request (always in English)
     if (isCacheable && text) {
-      try {
-        const { db } = await connectToDatabase();
-        const collection = db.collection(collectionName);
-
-        // Try to parse the response as JSON to validate it
-        let parsedData;
+      const connection = await connectToDatabase();
+      if (connection) {
         try {
-          const jsonText = extractJSON(text);
-          parsedData = JSON.parse(jsonText);
-        } catch (parseError) {
-          console.error('Failed to parse Gemini response as JSON, storing as text:', parseError);
-          parsedData = text;
+          let parsedData;
+          try {
+            parsedData = JSON.parse(extractJSON(text));
+          } catch {
+            parsedData = text;
+          }
+
+          await connection.db.collection(collectionName).updateOne(
+            { normalizedName, language: 'en' },
+            {
+              $set: {
+                normalizedName,
+                language: 'en',
+                data: parsedData,
+                updatedAt: new Date(),
+              },
+              $setOnInsert: { createdAt: new Date() },
+            },
+            { upsert: true },
+          );
+          console.log(`[cache SAVE] ${normalizedName} to ${collectionName}`);
+        } catch (dbError) {
+          console.error('[generate] cache write failed, continuing:', dbError.message);
         }
-
-        // Always save in English
-        await collection.updateOne(
-          {
-            normalizedName: normalizedName,
-            language: 'en'
-          },
-          {
-            $set: {
-              normalizedName: normalizedName,
-              language: 'en',
-              data: parsedData,
-              originalName: drugName,
-              createdAt: new Date(),
-              updatedAt: new Date()
-            }
-          },
-          { upsert: true }
-        );
-
-        console.log(`[Cache SAVE] ${normalizedName} (en) to ${collectionName}`);
-      } catch (dbError) {
-        console.error('Failed to save to MongoDB (response still returned):', dbError);
-        // Don't fail the request if caching fails
       }
     }
 
     return res.status(200).json({ text, cached: false });
-
   } catch (error) {
-    console.error('Server error:', error);
-    return res.status(500).json({ error: error.message });
+    console.error('[generate] request failed:', error);
+    return res
+      .status(error.statusCode || 500)
+      .json({ error: error.statusCode ? error.message : 'Something went wrong. Please try again.' });
   }
 };
