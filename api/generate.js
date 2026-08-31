@@ -6,6 +6,12 @@ const { connectToDatabase } = require('./db');
 const { applyCors } = require('./_cors');
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
+
+// Cached drug information is reused for this long, then refetched so that
+// revised dosing, warnings or interactions eventually make it through.
+// Override with CACHE_MAX_AGE_DAYS.
+const CACHE_MAX_AGE_DAYS = Number(process.env.CACHE_MAX_AGE_DAYS || 180);
+const CACHE_MAX_AGE_MS = CACHE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
 const MAX_PAYLOAD_BYTES = 8 * 1024 * 1024; // Gemini caps inline image data well below this.
 
 /** Pulls a JSON object out of a response that may be wrapped in markdown fences. */
@@ -127,9 +133,14 @@ module.exports = async (req, res) => {
       const connection = await connectToDatabase();
       if (connection) {
         try {
-          const cached = await connection.db
-            .collection(collectionName)
-            .findOne({ normalizedName, language: 'en' });
+          const fresherThan = new Date(Date.now() - CACHE_MAX_AGE_MS);
+          const cached = await connection.db.collection(collectionName).findOne({
+            normalizedName,
+            language: 'en',
+            // Entries written before expiry existed have no updatedAt, so they
+            // fail this check and get refreshed on next lookup.
+            updatedAt: { $gte: fresherThan },
+          });
 
           if (cached) {
             console.log(`[cache HIT] ${normalizedName} in ${collectionName}`);

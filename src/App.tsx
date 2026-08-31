@@ -219,11 +219,28 @@ const App: React.FC = () => {
   return (
     <>
       {showIntro && (
-        <div 
-          className={`fixed inset-0 z-[9999] bg-black transition-opacity duration-500 ${
+        <div
+          className={`fixed inset-0 z-[9999] overflow-hidden bg-white transition-opacity duration-500 ${
             isFadingOut ? 'opacity-0' : 'opacity-100'
           }`}
         >
+          {/*
+            The clip is portrait (428x944). object-cover used to crop it badly on
+            tablets and in landscape, so it now uses object-contain and the space
+            around it is filled with a blurred copy of the same frame. The clip
+            starts white and ends teal, so a fixed backdrop colour would clash
+            partway through; mirroring the video keeps it matched throughout.
+          */}
+          <video
+            src="/intro.mp4"
+            autoPlay
+            muted
+            playsInline
+            preload="auto"
+            aria-hidden="true"
+            tabIndex={-1}
+            className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl"
+          />
           <video
             ref={videoRef}
             src="/intro.mp4"
@@ -233,8 +250,8 @@ const App: React.FC = () => {
             preload="auto"
             poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
             onEnded={handleVideoEnd}
-            className="w-full h-full object-cover"
-            style={{ backgroundColor: '#fff', transform: 'translateZ(0)' }}
+            className="relative h-full w-full object-contain"
+            style={{ transform: 'translateZ(0)' }}
           />
         </div>
       )}
