@@ -185,6 +185,9 @@ const SuccessToast: React.FC<{ visible: boolean; phase: 1 | 2 }> = ({ visible, p
 
 const PointingFinger: React.FC<{ rect: SpotlightRect }> = ({ rect }) => {
   const fingerSize = 32;
+  // An emoji glyph renders wider than its font-size, so clamping against
+  // fingerSize alone still let the pointer hang off a 320px screen.
+  const fingerBox = Math.round(fingerSize * 1.4);
   const top = rect.top + rect.height / 2 - fingerSize / 2;
   const left = rect.left + rect.width + 8;
 
@@ -194,7 +197,9 @@ const PointingFinger: React.FC<{ rect: SpotlightRect }> = ({ rect }) => {
       style={{
         position: 'fixed',
         top,
-        left: Math.min(left, window.innerWidth - fingerSize - 8),
+        // Clamp both edges so the pointer never sits off-screen on narrow phones.
+        left: Math.max(8, Math.min(left, window.innerWidth - fingerBox - 8)),
+        width: fingerBox,
         fontSize: fingerSize,
         lineHeight: 1,
         zIndex: 9995,
@@ -226,6 +231,14 @@ interface TooltipProps {
 const CARD_WIDTH = 355;
 const CARD_PADDING = 16;
 
+/**
+ * The card is 355px by design, but that is wider than a 320px phone. Shrink it
+ * to fit so the text, the Skip button and the pointer all stay on screen.
+ */
+function cardWidthFor(vw: number) {
+  return Math.min(CARD_WIDTH, vw - CARD_PADDING * 2);
+}
+
 function calcTooltipPos(rect: SpotlightRect, vh: number, vw: number, cardH: number) {
   const MARGIN = 16;
   const spotMidY = rect.top + rect.height / 2;
@@ -243,8 +256,9 @@ function calcTooltipPos(rect: SpotlightRect, vh: number, vw: number, cardH: numb
   top = Math.max(CARD_PADDING, Math.min(top, vh - cardH - CARD_PADDING));
 
   // centre horizontally over spotlight, clamp horizontally
-  let left = rect.left + rect.width / 2 - CARD_WIDTH / 2;
-  left = Math.max(CARD_PADDING, Math.min(left, vw - CARD_WIDTH - CARD_PADDING));
+  const cardW = cardWidthFor(vw);
+  let left = rect.left + rect.width / 2 - cardW / 2;
+  left = Math.max(CARD_PADDING, Math.min(left, vw - cardW - CARD_PADDING));
 
   return { top, left };
 }
@@ -252,12 +266,27 @@ function calcTooltipPos(rect: SpotlightRect, vh: number, vw: number, cardH: numb
 const TooltipCard: React.FC<TooltipProps> = ({ step, totalSteps, currentIndex, rect, onNext, onSkip, isWelcome, pinToBottom }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [viewportW, setViewportW] = useState(() =>
+    typeof window === 'undefined' ? CARD_WIDTH : window.innerWidth,
+  );
+
+  useEffect(() => {
+    const onResize = () => setViewportW(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, []);
 
   useEffect(() => {
     if (!rect || pinToBottom) { setPos(null); return; }
     const cardH = cardRef.current?.offsetHeight ?? 180;
     setPos(calcTooltipPos(rect, window.innerHeight, window.innerWidth, cardH));
-  }, [rect, pinToBottom]);
+  }, [rect, pinToBottom, viewportW]);
+
+  const cardW = cardWidthFor(viewportW);
 
   const isLast = step.isLastStep;
   const buttonLabel = step.action ?? (isLast ? 'Got it!' : 'Next');
@@ -278,14 +307,14 @@ const TooltipCard: React.FC<TooltipProps> = ({ step, totalSteps, currentIndex, r
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: CARD_WIDTH,
+        width: cardW,
         zIndex: 9998,
       }
     : {
         position: 'fixed',
         top: pos.top,
         left: pos.left,
-        width: CARD_WIDTH,
+        width: cardW,
         zIndex: 9998,
         transform: 'none',
       };

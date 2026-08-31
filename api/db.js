@@ -43,4 +43,17 @@ async function connectToDatabase() {
   }
 }
 
-module.exports = { connectToDatabase, isCachingEnabled };
+/**
+ * Closes the pooled connection. Serverless never needs this — the platform
+ * reclaims the process — but tests do, otherwise the open socket keeps Node
+ * alive and the runner never exits.
+ */
+async function closeDatabase() {
+  if (cached.conn?.client) {
+    await cached.conn.client.close();
+  }
+  cached.conn = null;
+  cached.promise = null;
+}
+
+module.exports = { connectToDatabase, isCachingEnabled, closeDatabase };
