@@ -4,6 +4,7 @@
 
 const { connectToDatabase } = require('./db');
 const { applyCors } = require('./_cors');
+const { normalizeDrugInfo, isCacheableDrugInfo } = require('./_drugInfo');
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
 
@@ -98,6 +99,20 @@ const normalizeContents = (contents) => {
   return { formattedContents: [contents], promptText: textPart?.text || '' };
 };
 
+/**
+ * Returns the JSON text to serve for a cached document, or null when the
+ * stored shape is not something the UI can render.
+ */
+const servableCachedPayload = (cached, collectionName) => {
+  const data = cached.data;
+  if (collectionName !== 'medications') {
+    return typeof data === 'object' ? JSON.stringify(data) : data;
+  }
+  const normalized = normalizeDrugInfo(data);
+  if (!isCacheableDrugInfo(normalized)) return null;
+  return JSON.stringify(normalized);
+};
+
 module.exports = async (req, res) => {
   if (applyCors(req, res)) return;
 
@@ -143,10 +158,14 @@ module.exports = async (req, res) => {
           });
 
           if (cached) {
-            console.log(`[cache HIT] ${normalizedName} in ${collectionName}`);
-            const text =
-              typeof cached.data === 'object' ? JSON.stringify(cached.data) : cached.data;
-            return res.status(200).json({ text, cached: true });
+            const payload = servableCachedPayload(cached, collectionName);
+            if (payload) {
+              console.log(`[cache HIT] ${normalizedName} in ${collectionName}`);
+              return res.status(200).json({ text: payload, cached: true });
+            }
+            // Stored before validation existed, or the model had returned keys
+            // the UI cannot read. Treat as a miss so it is refetched and fixed.
+            console.log(`[cache STALE-SHAPE] ${normalizedName} in ${collectionName}`);
           }
           console.log(`[cache MISS] ${normalizedName} in ${collectionName}`);
         } catch (dbError) {
@@ -156,26 +175,49 @@ module.exports = async (req, res) => {
     }
 
     // Always generated in English; the client translates for display.
-    const text = await callGeminiAPI(formattedContents, config);
+    const rawText = await callGeminiAPI(formattedContents, config);
 
-    if (isCacheable && text) {
+    // Normalise the patient view before anyone sees it. The model does not
+    // reliably honour the requested key names, and the UI maps over the list
+    // fields — an unexpected shape used to unmount the app to a blank screen.
+    // Normalising here also means the first caller and every later caller get
+    // byte-identical text.
+    let text = rawText;
+    let cacheableData = null;
+
+    if (collectionName === 'medications') {
+      try {
+        const normalized = normalizeDrugInfo(JSON.parse(extractJSON(rawText)));
+        if (normalized) {
+          text = JSON.stringify(normalized);
+          if (isCacheableDrugInfo(normalized)) {
+            cacheableData = normalized;
+          } else {
+            console.warn(`[shape] ${normalizedName} — incomplete answer, serving but not caching`);
+          }
+        }
+      } catch (parseError) {
+        console.error('[generate] could not parse model response:', parseError.message);
+      }
+    } else {
+      try {
+        cacheableData = JSON.parse(extractJSON(rawText));
+      } catch {
+        cacheableData = rawText;
+      }
+    }
+
+    if (isCacheable && cacheableData) {
       const connection = await connectToDatabase();
       if (connection) {
         try {
-          let parsedData;
-          try {
-            parsedData = JSON.parse(extractJSON(text));
-          } catch {
-            parsedData = text;
-          }
-
           await connection.db.collection(collectionName).updateOne(
             { normalizedName, language: 'en' },
             {
               $set: {
                 normalizedName,
                 language: 'en',
-                data: parsedData,
+                data: cacheableData,
                 updatedAt: new Date(),
               },
               $setOnInsert: { createdAt: new Date() },

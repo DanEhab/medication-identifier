@@ -97,6 +97,61 @@ const callBackend = async (prompt: string, language: 'en' | 'ar' = 'en', image?:
 };
 
 
+/** Field names the model has been seen to substitute for the ones we ask for. */
+const FIELD_ALIASES: Record<keyof DrugInfo, string[]> = {
+    drugName: ['drug_name', 'name', 'medication_name'],
+    strength: ['dose', 'dosage_strength'],
+    commonUse: ['common_use', 'common_uses', 'what_it_is_for', 'uses', 'indications'],
+    dosageAdministration: ['dosage_administration', 'how_to_take_it', 'dosage', 'administration'],
+    foodDrinkEffect: ['food_drink_effect', 'food_and_drink', 'food_interactions'],
+    missedDose: ['missed_dose', 'if_you_miss_a_dose'],
+    commonSideEffects: ['common_side_effects', 'side_effects'],
+    seriousSideEffects: ['serious_side_effects', 'severe_side_effects'],
+    consultDoctorWhen: ['consult_doctor_when', 'when_to_call_your_doctor', 'when_to_see_a_doctor', 'warnings'],
+    storage: ['storage_instructions', 'how_to_store'],
+};
+
+const LIST_FIELDS: (keyof DrugInfo)[] = ['commonSideEffects', 'seriousSideEffects', 'consultDoctorWhen'];
+
+const flatten = (value: any): string[] => {
+    if (Array.isArray(value)) return value.flatMap(flatten);
+    if (value === null || value === undefined) return [];
+    if (typeof value === 'object') return Object.values(value).flatMap(flatten);
+    return [String(value)];
+};
+
+const loose = (key: string) => key.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const pickField = (source: Record<string, any>, field: keyof DrugInfo): any => {
+    const wanted = [field as string, ...FIELD_ALIASES[field]].map(loose);
+    for (const [key, value] of Object.entries(source)) {
+        if (wanted.includes(loose(key))) return value;
+    }
+    return undefined;
+};
+
+/**
+ * Guarantees the shape ResultsScreen renders. The server normalises too, but a
+ * missing array here means .map() throws and the whole app unmounts to a blank
+ * screen, so the client refuses to trust the payload.
+ */
+const normalizeDrugInfo = (raw: any): DrugInfo => {
+    const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    const out = {} as DrugInfo;
+
+    (Object.keys(FIELD_ALIASES) as (keyof DrugInfo)[]).forEach((field) => {
+        const value = pickField(source, field);
+        if (LIST_FIELDS.includes(field)) {
+            (out[field] as unknown as string[]) = flatten(value).map((s) => s.trim()).filter(Boolean);
+        } else {
+            (out[field] as unknown as string) =
+                typeof value === 'string' ? value : flatten(value).join(' ');
+        }
+    });
+
+    return out;
+};
+
 export const identifyDrugFromImage = async (base64Image: string, mimeType: string): Promise<string> => {
     const prompt = 'Identify the drug name, strength, and form from this image. Provide only the name and strength, for example: "Amoxicillin 500mg". If you cannot identify it, say "Unknown".';
     
@@ -118,7 +173,7 @@ export const fetchDrugInformation = async (drugName: string, language: 'en' | 'a
     try {
         // Extract JSON from response
         const jsonText = extractJSON(text);
-        let drugInfo: DrugInfo = JSON.parse(jsonText);
+        let drugInfo: DrugInfo = normalizeDrugInfo(JSON.parse(jsonText));
 
         // If Arabic requested, translate using Google Translate
         if (language === 'ar') {
