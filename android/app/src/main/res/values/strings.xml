@@ -29,7 +29,7 @@
     <string name="terms_url">https://medication-identifier-gamma.vercel.app/terms-of-service.html</string>
     
     <!-- Version Info -->
-    <string name="version_name">1.2.0</string>
+    <string name="version_name">1.2.1</string>
     <string name="version_changelog">
         Version 1.0.0 - Initial Release\n
         • AI-powered medication identification\n
