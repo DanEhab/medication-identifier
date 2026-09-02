@@ -97,4 +97,33 @@ function isCacheableDrugInfo(info) {
   return filledLists >= 2;
 }
 
-module.exports = { normalizeDrugInfo, isCacheableDrugInfo, TEXT_FIELDS, LIST_FIELDS };
+/**
+ * Gemini structured-output schema. Passing this makes the model return exactly
+ * these keys with these types, instead of inventing its own naming (drug_name,
+ * what_it_is_for, ...) and leaving the UI with undefined fields.
+ */
+const DRUG_INFO_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    drugName: { type: 'STRING', description: 'Name and strength, e.g. "Cetirizine 10mg"' },
+    strength: { type: 'STRING', description: 'Available strengths and forms' },
+    commonUse: { type: 'STRING', description: 'What the medicine treats, in plain language' },
+    dosageAdministration: { type: 'STRING', description: 'How and when to take it' },
+    foodDrinkEffect: { type: 'STRING', description: 'Food, drink and alcohol interactions' },
+    missedDose: { type: 'STRING', description: 'What to do after a missed dose' },
+    commonSideEffects: { type: 'ARRAY', items: { type: 'STRING' }, description: 'At least three common side effects' },
+    seriousSideEffects: { type: 'ARRAY', items: { type: 'STRING' }, description: 'At least three side effects needing urgent care' },
+    consultDoctorWhen: { type: 'ARRAY', items: { type: 'STRING' }, description: 'At least three situations to contact a doctor' },
+    storage: { type: 'STRING', description: 'How to store it' },
+  },
+  required: [
+    'drugName', 'strength', 'commonUse', 'dosageAdministration', 'foodDrinkEffect',
+    'missedDose', 'commonSideEffects', 'seriousSideEffects', 'consultDoctorWhen', 'storage',
+  ],
+  propertyOrdering: [
+    'drugName', 'strength', 'commonUse', 'dosageAdministration', 'foodDrinkEffect',
+    'missedDose', 'commonSideEffects', 'seriousSideEffects', 'consultDoctorWhen', 'storage',
+  ],
+};
+
+module.exports = { normalizeDrugInfo, isCacheableDrugInfo, DRUG_INFO_SCHEMA, TEXT_FIELDS, LIST_FIELDS };

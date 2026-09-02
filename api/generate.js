@@ -4,7 +4,7 @@
 
 const { connectToDatabase } = require('./db');
 const { applyCors } = require('./_cors');
-const { normalizeDrugInfo, isCacheableDrugInfo } = require('./_drugInfo');
+const { normalizeDrugInfo, isCacheableDrugInfo, DRUG_INFO_SCHEMA } = require('./_drugInfo');
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
 
@@ -51,8 +51,16 @@ const getCollectionName = (prompt) => {
   return 'medications';
 };
 
-const callGeminiAPI = async (formattedContents, config) => {
+const callGeminiAPI = async (formattedContents, config, schema) => {
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+
+  // A schema makes the model return exactly the keys the UI reads. Without it
+  // it drifts into snake_case or drops fields entirely.
+  const generationConfig = { ...(config || {}) };
+  if (schema) {
+    generationConfig.responseMimeType = 'application/json';
+    generationConfig.responseSchema = schema;
+  }
 
   const response = await fetch(apiUrl, {
     method: 'POST',
@@ -61,7 +69,7 @@ const callGeminiAPI = async (formattedContents, config) => {
       // Header auth keeps the key out of URLs and therefore out of access logs.
       'x-goog-api-key': process.env.GEMINI_API_KEY,
     },
-    body: JSON.stringify({ contents: formattedContents, generationConfig: config || {} }),
+    body: JSON.stringify({ contents: formattedContents, generationConfig }),
   });
 
   const data = await response.json();
@@ -175,7 +183,11 @@ module.exports = async (req, res) => {
     }
 
     // Always generated in English; the client translates for display.
-    const rawText = await callGeminiAPI(formattedContents, config);
+    const rawText = await callGeminiAPI(
+      formattedContents,
+      config,
+      collectionName === 'medications' && isCacheable ? DRUG_INFO_SCHEMA : undefined,
+    );
 
     // Normalise the patient view before anyone sees it. The model does not
     // reliably honour the requested key names, and the UI maps over the list
