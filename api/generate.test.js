@@ -41,6 +41,33 @@ function invoke(body) {
   });
 }
 
+/** A complete, well-formed answer — the shape the UI actually needs. */
+const VALID_ANSWER = {
+  drugName: 'Stub Drug',
+  strength: '1mg',
+  commonUse: 'Used for testing.',
+  dosageAdministration: 'One tablet daily.',
+  foodDrinkEffect: 'Take with food.',
+  missedDose: 'Take when remembered.',
+  commonSideEffects: ['Nausea', 'Headache'],
+  seriousSideEffects: ['Rash'],
+  consultDoctorWhen: ['Symptoms persist'],
+  storage: 'Store below 25C.',
+};
+
+/** Counts Gemini calls without making any. */
+function installGeminiStub(payload = VALID_ANSWER) {
+  global.fetch = async () => {
+    geminiCalls++;
+    return {
+      ok: true,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ text: JSON.stringify(payload) }] } }],
+      }),
+    };
+  };
+}
+
 const patientPrompt = (drug) =>
   `Provide patient-friendly information for the drug: ${drug}. Return ONLY the JSON object.`;
 const professionalPrompt = (drug) =>
@@ -56,19 +83,7 @@ test.before(async () => {
 
   client = await MongoClient.connect(uri);
 
-  // Count Gemini calls without making any.
-  global.fetch = async () => {
-    geminiCalls++;
-    return {
-      ok: true,
-      json: async () => ({
-        candidates: [
-          { content: { parts: [{ text: JSON.stringify({ drugName: 'Stub', strength: '1mg' }) }] } },
-        ],
-      }),
-    };
-  };
-
+  installGeminiStub();
   handler = require('./generate.js');
 });
 
@@ -81,6 +96,7 @@ test.after(async () => {
 
 test.beforeEach(async () => {
   geminiCalls = 0;
+  installGeminiStub();
   const db = client.db(DB_NAME);
   await db.collection('medications').deleteMany({});
   await db.collection('professional_medications').deleteMany({});
@@ -256,4 +272,105 @@ test('different drugs are stored as separate entries', async () => {
 
   assert.deepEqual(names, ['aspirin', 'ibuprofen']);
   assert.equal(geminiCalls, 2);
+});
+
+// ── Malformed model responses ────────────────────────────────────────────────
+// The model sometimes ignores the requested key names and returns snake_case
+// instead. That produced undefined fields, a .map() crash, and a blank screen —
+// and the bad answer was cached and served to everyone.
+
+const snakeCaseAnswer = {
+  drug_name: 'Cetirizine',
+  strength: '10mg',
+  common_uses: 'Relieves allergy symptoms.',
+  how_to_take_it: 'One tablet daily.',
+  what_to_expect: 'May cause mild drowsiness.',
+  if_you_miss_a_dose: 'Take it when you remember.',
+  common_side_effects: ['Drowsiness', 'Dry mouth'],
+  serious_side_effects: ['Fast heartbeat'],
+  when_to_call_your_doctor: ['Severe dizziness'],
+  storage_instructions: 'Store below 25C.',
+};
+
+const stubGeminiWith = (payload) => installGeminiStub(payload);
+
+test('snake_case keys from the model are mapped onto the shape the UI needs', async () => {
+  stubGeminiWith(snakeCaseAnswer);
+  const res = await invoke({ contents: patientPrompt('Cetirizine') });
+  const info = JSON.parse(res.payload.text);
+
+  assert.equal(info.drugName, 'Cetirizine', 'drug_name should become drugName');
+  assert.equal(info.commonUse, 'Relieves allergy symptoms.');
+  assert.deepEqual(info.commonSideEffects, ['Drowsiness', 'Dry mouth']);
+  assert.deepEqual(info.consultDoctorWhen, ['Severe dizziness']);
+});
+
+test('every list field is always an array, so the UI can never crash on .map()', async () => {
+  stubGeminiWith({ drug_name: 'X', common_uses: 'Y' }); // lists entirely absent
+  const res = await invoke({ contents: patientPrompt('Sparse') });
+  const info = JSON.parse(res.payload.text);
+
+  for (const field of ['commonSideEffects', 'seriousSideEffects', 'consultDoctorWhen']) {
+    assert.ok(Array.isArray(info[field]), `${field} must be an array`);
+  }
+  for (const field of ['drugName', 'strength', 'commonUse', 'storage']) {
+    assert.equal(typeof info[field], 'string', `${field} must be a string`);
+  }
+});
+
+test('a response too malformed to render is not cached', async () => {
+  stubGeminiWith({ nonsense: true });
+  const first = await invoke({ contents: patientPrompt('Garbage') });
+  assert.equal(first.payload.cached, false);
+
+  const stored = await client
+    .db(DB_NAME)
+    .collection('medications')
+    .findOne({ normalizedName: 'garbage' });
+  assert.equal(stored, null, 'a broken answer must not poison the cache');
+});
+
+test('an entry already cached in the wrong shape is repaired when served', async () => {
+  // The exact shape found in production: the model had used snake_case, the UI
+  // read undefined for every field and crashed to a blank screen.
+  await client.db(DB_NAME).collection('medications').insertOne({
+    normalizedName: 'cetirizine',
+    language: 'en',
+    data: snakeCaseAnswer,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  geminiCalls = 0;
+  const res = await invoke({ contents: patientPrompt('Cetirizine') });
+
+  assert.equal(res.payload.cached, true, 'it is still a cache hit');
+  assert.equal(geminiCalls, 0, 'repairing must not cost a Gemini call');
+
+  const info = JSON.parse(res.payload.text);
+  assert.equal(info.drugName, 'Cetirizine', 'served in the shape the UI needs');
+  assert.ok(Array.isArray(info.commonSideEffects));
+  assert.ok(Array.isArray(info.consultDoctorWhen));
+});
+
+test('a cached entry too broken to repair is refetched', async () => {
+  await client.db(DB_NAME).collection('medications').insertOne({
+    normalizedName: 'broken',
+    language: 'en',
+    data: { totally: 'unrelated' },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  geminiCalls = 0;
+  const res = await invoke({ contents: patientPrompt('Broken') });
+
+  assert.equal(res.payload.cached, false, 'unrepairable entries count as a miss');
+  assert.equal(geminiCalls, 1, 'and are refetched');
+
+  const repaired = await client
+    .db(DB_NAME)
+    .collection('medications')
+    .findOne({ normalizedName: 'broken' });
+  assert.equal(repaired.data.drugName, 'Stub Drug', 'and rewritten correctly');
 });
