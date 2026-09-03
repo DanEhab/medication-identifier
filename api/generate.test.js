@@ -100,6 +100,9 @@ test.beforeEach(async () => {
   const db = client.db(DB_NAME);
   await db.collection('medications').deleteMany({});
   await db.collection('professional_medications').deleteMany({});
+  // Every test shares one caller identity, so without this the suite
+  // rate-limits itself partway through.
+  await db.collection('rate_limits').deleteMany({});
 });
 
 test('first lookup calls Gemini and stores the result', async () => {
@@ -489,4 +492,158 @@ test('entries cached before classification existed are still served', async () =
   assert.equal(res.payload.cached, true, 'existing good entries must not be thrown away');
   assert.equal(geminiCalls, 0);
   assert.equal(JSON.parse(res.payload.text).recognition, 'medication');
+});
+
+// ── Rate limiting ────────────────────────────────────────────────────────────
+// Without a limit, one script looping unique drug names drains the Gemini
+// budget in minutes; the cache is no defence because every request is new.
+
+const rateLimit = require('./_rateLimit.js');
+
+/** A request from a given address, as Vercel would present it. */
+const from = (ip) => ({ 'x-forwarded-for': ip });
+
+const invokeFrom = (ip, body) =>
+  new Promise((resolve) => {
+    const req = { method: 'POST', headers: from(ip), body };
+    let statusCode = 200;
+    const headers = {};
+    const res = {
+      setHeader(k, v) { headers[k] = v; },
+      status(code) { statusCode = code; return res; },
+      json(payload) { resolve({ statusCode, payload, headers }); return res; },
+      end() { resolve({ statusCode, payload: undefined, headers }); return res; },
+    };
+    handler(req, res);
+  });
+
+const clearLimits = () => client.db(DB_NAME).collection('rate_limits').deleteMany({});
+
+test('a caller is blocked after exceeding the per-minute allowance', async () => {
+  await clearLimits();
+  const limit = rateLimit.LIMITS.generate;
+
+  let lastOk = null;
+  for (let i = 0; i < limit; i++) {
+    lastOk = await invokeFrom('203.0.113.10', { contents: patientPrompt(`Drug${i}`) });
+  }
+  assert.equal(lastOk.statusCode, 200, 'requests within the allowance must succeed');
+
+  const blocked = await invokeFrom('203.0.113.10', { contents: patientPrompt('OneTooMany') });
+  assert.equal(blocked.statusCode, 429);
+  assert.match(blocked.payload.error, /wait a moment/i, 'the message must read as advice, not an error');
+  assert.ok(Number(blocked.headers['Retry-After']) > 0, 'Retry-After must tell the client when to retry');
+});
+
+test('one caller being blocked does not affect anybody else', async () => {
+  await clearLimits();
+  const limit = rateLimit.LIMITS.generate;
+
+  for (let i = 0; i <= limit; i++) {
+    await invokeFrom('203.0.113.20', { contents: patientPrompt(`Flood${i}`) });
+  }
+  const attacker = await invokeFrom('203.0.113.20', { contents: patientPrompt('Blocked') });
+  assert.equal(attacker.statusCode, 429);
+
+  const bystander = await invokeFrom('203.0.113.21', { contents: patientPrompt('Aspirin') });
+  assert.equal(bystander.statusCode, 200, 'a different caller must be unaffected');
+});
+
+test('cached lookups still count towards the caller limit', async () => {
+  await clearLimits();
+  // Flooding one cached drug is still a flood, even though it costs nothing.
+  await invokeFrom('203.0.113.30', { contents: patientPrompt('Aspirin') });
+
+  const limit = rateLimit.LIMITS.generate;
+  for (let i = 1; i <= limit; i++) {
+    await invokeFrom('203.0.113.30', { contents: patientPrompt('Aspirin') });
+  }
+  const blocked = await invokeFrom('203.0.113.30', { contents: patientPrompt('Aspirin') });
+  assert.equal(blocked.statusCode, 429);
+});
+
+test('cache hits do not spend the daily budget', async () => {
+  await clearLimits();
+  await invokeFrom('203.0.113.40', { contents: patientPrompt('Aspirin') }); // fills the cache
+
+  const before = await client
+    .db(DB_NAME)
+    .collection('rate_limits')
+    .findOne({ _id: { $regex: '^global:' } });
+
+  const cached = await invokeFrom('203.0.113.41', { contents: patientPrompt('Aspirin') });
+  assert.equal(cached.payload.cached, true);
+
+  const after = await client
+    .db(DB_NAME)
+    .collection('rate_limits')
+    .findOne({ _id: { $regex: '^global:' } });
+
+  assert.equal(after.count, before.count, 'a free request must not eat into the paid budget');
+});
+
+test('the daily budget stops requests that would reach Gemini', async () => {
+  await clearLimits();
+  // Pre-set the global counter to its ceiling.
+  const windowStart = Math.floor(Date.now() / (24 * 60 * 60 * 1000)) * (24 * 60 * 60 * 1000);
+  await client.db(DB_NAME).collection('rate_limits').insertOne({
+    _id: `global:gemini:${windowStart}`,
+    count: rateLimit.GLOBAL_PER_DAY,
+    expiresAt: new Date(windowStart + 2 * 24 * 60 * 60 * 1000),
+  });
+
+  geminiCalls = 0;
+  const blocked = await invokeFrom('203.0.113.50', { contents: patientPrompt('SomethingNew') });
+
+  assert.equal(blocked.statusCode, 429);
+  assert.equal(blocked.payload.scope, 'daily');
+  assert.equal(geminiCalls, 0, 'nothing may reach Gemini once the budget is spent');
+});
+
+test('already-cached medicines keep working after the daily budget is spent', async () => {
+  await clearLimits();
+  await invokeFrom('203.0.113.60', { contents: patientPrompt('Aspirin') }); // cache it
+
+  const windowStart = Math.floor(Date.now() / (24 * 60 * 60 * 1000)) * (24 * 60 * 60 * 1000);
+  await client.db(DB_NAME).collection('rate_limits').updateOne(
+    { _id: `global:gemini:${windowStart}` },
+    { $set: { count: rateLimit.GLOBAL_PER_DAY, expiresAt: new Date(windowStart + 2 * 86400000) } },
+    { upsert: true },
+  );
+
+  const res = await invokeFrom('203.0.113.61', { contents: patientPrompt('Aspirin') });
+  assert.equal(res.statusCode, 200, 'the app must not go dark once the budget is spent');
+  assert.equal(res.payload.cached, true);
+});
+
+test('addresses are stored hashed, never in the clear', async () => {
+  await clearLimits();
+  await invokeFrom('198.51.100.7', { contents: patientPrompt('Aspirin') });
+
+  const docs = await client.db(DB_NAME).collection('rate_limits').find({}).toArray();
+  const ids = docs.map((d) => d._id).join(' ');
+  assert.ok(!ids.includes('198.51.100.7'), 'a raw address must never be written to the database');
+  assert.ok(ids.includes(rateLimit.callerKey({ headers: from('198.51.100.7') })), 'the hash should be present');
+});
+
+test('the limiter fails open when the database is unavailable', async () => {
+  // A broken limiter must never take the app down with it.
+  const original = rateLimit.checkRequestLimit;
+  const result = await original({ headers: {} }, 'generate');
+  assert.equal(typeof result.allowed, 'boolean');
+
+  const { closeDatabase } = require('./db.js');
+  await closeDatabase();
+  process.env.MONGODB_URI = 'mongodb://127.0.0.1:1/none?serverSelectionTimeoutMS=200';
+  delete require.cache[require.resolve('./db.js')];
+  delete require.cache[require.resolve('./_rateLimit.js')];
+  const isolated = require('./_rateLimit.js');
+
+  const offline = await isolated.checkRequestLimit({ headers: from('203.0.113.99') });
+  assert.equal(offline.allowed, true, 'requests must be allowed when the limiter cannot reach the database');
+
+  // Restore for any later test.
+  process.env.MONGODB_URI = mongod.getUri();
+  delete require.cache[require.resolve('./db.js')];
+  delete require.cache[require.resolve('./_rateLimit.js')];
 });

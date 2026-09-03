@@ -1,5 +1,6 @@
 // api/translate.js - Vercel serverless function for translation using MyMemory API
 const { applyCors } = require('./_cors');
+const { checkRequestLimit, rejectRateLimited } = require('./_rateLimit');
 
 const MAX_ITEMS = 50; // guards against unbounded fan-out to MyMemory
 
@@ -103,6 +104,13 @@ module.exports = async (req, res) => {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // An Arabic lookup fires one request per field, so the limit has to be
+  // generous enough for a normal page load but still stop a flood.
+  const callerLimit = await checkRequestLimit(req, 'translate');
+  if (!callerLimit.allowed) {
+    return rejectRateLimited(res, callerLimit);
   }
 
   try {

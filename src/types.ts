@@ -30,6 +30,17 @@ export class NotAMedicationError extends Error {
   }
 }
 
+/** The service asked the caller to slow down. Not a failure — just a wait. */
+export class RateLimitedError extends Error {
+  readonly retryAfterSeconds: number;
+
+  constructor(message: string, retryAfterSeconds: number) {
+    super(message);
+    this.name = 'RateLimitedError';
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
 export interface NotAMedicationResult {
   recognition: Exclude<Recognition, 'medication'>;
   query: string;

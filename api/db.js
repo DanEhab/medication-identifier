@@ -5,10 +5,15 @@
 // Gemini key. Previously this module threw at import time, which took the whole
 // /api/generate function down whenever MONGODB_URI was missing.
 
-const MONGODB_URI = process.env.MONGODB_URI;
 const DB_NAME = 'medication_identifier';
 
-const isCachingEnabled = Boolean(MONGODB_URI);
+// Read lazily, not at module load. Reading it once at import made the module
+// order-sensitive: anything that pulled db.js in before the environment was
+// ready would latch "caching disabled" for the life of the process.
+const getUri = () => process.env.MONGODB_URI;
+
+/** Whether caching is configured right now. */
+const isCachingEnabled = () => Boolean(getUri());
 
 // Reuse the connection across warm serverless invocations.
 let cached = global.__mongo;
@@ -21,13 +26,14 @@ if (!cached) {
  * Callers must treat null as "cache unavailable" and continue without it.
  */
 async function connectToDatabase() {
-  if (!isCachingEnabled) return null;
+  const uri = getUri();
+  if (!uri) return null;
   if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
     // Required lazily so a missing/broken driver cannot break the whole function.
     const { MongoClient } = require('mongodb');
-    cached.promise = MongoClient.connect(MONGODB_URI, {
+    cached.promise = MongoClient.connect(uri, {
       serverSelectionTimeoutMS: 5000,
     }).then((client) => ({ client, db: client.db(DB_NAME) }));
   }
