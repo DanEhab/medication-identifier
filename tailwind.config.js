@@ -22,6 +22,7 @@ export default {
         'fade-in': 'fadeIn 0.5s ease-out',
         'fade-in-fast': 'fadeIn 0.3s ease-out',
         'slide-in-right': 'slideInRight 0.35s cubic-bezier(0.34,1.1,0.64,1)',
+        'slide-up': 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)',
       },
       keyframes: {
         fadeIn: {
@@ -31,6 +32,11 @@ export default {
         slideInRight: {
           '0%': { transform: 'translateX(100%)' },
           '100%': { transform: 'translateX(0)' },
+        },
+        // Bottom-sheet entrance for the patient details dialog on phones.
+        slideUp: {
+          '0%': { transform: 'translateY(100%)' },
+          '100%': { transform: 'translateY(0)' },
         },
       },
     },

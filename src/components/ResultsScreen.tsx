@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { DrugInfo, PatientInfo } from '../types';
-import { PillIcon, UtensilsIcon, AlertTriangleIcon, ClockIcon, BookOpenIcon, ChevronLeftIcon, BookmarkIcon, CheckIcon, PrinterIcon, ArrowDownTrayIcon } from './Icons';
+import { PillIcon, UtensilsIcon, AlertTriangleIcon, ClockIcon, BookOpenIcon, ChevronLeftIcon, BookmarkIcon, CheckIcon, PrinterIcon, ArrowDownTrayIcon, UserIcon, PlusCircleIcon } from './Icons';
 import { MarkdownText } from './MarkdownText';
 import { useLocalization } from '../context/LanguageContext';
 import { renderReportHTML, renderReportText } from '../lib/report';
 import { exportAsDocument, exportAsPdf } from '../lib/exportReport';
 import { isMedicationSaved, toggleMedication } from '../lib/medicationStorage';
+import { PatientDetailsDialog, hasPatientDetails, EMPTY_PATIENT_INFO } from './PatientDetailsDialog';
 
 interface ResultsScreenProps {
   drugInfo: DrugInfo;
@@ -14,7 +15,32 @@ interface ResultsScreenProps {
   originalDrugName: string;
   onBack: () => void;
   onShowProfessionalView: () => void;
+  /** Persists edited patient details. Merged over the stored values. */
+  onPatientInfoChange: (info: Partial<PatientInfo>) => void;
 }
+
+/**
+ * Remembers that the export prompt has been shown once. After that, exports run
+ * straight away and the details row on this screen is the way in — nobody wants
+ * a dialog between them and a file they have already asked for twice.
+ */
+const PROMPTED_KEY = 'patientDetailsPrompted';
+
+const wasPrompted = (): boolean => {
+  try {
+    return localStorage.getItem(PROMPTED_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
+const markPrompted = () => {
+  try {
+    localStorage.setItem(PROMPTED_KEY, '1');
+  } catch {
+    /* Private mode or storage disabled — the prompt simply shows again. */
+  }
+};
 
 type Tab = 'use' | 'dosage' | 'food' | 'sideEffects' | 'precautions';
 
@@ -42,9 +68,12 @@ const InfoCard: React.FC<{ title: string; icon: React.ReactNode; children: React
 );
 
 
-export const ResultsScreen: React.FC<ResultsScreenProps> = ({ drugInfo, patientInfo, originalDrugName, onBack, onShowProfessionalView }) => {
+export const ResultsScreen: React.FC<ResultsScreenProps> = ({ drugInfo, patientInfo, originalDrugName, onBack, onShowProfessionalView, onPatientInfoChange }) => {
   const [activeTab, setActiveTab] = useState<Tab>('use');
   const [isSaved, setIsSaved] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  /** Which export is waiting on the dialog, if any. */
+  const pendingExport = useRef<'pdf' | 'doc' | null>(null);
   const { t, language } = useLocalization();
 
   useEffect(() => {
@@ -55,19 +84,67 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({ drugInfo, patientI
     setIsSaved(toggleMedication(drugInfo, language, originalDrugName));
   };
 
-  const handlePrint = () =>
-    exportAsPdf(
-      drugInfo.drugName,
-      renderReportHTML(drugInfo, patientInfo, t, language),
-      renderReportText(drugInfo, patientInfo, t),
-    );
+  // The details are passed in explicitly rather than read from props, because
+  // an export can start in the same tick the dialog saves new ones.
+  const runExport = useCallback(
+    (kind: 'pdf' | 'doc', info: PatientInfo) => {
+      const html = renderReportHTML(drugInfo, info, t, language);
+      if (kind === 'pdf') {
+        return exportAsPdf(drugInfo.drugName, html, renderReportText(drugInfo, info, t));
+      }
+      return exportAsDocument(
+        drugInfo.drugName,
+        html,
+        renderReportText(drugInfo, info, t, { width: 60, numbered: true }),
+      );
+    },
+    [drugInfo, language, t],
+  );
 
-  const handleDownloadWord = () =>
-    exportAsDocument(
-      drugInfo.drugName,
-      renderReportHTML(drugInfo, patientInfo, t, language),
-      renderReportText(drugInfo, patientInfo, t, { width: 60, numbered: true }),
-    );
+  /**
+   * Offers the details step the first time someone exports, then never again.
+   * Anyone who already filled them in is not asked at all.
+   */
+  const requestExport = (kind: 'pdf' | 'doc') => {
+    if (!wasPrompted() && !hasPatientDetails(patientInfo)) {
+      markPrompted();
+      pendingExport.current = kind;
+      setDetailsOpen(true);
+      return;
+    }
+    void runExport(kind, patientInfo);
+  };
+
+  const handleDetailsSave = (info: PatientInfo) => {
+    onPatientInfoChange(info);
+    setDetailsOpen(false);
+    const kind = pendingExport.current;
+    pendingExport.current = null;
+    if (kind) void runExport(kind, info);
+  };
+
+  const handleDetailsDismiss = () => {
+    setDetailsOpen(false);
+    const kind = pendingExport.current;
+    pendingExport.current = null;
+    // Dismissing with an export waiting means "just give me the file".
+    if (kind) void runExport(kind, patientInfo);
+  };
+
+  const handleDetailsClear = () => {
+    onPatientInfoChange(EMPTY_PATIENT_INFO);
+  };
+
+  const openDetails = () => {
+    pendingExport.current = null;
+    markPrompted();
+    setDetailsOpen(true);
+  };
+
+  const detailsSummary = [patientInfo.name, patientInfo.age, patientInfo.diagnosis]
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join(' · ');
 
   const renderContent = () => {
     switch (activeTab) {
@@ -119,11 +196,11 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({ drugInfo, patientI
               </button>
               
               <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                <button onClick={handleDownloadWord} className="flex-1 sm:flex-none flex items-center justify-center bg-white dark:bg-[#1C1C1E] border border-gray-300 dark:border-[#3A4D54] text-gray-700 dark:text-white py-2 px-4 rounded-full hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors shadow-sm">
+                <button onClick={() => requestExport('doc')} className="flex-1 sm:flex-none flex items-center justify-center bg-white dark:bg-[#1C1C1E] border border-gray-300 dark:border-[#3A4D54] text-gray-700 dark:text-white py-2 px-4 rounded-full hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors shadow-sm">
                     <ArrowDownTrayIcon className="w-5 h-5 me-2 text-brand-primary dark:text-[#90E0EF]" />
                     {t('downloadWord')}
                 </button>
-                <button onClick={handlePrint} className="flex-1 sm:flex-none flex items-center justify-center bg-white dark:bg-[#1C1C1E] border border-gray-300 dark:border-[#3A4D54] text-gray-700 dark:text-white py-2 px-4 rounded-full hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors shadow-sm">
+                <button onClick={() => requestExport('pdf')} className="flex-1 sm:flex-none flex items-center justify-center bg-white dark:bg-[#1C1C1E] border border-gray-300 dark:border-[#3A4D54] text-gray-700 dark:text-white py-2 px-4 rounded-full hover:bg-gray-50 dark:hover:bg-[#2C2C2E] transition-colors shadow-sm">
                     <PrinterIcon className="w-5 h-5 me-2 text-brand-primary dark:text-[#90E0EF]" />
                     {t('printPdf')}
                 </button>
@@ -134,12 +211,45 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({ drugInfo, patientI
               </div>
           </div>
         
-        <div className="text-center mb-8">
-          {patientInfo.name && (
-              <p className="text-lg text-gray-500 dark:text-[#A1A1AA] mb-2">
-                  {t('showingResultsFor')} <span className="font-bold text-brand-secondary">{patientInfo.name}</span>
+        {/*
+          The optional details step. It sits directly under the export buttons
+          because that is the only place the information is used, and it reads
+          as an offer rather than a gate — which the home-screen form did not.
+        */}
+        <div data-tutorial="report-details" className="mb-6">
+          {hasPatientDetails(patientInfo) ? (
+            <div className="flex items-center gap-3 py-3 px-3 sm:px-4 rounded-xl bg-brand-accent/70 dark:bg-[#161616] border border-brand-secondary/30 dark:border-[#2C2C2E]">
+              <UserIcon className="w-5 h-5 shrink-0 text-brand-primary dark:text-[#90E0EF]" />
+              <p className="flex-1 min-w-0 text-sm text-gray-700 dark:text-[#A1A1AA] truncate">
+                <span className="font-semibold text-brand-dark dark:text-white">{t('reportFor')}:</span>{' '}
+                {detailsSummary}
               </p>
+              <button
+                type="button"
+                onClick={openDetails}
+                className="shrink-0 px-2 py-1 text-sm font-bold text-brand-primary dark:text-[#90E0EF] hover:underline"
+              >
+                {t('editDetails')}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={openDetails}
+              className="w-full flex items-center gap-3 py-3 px-3 sm:px-4 rounded-xl border border-dashed border-gray-300 dark:border-[#3A4D54] text-start hover:border-brand-primary dark:hover:border-[#90E0EF] hover:bg-brand-accent/50 dark:hover:bg-[#161616] active:scale-[0.99] transition-all"
+            >
+              <PlusCircleIcon className="w-5 h-5 shrink-0 text-brand-primary dark:text-[#90E0EF]" />
+              <span className="flex-1 text-sm font-semibold text-gray-700 dark:text-[#A1A1AA]">
+                {t('addPatientDetailsToReport')}
+              </span>
+              <span className="shrink-0 text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-gray-100 dark:bg-[#2C2C2E] text-gray-500 dark:text-[#A1A1AA]">
+                {t('optional')}
+              </span>
+            </button>
           )}
+        </div>
+
+        <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-brand-dark dark:text-white">{drugInfo.drugName}</h1>
           <p className="text-xl text-gray-600 dark:text-[#A1A1AA]">{drugInfo.strength}</p>
         </div>
@@ -176,13 +286,14 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({ drugInfo, patientI
             </div>
         </div>
 
-        {patientInfo.name && (
+        {hasPatientDetails(patientInfo) && (
             <div className="bg-gray-100 p-4 rounded-lg mb-8">
                 <h3 className="font-bold text-gray-700 border-b border-gray-300 pb-2 mb-2">{t('patientDetails')}</h3>
                 <div className="grid grid-cols-2 gap-4">
-                    <p><span className="font-semibold">{t('name')}:</span> {patientInfo.name}</p>
+                    {patientInfo.name && <p><span className="font-semibold">{t('name')}:</span> {patientInfo.name}</p>}
                     {patientInfo.age && <p><span className="font-semibold">{t('age')}:</span> {patientInfo.age}</p>}
                     {patientInfo.sex && <p><span className="font-semibold">{t('sex')}:</span> {patientInfo.sex}</p>}
+                    {patientInfo.diagnosis && <p><span className="font-semibold">{t('diagnosis')}:</span> {patientInfo.diagnosis}</p>}
                 </div>
             </div>
         )}
@@ -230,6 +341,15 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({ drugInfo, patientI
              <p>{t('disclaimer')}: {t('disclaimerText')}</p>
         </div>
       </div>
+
+      <PatientDetailsDialog
+        open={detailsOpen}
+        patientInfo={patientInfo}
+        onSave={handleDetailsSave}
+        onDismiss={handleDetailsDismiss}
+        onClear={handleDetailsClear}
+        pendingExport={pendingExport.current !== null}
+      />
     </>
   );
 };

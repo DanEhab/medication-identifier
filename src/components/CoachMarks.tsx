@@ -33,17 +33,11 @@ const PHASE1_STEPS: TutorialStep[] = [
   },
   {
     id: 'p1s3',
-    target: 'patient-details-card',
-    message:
-      'You can fill in your age and diagnosis here for more personalized context. This is completely optional and your data remains strictly private.',
-  },
-  {
-    id: 'p1s4',
     target: 'globe-icon',
     message: 'Prefer to read in Arabic? Tap this globe at any time to instantly translate the app.',
   },
   {
-    id: 'p1s5',
+    id: 'p1s4',
     target: 'hamburger-menu',
     message: 'Tap here to access your Saved Medications and to toggle between Light and Dark Mode.',
     isLastStep: true,
@@ -59,6 +53,12 @@ const PHASE2_STEPS: TutorialStep[] = [
   },
   {
     id: 'p2s2',
+    target: 'report-details',
+    message:
+      'Exporting a report for a doctor or pharmacist? Add a name, age and diagnosis here. Entirely optional, and it stays on your phone.',
+  },
+  {
+    id: 'p2s3',
     target: 'professional-link',
     message:
       'Are you a student or medical professional? Tap here for advanced clinical data and deep dives.',

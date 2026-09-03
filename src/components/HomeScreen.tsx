@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { CameraIcon, MagnifyingGlassIcon, UserIcon, DocumentArrowUpIcon } from './Icons';
-import type { PatientInfo } from '../types';
+import { CameraIcon, MagnifyingGlassIcon, DocumentArrowUpIcon, XMarkIcon } from './Icons';
 import { useLocalization } from '../context/LanguageContext';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
@@ -8,11 +7,16 @@ import { Capacitor } from '@capacitor/core';
 interface HomeScreenProps {
   onIdentify: (image: File | null, drugName: string) => void;
   error: string | null;
-  patientInfo: PatientInfo;
-  onPatientInfoChange: (newInfo: Partial<PatientInfo>) => void;
 }
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patientInfo, onPatientInfoChange }) => {
+/**
+ * The first thing a new user sees, and now the only thing: identify a
+ * medication. The patient details form used to sit above this card, so the app
+ * asked for a name and a diagnosis before it had done anything useful. Those
+ * fields now live behind an optional step on the results screen, where they are
+ * actually needed — see PatientDetailsDialog.
+ */
+export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error }) => {
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [drugName, setDrugName] = useState<string>('');
@@ -26,10 +30,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patie
   React.useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-    
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -45,42 +49,41 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patie
     };
   }, [imagePreview]);
 
+  const releasePreview = () => {
+    if (imagePreview && imagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(imagePreview);
+    }
+  };
+
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
       // Revoke the old Object URL before creating a new one
-      if (imagePreview && imagePreview.startsWith('blob:')) {
-        URL.revokeObjectURL(imagePreview);
-      }
+      releasePreview();
       setImage(file);
       setImagePreview(URL.createObjectURL(file));
       setDrugName(''); // Clear text input when image is selected
       setValidationError('');
     }
   };
-  
+
+  const clearImage = () => {
+    releasePreview();
+    setImage(null);
+    setImagePreview(null);
+    setValidationError('');
+    // Both file inputs keep their previous value, so re-picking the same photo
+    // would fire no change event without this.
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+  };
+
   const validateInputs = (): boolean => {
-    // Validate age
-    if (patientInfo.age) {
-      const age = parseInt(patientInfo.age);
-      if (isNaN(age) || age < 0 || age > 150) {
-        setValidationError(t('invalidAge'));
-        return false;
-      }
-    }
-    
-    // Validate name length
-    if (patientInfo.name && patientInfo.name.length > 100) {
-      setValidationError(t('nameTooLong'));
-      return false;
-    }
-    
-    // Validate drug name
     if (drugName && drugName.trim().length < 2) {
       setValidationError(t('drugNameTooShort'));
       return false;
     }
-    
+
     setValidationError('');
     return true;
   };
@@ -91,12 +94,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patie
       setValidationError(t('noInternetConnection'));
       return;
     }
-    
+
     // Validate inputs
     if (!validateInputs()) {
       return;
     }
-    
+
     if (image || drugName) {
       onIdentify(image, drugName);
     }
@@ -111,11 +114,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patie
           quality: 90,
           allowEditing: false
         });
-        
+
         if (photo.dataUrl) {
           const response = await fetch(photo.dataUrl);
           const blob = await response.blob();
           const file = new File([blob], 'gallery-photo.jpg', { type: 'image/jpeg' });
+          releasePreview();
           setImage(file);
           setImagePreview(photo.dataUrl);
           setDrugName('');
@@ -128,7 +132,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patie
       fileInputRef.current?.click();
     }
   }
-  
+
   const triggerCamera = async () => {
     // Use native camera on mobile, fallback to file input on web
     if (Capacitor.isNativePlatform()) {
@@ -140,15 +144,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patie
           allowEditing: false,
           saveToGallery: false
         });
-        
+
         if (photo.dataUrl) {
           // Convert data URL to file
           const response = await fetch(photo.dataUrl);
           const blob = await response.blob();
           const file = new File([blob], 'camera-photo.jpg', { type: 'image/jpeg' });
+          releasePreview();
           setImage(file);
           setImagePreview(photo.dataUrl);
           setDrugName(''); // Clear text input when image is selected
+          setValidationError('');
         }
       } catch (error) {
         console.error('Camera error:', error);
@@ -161,7 +167,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patie
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8 animate-fade-in">
+    <div className="max-w-2xl mx-auto space-y-6 sm:space-y-8 animate-fade-in">
       <div className="text-center">
         <h1 className="text-4xl sm:text-5xl font-bold text-brand-dark dark:text-white mb-2">{t('homeTitle')}</h1>
         <p className="text-lg text-gray-600 dark:text-[#A1A1AA]">
@@ -169,95 +175,31 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patie
         </p>
       </div>
 
-      {/* Patient Info Card */}
-      <div data-tutorial="patient-details-card" className="bg-white dark:bg-[#1C1C1E] p-6 sm:p-8 rounded-2xl shadow-lg dark:shadow-none w-full transition-colors duration-300">
-        <div className="flex items-center mb-4">
-          <UserIcon className="w-8 h-8 text-brand-primary dark:text-[#90E0EF] me-3" />
-          <h2 className="text-2xl font-bold text-brand-dark dark:text-white">{t('patientDetails')}</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="patient-name" className="block text-sm font-medium text-gray-700 dark:text-[#A1A1AA] mb-1">{t('name')}</label>
-            <input 
-              type="text" 
-              id="patient-name"
-              value={patientInfo.name}
-              onChange={(e) => {
-                // Sanitize input - remove special characters and limit length
-                const sanitized = e.target.value.slice(0, 100);
-                onPatientInfoChange({ name: sanitized });
-              }}
-              placeholder={t('namePlaceholder')}
-              maxLength={100}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-[#3A4D54] rounded-lg bg-white dark:bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#A1A1AA] focus:ring-2 focus:ring-brand-accent focus:border-brand-primary transition shadow-sm" />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="patient-age" className="block text-sm font-medium text-gray-700 dark:text-[#A1A1AA] mb-1">{t('age')}</label>
-              <input 
-                type="number" 
-                id="patient-age"
-                min="0"
-                max="150"
-                value={patientInfo.age}
-                onChange={(e) => onPatientInfoChange({ age: e.target.value })}
-                placeholder={t('agePlaceholder')}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-[#3A4D54] rounded-lg bg-white dark:bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#A1A1AA] focus:ring-2 focus:ring-brand-accent focus:border-brand-primary transition shadow-sm" />
-            </div>
-            <div>
-              <label htmlFor="patient-sex" className="block text-sm font-medium text-gray-700 dark:text-[#A1A1AA] mb-1">{t('sex')}</label>
-              <select 
-                id="patient-sex"
-                value={patientInfo.sex}
-                onChange={(e) => onPatientInfoChange({ sex: e.target.value as PatientInfo['sex'] })}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-[#3A4D54] rounded-lg bg-white dark:bg-[#1C1C1E] text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-accent focus:border-brand-primary transition shadow-sm"
-              >
-                <option value="">{t('select')}</option>
-                <option value="Male">{t('male')}</option>
-                <option value="Female">{t('female')}</option>
-                <option value="Other">{t('other')}</option>
-                <option value="Prefer not to say">{t('preferNotToSay')}</option>
-              </select>
-            </div>
-          </div>
-          <div className="md:col-span-2">
-            <label htmlFor="patient-diagnosis" className="block text-sm font-medium text-gray-700 dark:text-[#A1A1AA] mb-1">{t('diagnosis')}</label>
-            <input 
-              type="text" 
-              id="patient-diagnosis"
-              value={patientInfo.diagnosis}
-              onChange={(e) => onPatientInfoChange({ diagnosis: e.target.value })}
-              placeholder={t('diagnosisPlaceholder')}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-[#3A4D54] rounded-lg bg-white dark:bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#A1A1AA] focus:ring-2 focus:ring-brand-accent focus:border-brand-primary transition shadow-sm" />
-          </div>
-        </div>
-      </div>
-
       {/* Identification Card */}
       <div data-tutorial="search-container" className="bg-white dark:bg-[#1C1C1E] p-6 sm:p-8 rounded-2xl shadow-lg dark:shadow-none w-full transition-colors duration-300">
         <h2 className="text-2xl font-bold text-brand-dark dark:text-white mb-6 text-center">{t('identifyYourMedication')}</h2>
-        
+
         {!isOnline && (
             <div className="bg-yellow-100 border-s-4 border-yellow-500 text-yellow-700 p-4 mb-6 rounded-md" role="alert">
                 <p className="font-bold">⚠️ {t('offline')}</p>
                 <p>{t('noInternetConnection')}</p>
             </div>
         )}
-        
+
         {validationError && (
             <div className="bg-orange-100 border-s-4 border-orange-500 text-orange-700 p-4 mb-6 rounded-md" role="alert">
                 <p className="font-bold">{t('validationError')}</p>
                 <p>{validationError}</p>
             </div>
         )}
-        
+
         {error && (
             <div className="bg-red-100 border-s-4 border-red-500 text-red-700 p-4 mb-6 rounded-md" role="alert">
                 <p className="font-bold">{t('error')}</p>
                 <p>{error}</p>
             </div>
         )}
-        
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <button onClick={triggerCamera} className="w-full group flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 dark:border-[#3A4D54] rounded-xl hover:border-brand-primary dark:hover:border-[#90E0EF] hover:bg-brand-accent dark:hover:bg-[#2C2C2E] hover:scale-[1.02] active:scale-95 transition-all duration-300">
                <CameraIcon className="w-12 h-12 text-gray-400 dark:text-[#90E0EF] group-hover:text-brand-primary dark:group-hover:text-white mb-2 transition-colors"/>
@@ -290,7 +232,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patie
         {imagePreview && (
           <div className="mt-6 text-center">
             <h3 className="font-semibold text-gray-700 dark:text-[#A1A1AA]">{t('imagePreview')}</h3>
-            <img src={imagePreview} alt="Medication preview" className="mt-2 rounded-lg max-h-48 mx-auto shadow-md" />
+            <div className="relative inline-block mt-2">
+              <img src={imagePreview} alt="Medication preview" className="rounded-lg max-h-48 shadow-md" />
+              {/* Without this, dropping a wrong photo meant typing something instead. */}
+              <button
+                type="button"
+                onClick={clearImage}
+                aria-label={t('removePhoto')}
+                title={t('removePhoto')}
+                className="absolute -top-2 -end-2 p-1.5 rounded-full bg-white dark:bg-[#2C2C2E] text-gray-600 dark:text-white shadow-md border border-gray-200 dark:border-[#3A4D54] hover:bg-gray-100 dark:hover:bg-[#3A4D54] active:scale-90 transition-all"
+              >
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
 
@@ -300,28 +254,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onIdentify, error, patie
             <div className="flex-grow border-t border-gray-300 dark:border-[#3A4D54]"></div>
         </div>
 
-        <div className="relative">
-            <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 dark:text-[#A1A1AA] absolute start-4 top-1/2 -translate-y-1/2"/>
-            <input
-                type="text"
-                value={drugName}
-                onChange={(e) => {
-                  setDrugName(e.target.value);
-                  setImage(null);
-                  setImagePreview(null);
-                }}
-                placeholder={t('typeDrugNamePlaceholder')}
-                className="w-full ps-12 pe-4 py-4 border border-gray-300 dark:border-[#3A4D54] rounded-full bg-white dark:bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#A1A1AA] focus:ring-2 focus:ring-brand-accent focus:border-brand-primary transition shadow-md"
-            />
-        </div>
-        
-        <button 
-            onClick={handleIdentifyClick}
-            disabled={!image && !drugName}
-            className="w-full mt-6 bg-gradient-to-r from-brand-primary to-brand-secondary dark:bg-none dark:bg-[#90E0EF] text-white dark:text-[#0D0D0D] font-bold py-4 px-4 rounded-full shadow-lg hover:shadow-xl hover:shadow-brand-primary/40 hover:-translate-y-1 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:opacity-50 disabled:hover:scale-100 disabled:hover:-translate-y-0 disabled:cursor-not-allowed transition-all duration-300"
+        {/* A form, so the phone keyboard offers a search key and Enter submits. */}
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            handleIdentifyClick();
+          }}
         >
-            {t('findMyMedication')}
-        </button>
+          <div className="relative">
+              <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 dark:text-[#A1A1AA] absolute start-4 top-1/2 -translate-y-1/2"/>
+              <input
+                  type="search"
+                  enterKeyHint="search"
+                  value={drugName}
+                  onChange={(e) => {
+                    setDrugName(e.target.value);
+                    if (image || imagePreview) clearImage();
+                  }}
+                  placeholder={t('typeDrugNamePlaceholder')}
+                  aria-label={t('typeDrugNamePlaceholder')}
+                  className="w-full ps-12 pe-4 py-4 border border-gray-300 dark:border-[#3A4D54] rounded-full bg-white dark:bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-[#A1A1AA] focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-brand-primary transition shadow-md [&::-webkit-search-cancel-button]:hidden"
+              />
+          </div>
+
+          <button
+              type="submit"
+              disabled={!image && !drugName}
+              className="w-full mt-6 bg-gradient-to-r from-brand-primary to-brand-secondary dark:bg-none dark:bg-[#90E0EF] text-white dark:text-[#0D0D0D] font-bold py-4 px-4 rounded-full shadow-lg hover:shadow-xl hover:shadow-brand-primary/40 hover:-translate-y-1 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:opacity-50 disabled:hover:scale-100 disabled:hover:-translate-y-0 disabled:cursor-not-allowed transition-all duration-300"
+          >
+              {t('findMyMedication')}
+          </button>
+        </form>
       </div>
     </div>
   );
