@@ -696,6 +696,20 @@ test('the professional view reuses the mapping the patient lookup built', async 
   assert.equal(geminiCalls, 2);
 });
 
+test('a professional lookup does not blank what a pointer already recorded', async () => {
+  await invoke({ contents: patientPrompt('Panadol') });
+  const before = await aliases().findOne({ _id: 'panadol' });
+  assert.equal(before.resolvedName, 'Paracetamol (Panadol)');
+
+  // The professional answer has no drug record of its own, so it must leave
+  // the name alone rather than overwriting it with nothing.
+  await invoke({ contents: professionalPrompt('Panadol') });
+
+  const after = await aliases().findOne({ _id: 'panadol' });
+  assert.equal(after.resolvedName, 'Paracetamol (Panadol)', 'the recorded name must survive');
+  assert.equal(after.canonicalKey, 'paracetamol');
+});
+
 test('a non-medication never gets an alias either', async () => {
   installGeminiStub({
     recognition: 'unknown',
