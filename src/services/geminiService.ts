@@ -1,5 +1,5 @@
 import type { DrugInfo, ProfessionalDrugInfo, Recognition } from '../types';
-import { NotAMedicationError } from '../types';
+import { NotAMedicationError, RateLimitedError } from '../types';
 import { API_BASE_URL } from '../config';
 import { translateDrugInfo } from './translationService';
 
@@ -77,14 +77,26 @@ const callBackend = async (prompt: string, language: 'en' | 'ar' = 'en', image?:
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+
+            // Being asked to slow down is not a fault. The server already wrote
+            // a message meant for a person, so pass it straight through rather
+            // than dressing it up as a service error.
+            if (response.status === 429) {
+                throw new RateLimitedError(
+                    errorData.error || 'Please wait a moment and try again.',
+                    Number(errorData.retryAfter) || 60,
+                );
+            }
+
             throw new Error(errorData.error || `Backend error: ${response.status}`);
         }
 
         const data = await response.json();
         return data.text;
     } catch (error: any) {
+        if (error instanceof RateLimitedError) throw error;
         console.error('[geminiService] Error:', error);
-        
+
         // Friendly error messages
         if (error.message.includes('fetch') || error.message.includes('network')) {
             throw new Error('Cannot connect to server. Please check your internet connection and try again.');

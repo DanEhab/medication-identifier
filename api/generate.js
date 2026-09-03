@@ -5,6 +5,7 @@
 const { connectToDatabase } = require('./db');
 const { applyCors } = require('./_cors');
 const { normalizeDrugInfo, isCacheableDrugInfo, DRUG_INFO_SCHEMA } = require('./_drugInfo');
+const { checkRequestLimit, checkDailyBudget, rejectRateLimited } = require('./_rateLimit');
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
 
@@ -133,6 +134,13 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'Server is not configured. Please try again later.' });
   }
 
+  // Stops one caller flooding the endpoint. Checked before any work is done.
+  const callerLimit = await checkRequestLimit(req);
+  if (!callerLimit.allowed) {
+    console.warn('[generate] caller rate limit hit');
+    return rejectRateLimited(res, callerLimit);
+  }
+
   const contentLength = Number(req.headers['content-length'] || 0);
   if (contentLength > MAX_PAYLOAD_BYTES) {
     return res.status(413).json({ error: 'Image is too large. Please use a smaller photo.' });
@@ -180,6 +188,15 @@ module.exports = async (req, res) => {
           console.error('[generate] cache read failed, continuing:', dbError.message);
         }
       }
+    }
+
+    // Past the cache, so this request is about to cost money. The daily cap is
+    // checked here rather than at the top, because cache hits are free and must
+    // not eat into the budget.
+    const budget = await checkDailyBudget();
+    if (!budget.allowed) {
+      console.warn('[generate] daily budget reached');
+      return rejectRateLimited(res, budget);
     }
 
     // Always generated in English; the client translates for display.

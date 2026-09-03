@@ -21,7 +21,15 @@ function vercelApiDevServer(env: Record<string, string>): Plugin {
     apply: 'serve',
     configureServer(server) {
       // Serverless handlers read config from process.env, same as on Vercel.
-      for (const key of ['GEMINI_API_KEY', 'MONGODB_URI', 'ALLOWED_ORIGINS']) {
+      for (const key of [
+        'GEMINI_API_KEY',
+        'MONGODB_URI',
+        'ALLOWED_ORIGINS',
+        'RATE_LIMIT_GENERATE_PER_MINUTE',
+        'RATE_LIMIT_TRANSLATE_PER_MINUTE',
+        'RATE_LIMIT_PER_DAY',
+        'RATE_LIMIT_SALT',
+      ]) {
         if (env[key]) process.env[key] = env[key];
       }
 
