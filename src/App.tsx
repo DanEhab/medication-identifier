@@ -193,7 +193,7 @@ const App: React.FC = () => {
 
     switch (view) {
       case 'results':
-        return drugInfo && <ResultsScreen drugInfo={drugInfo} patientInfo={patientInfo} originalDrugName={originalDrugName || drugInfo.drugName} onBack={handleBack} onShowProfessionalView={handleShowProfessionalView} />;
+        return drugInfo && <ResultsScreen drugInfo={drugInfo} patientInfo={patientInfo} originalDrugName={originalDrugName || drugInfo.drugName} onBack={handleBack} onShowProfessionalView={handleShowProfessionalView} onPatientInfoChange={handlePatientInfoChange} />;
       case 'professional':
         // Pass original name to professional view to ensure it fetches data using the non-translated name
         return drugInfo && originalDrugName && <ProfessionalScreen drugName={originalDrugName} onBackToPatientView={handleBackToPatientView} />;
@@ -209,12 +209,7 @@ const App: React.FC = () => {
         return <MyMedicationsScreen onBack={handleBack} onSelectMed={handleSelectMed}/>;
       case 'home':
       default:
-        return <HomeScreen 
-            onIdentify={handleIdentify} 
-            error={error}
-            patientInfo={patientInfo}
-            onPatientInfoChange={handlePatientInfoChange}
-        />;
+        return <HomeScreen onIdentify={handleIdentify} error={error} />;
     }
   };
 

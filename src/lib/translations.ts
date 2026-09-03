@@ -9,7 +9,7 @@ export const translations = {
 
     // Home Screen
     homeTitle: 'Medication Identifier',
-    homeSubtitle: 'Identify medications with your camera.',
+    homeSubtitle: 'Snap the pack or type the name. No sign-up, no details needed.',
     patientDetails: 'Patient Details',
     name: 'Name',
     namePlaceholder: 'e.g., Jane Doe',
@@ -21,9 +21,10 @@ export const translations = {
     female: 'Female',
     other: 'Other',
     preferNotToSay: 'Prefer not to say',
-    diagnosis: 'Diagnosis (Optional)',
+    diagnosis: 'Diagnosis',
     diagnosisPlaceholder: 'e.g., High Cholesterol',
     identifyYourMedication: 'Identify Your Medication',
+    removePhoto: 'Remove photo',
     error: 'Error',
     takeAPhoto: 'Take a Photo',
     useYourCamera: "Use your device's camera",
@@ -55,6 +56,20 @@ export const translations = {
     downloadWord: 'Download Word',
     printPdf: 'Print / Save as PDF',
     showingResultsFor: 'Showing results for',
+
+    // Patient details — asked for at export time, never before a search
+    addPatientDetails: 'Add patient details',
+    addPatientDetailsToReport: 'Add patient details to this report',
+    patientDetailsPurpose:
+      'Only used to put a name and age on the report you export. Everything stays on this phone — it is never uploaded and never leaves the device.',
+    optional: 'Optional',
+    reportFor: 'Report for',
+    editDetails: 'Edit',
+    addToReport: 'Save to report',
+    exportWithoutDetails: 'Export without details',
+    clearDetails: 'Clear all',
+    detailsRemembered: 'Saved on this phone for next time.',
+    close: 'Close',
     tabUse: 'Use',
     tabDosage: 'Dosage',
     tabFood: 'Food',
@@ -118,7 +133,7 @@ export const translations = {
 
     // Home Screen
     homeTitle: 'اعرف دوائك',
-    homeSubtitle: 'تعرف على الأدوية باستخدام الكاميرا.',
+    homeSubtitle: 'صوّر العلبة أو اكتب الاسم. بدون تسجيل وبدون أي بيانات.',
     patientDetails: 'بيانات المريض',
     name: 'الاسم',
     namePlaceholder: 'مثال: أحمد محمد',
@@ -130,9 +145,10 @@ export const translations = {
     female: 'أنثى',
     other: 'آخر',
     preferNotToSay: 'فضل عدم البوح',
-    diagnosis: 'التشخيص (اختياري)',
+    diagnosis: 'التشخيص',
     diagnosisPlaceholder: 'مثال: ارتفاع الكوليسترول',
     identifyYourMedication: 'تعرف على دوائك',
+    removePhoto: 'إزالة الصورة',
     error: 'خطأ',
     takeAPhoto: 'التقط صورة',
     useYourCamera: 'استخدم كاميرا جهازك',
@@ -164,6 +180,20 @@ export const translations = {
     downloadWord: 'تحميل ملف Word',
     printPdf: 'طباعة / حفظ PDF',
     showingResultsFor: 'إظهار النتائج لـ',
+
+    // بيانات المريض — تُطلب عند التصدير فقط، وليس قبل البحث
+    addPatientDetails: 'إضافة بيانات المريض',
+    addPatientDetailsToReport: 'أضف بيانات المريض إلى هذا التقرير',
+    patientDetailsPurpose:
+      'تُستخدم فقط لكتابة الاسم والعمر على التقرير الذي تُصدّره. كل البيانات تبقى على هذا الهاتف — لا تُرسل ولا تُغادر جهازك أبداً.',
+    optional: 'اختياري',
+    reportFor: 'تقرير لـ',
+    editDetails: 'تعديل',
+    addToReport: 'حفظ في التقرير',
+    exportWithoutDetails: 'تصدير بدون بيانات',
+    clearDetails: 'حذف الكل',
+    detailsRemembered: 'محفوظة على هذا الهاتف للمرة القادمة.',
+    close: 'إغلاق',
     tabUse: 'الاستخدام',
     tabDosage: 'الجرعة',
     tabFood: 'الغذاء',

@@ -39,14 +39,26 @@ export const buildReportSections = (drugInfo: DrugInfo, t: TranslateFn): ReportS
   { title: t('storage'), body: drugInfo.storage },
 ];
 
+/** Sex is stored in English, so it has to be translated for an Arabic report. */
+const SEX_KEYS: Record<Exclude<PatientInfo['sex'], ''>, keyof typeof translations.en> = {
+  Male: 'male',
+  Female: 'female',
+  Other: 'other',
+  'Prefer not to say': 'preferNotToSay',
+};
+
 const buildHeaderLines = (
   drugInfo: DrugInfo,
   patientInfo: PatientInfo,
   t: TranslateFn,
 ): string[] => {
   const lines = [`${t('drugName')}: ${drugInfo.drugName}`, `${t('strength')}: ${drugInfo.strength}`];
+  // Every detail the user chose to give is printed. The diagnosis used to be
+  // collected and then silently dropped from every export.
   if (patientInfo.name) lines.push(`${t('name')}: ${patientInfo.name}`);
   if (patientInfo.age) lines.push(`${t('age')}: ${patientInfo.age}`);
+  if (patientInfo.sex) lines.push(`${t('sex')}: ${t(SEX_KEYS[patientInfo.sex])}`);
+  if (patientInfo.diagnosis) lines.push(`${t('diagnosis')}: ${patientInfo.diagnosis}`);
   return lines;
 };
 
