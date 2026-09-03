@@ -39,6 +39,17 @@ export const translations = {
 
     // Results Screen
     backToSearch: 'Back to Search',
+
+    // Not-a-medication screen
+    notFoundTitle: "We couldn't find that medication",
+    notFoundBody: "We searched for “{query}” but couldn't match it to a medication.",
+    notAMedicationTitle: 'That’s not a medication',
+    checkSpelling: 'Check the spelling — medicine names are easy to mistype.',
+    tryBrandOrGeneric: 'Try the brand name, or the generic name printed on the box.',
+    photoIsMoreAccurate: 'A photo of the packaging is usually more accurate than typing.',
+    searchAgain: 'Search again',
+    scanThePack: 'Scan the pack instead',
+    importantSafety: 'Important safety information',
     saved: 'Saved',
     saveToList: 'Save to List',
     downloadWord: 'Download Word',
@@ -137,6 +148,17 @@ export const translations = {
 
     // Results Screen
     backToSearch: 'عودة للبحث',
+
+    // شاشة "ليس دواءً"
+    notFoundTitle: 'لم نتمكن من العثور على هذا الدواء',
+    notFoundBody: 'بحثنا عن «{query}» ولكن لم نتمكن من مطابقته مع أي دواء.',
+    notAMedicationTitle: 'هذا ليس دواءً',
+    checkSpelling: 'تحقق من الإملاء — أسماء الأدوية يسهل كتابتها بشكل خاطئ.',
+    tryBrandOrGeneric: 'جرّب الاسم التجاري أو الاسم العلمي المكتوب على العلبة.',
+    photoIsMoreAccurate: 'عادةً ما تكون صورة العبوة أدق من الكتابة.',
+    searchAgain: 'ابحث مرة أخرى',
+    scanThePack: 'صوّر العبوة بدلاً من ذلك',
+    importantSafety: 'معلومات سلامة مهمة',
     saved: 'محفوظ',
     saveToList: 'حفظ للقائمة',
     downloadWord: 'تحميل ملف Word',

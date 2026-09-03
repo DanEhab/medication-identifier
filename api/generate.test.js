@@ -374,3 +374,119 @@ test('a cached entry too broken to repair is refetched', async () => {
     .findOne({ normalizedName: 'broken' });
   assert.equal(repaired.data.drugName, 'Stub Drug', 'and rewritten correctly');
 });
+
+// ── Refusing to invent medications ───────────────────────────────────────────
+// The app used to render a full drug page for anything at all — "banana" came
+// back as a medication with invented side effects, and that answer was cached
+// and served to every later user.
+
+const notAMedication = (name, what, warning = '') => ({
+  recognition: 'unknown',
+  identifiedAs: what,
+  safetyNote: warning,
+  drugName: '',
+  strength: '',
+  commonUse: '',
+  dosageAdministration: '',
+  foodDrinkEffect: '',
+  missedDose: '',
+  commonSideEffects: [],
+  seriousSideEffects: [],
+  consultDoctorWhen: [],
+  storage: '',
+});
+
+test('a non-medication is never written to the shared cache', async () => {
+  stubGeminiWith(notAMedication('banana', 'A banana is a fruit, not a medicine.'));
+  const res = await invoke({ contents: patientPrompt('banana') });
+
+  assert.equal(res.statusCode, 200);
+  const stored = await client
+    .db(DB_NAME)
+    .collection('medications')
+    .findOne({ normalizedName: 'banana' });
+  assert.equal(stored, null, 'junk must not become durable shared data');
+});
+
+test('the classification survives to the client', async () => {
+  stubGeminiWith(notAMedication('banana', 'A banana is a fruit, not a medicine.'));
+  const res = await invoke({ contents: patientPrompt('banana') });
+  const payload = JSON.parse(res.payload.text);
+
+  assert.equal(payload.recognition, 'unknown', 'the UI needs this to refuse the drug page');
+  assert.equal(payload.identifiedAs, 'A banana is a fruit, not a medicine.');
+});
+
+test('no side effects are invented for something that is not a drug', async () => {
+  stubGeminiWith(notAMedication('asdfghjkl', 'This does not match any known medicine.'));
+  const res = await invoke({ contents: patientPrompt('asdfghjkl') });
+  const payload = JSON.parse(res.payload.text);
+
+  for (const field of ['commonSideEffects', 'seriousSideEffects', 'consultDoctorWhen']) {
+    assert.deepEqual(payload[field], [], `${field} must stay empty`);
+  }
+});
+
+test('a dangerous substance is surfaced with its warning but not cached as a drug', async () => {
+  stubGeminiWith({
+    ...notAMedication('cyanide', 'Cyanide is a chemical poison, not a medicine.'),
+    recognition: 'substance',
+    safetyNote: 'Cyanide is extremely toxic. If someone has swallowed it, call emergency services immediately.',
+  });
+
+  const res = await invoke({ contents: patientPrompt('cyanide') });
+  const payload = JSON.parse(res.payload.text);
+
+  assert.equal(payload.recognition, 'substance');
+  assert.match(payload.safetyNote, /emergency services/i, 'the safety warning must reach the user');
+
+  const stored = await client
+    .db(DB_NAME)
+    .collection('medications')
+    .findOne({ normalizedName: 'cyanide' });
+  assert.equal(stored, null, 'a poison is not a medication and must not be cached as one');
+});
+
+test('a model that claims "medication" but returns nothing is still rejected', async () => {
+  // Guards against the classification being trusted blindly.
+  stubGeminiWith({ ...notAMedication('ghost', ''), recognition: 'medication' });
+  await invoke({ contents: patientPrompt('ghost') });
+
+  const stored = await client
+    .db(DB_NAME)
+    .collection('medications')
+    .findOne({ normalizedName: 'ghost' });
+  assert.equal(stored, null, 'an empty record must not be cached even when labelled a medication');
+});
+
+test('a real medication is unaffected and still caches', async () => {
+  stubGeminiWith({ ...VALID_ANSWER, recognition: 'medication', identifiedAs: '', safetyNote: '' });
+
+  const first = await invoke({ contents: patientPrompt('Aspirin') });
+  assert.equal(first.payload.cached, false);
+  assert.equal(JSON.parse(first.payload.text).recognition, 'medication');
+
+  const second = await invoke({ contents: patientPrompt('Aspirin') });
+  assert.equal(second.payload.cached, true, 'genuine medicines must still cache normally');
+  assert.equal(geminiCalls, 1);
+});
+
+test('entries cached before classification existed are still served', async () => {
+  // Backwards compatibility: no recognition field, but a complete drug record.
+  const legacy = { ...VALID_ANSWER };
+  delete legacy.recognition;
+  await client.db(DB_NAME).collection('medications').insertOne({
+    normalizedName: 'legacydrug',
+    language: 'en',
+    data: legacy,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  geminiCalls = 0;
+  const res = await invoke({ contents: patientPrompt('LegacyDrug') });
+
+  assert.equal(res.payload.cached, true, 'existing good entries must not be thrown away');
+  assert.equal(geminiCalls, 0);
+  assert.equal(JSON.parse(res.payload.text).recognition, 'medication');
+});
