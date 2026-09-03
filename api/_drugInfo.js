@@ -23,6 +23,10 @@ const RECOGNITION = {
 
 const TEXT_FIELDS = [
   'drugName',
+  // The generic ingredient name. Not shown to the user — it is what the cache
+  // is keyed on, so every brand and spelling of the same medicine lands on one
+  // entry instead of one per spelling. See api/_cacheKey.js.
+  'canonicalName',
   'strength',
   'commonUse',
   'dosageAdministration',
@@ -36,6 +40,10 @@ const LIST_FIELDS = ['commonSideEffects', 'seriousSideEffects', 'consultDoctorWh
 /** Alternative key names the model has been observed to produce. */
 const ALIASES = {
   drugName: ['drug_name', 'name', 'medication_name', 'medicationName'],
+  canonicalName: [
+    'canonical_name', 'genericName', 'generic_name', 'activeIngredient',
+    'active_ingredient', 'inn', 'ingredient',
+  ],
   strength: ['dose', 'dosage_strength', 'strengths'],
   commonUse: ['common_use', 'common_uses', 'commonUses', 'what_it_is_for', 'uses', 'indication', 'indications'],
   dosageAdministration: ['dosage_administration', 'how_to_take_it', 'howToTake', 'dosage', 'administration'],
@@ -101,6 +109,15 @@ function normalizeRecognition(raw) {
 function looksLikeCompleteDrug(info) {
   if (!info || !info.drugName || !info.commonUse) return false;
   return LIST_FIELDS.filter((f) => (info[f] || []).length > 0).length >= 2;
+}
+
+/**
+ * Entries written before canonicalName existed have none. They still render
+ * fine, so they are served rather than discarded — but they cannot be grouped,
+ * and generate.js falls back to the display name for their key.
+ */
+function hasCanonicalName(info) {
+  return Boolean(info && info.canonicalName && info.canonicalName.trim());
 }
 
 /**
@@ -173,6 +190,17 @@ const DRUG_INFO_SCHEMA = {
       type: 'STRING',
       description: 'Name and strength, e.g. "Cetirizine 10mg". Empty string unless recognition is "medication".',
     },
+    canonicalName: {
+      type: 'STRING',
+      description:
+        'The generic (INN) active ingredient name, lowercase English, with NO brand name, ' +
+        'NO strength, NO dosage form and NO punctuation. This is used to group every brand ' +
+        'and spelling of the same medicine together, so it must be identical for every query ' +
+        'that resolves to this medicine. Examples: "Panadol 500mg" -> "paracetamol"; ' +
+        '"Lipitor" -> "atorvastatin"; "Brufen 400" -> "ibuprofen". For a combination product, ' +
+        'list the ingredients joined by "+" in alphabetical order, e.g. ' +
+        '"amoxicillin+clavulanic acid". Empty string unless recognition is "medication".',
+    },
     strength: { type: 'STRING', description: 'Available strengths and forms' },
     commonUse: { type: 'STRING', description: 'What the medicine treats, in plain language' },
     dosageAdministration: { type: 'STRING', description: 'How and when to take it' },
@@ -185,18 +213,19 @@ const DRUG_INFO_SCHEMA = {
   },
   required: [
     'recognition', 'identifiedAs', 'safetyNote',
-    'drugName', 'strength', 'commonUse', 'dosageAdministration', 'foodDrinkEffect',
+    'drugName', 'canonicalName', 'strength', 'commonUse', 'dosageAdministration', 'foodDrinkEffect',
     'missedDose', 'commonSideEffects', 'seriousSideEffects', 'consultDoctorWhen', 'storage',
   ],
   propertyOrdering: [
     'recognition', 'identifiedAs', 'safetyNote',
-    'drugName', 'strength', 'commonUse', 'dosageAdministration', 'foodDrinkEffect',
+    'drugName', 'canonicalName', 'strength', 'commonUse', 'dosageAdministration', 'foodDrinkEffect',
     'missedDose', 'commonSideEffects', 'seriousSideEffects', 'consultDoctorWhen', 'storage',
   ],
 };
 
 module.exports = {
   normalizeDrugInfo,
+  hasCanonicalName,
   isCacheableDrugInfo,
   looksLikeCompleteDrug,
   DRUG_INFO_SCHEMA,

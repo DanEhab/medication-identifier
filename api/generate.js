@@ -6,14 +6,11 @@ const { connectToDatabase } = require('./db');
 const { applyCors } = require('./_cors');
 const { normalizeDrugInfo, isCacheableDrugInfo, DRUG_INFO_SCHEMA } = require('./_drugInfo');
 const { checkRequestLimit, checkDailyBudget, rejectRateLimited } = require('./_rateLimit');
+const { findCachedAnswer, findByCanonicalKey, saveCachedAnswer, saveAlias } = require('./_cache');
+const { queryKeyFor } = require('./_cacheKey');
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
 
-// Cached drug information is reused for this long, then refetched so that
-// revised dosing, warnings or interactions eventually make it through.
-// Override with CACHE_MAX_AGE_DAYS.
-const CACHE_MAX_AGE_DAYS = Number(process.env.CACHE_MAX_AGE_DAYS || 180);
-const CACHE_MAX_AGE_MS = CACHE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
 const MAX_PAYLOAD_BYTES = 8 * 1024 * 1024; // Gemini caps inline image data well below this.
 
 /** Pulls a JSON object out of a response that may be wrapped in markdown fences. */
@@ -40,8 +37,6 @@ const extractDrugName = (prompt) => {
   const match = prompt.match(/(?:drug|medication):\s*([^.,\n]+)/i);
   return match ? match[1].trim() : null;
 };
-
-const normalizeDrugName = (drugName) => (drugName ? drugName.toLowerCase().trim() : null);
 
 /** Patient-facing and professional answers are cached separately. */
 const getCollectionName = (prompt) => {
@@ -93,6 +88,48 @@ const callGeminiAPI = async (formattedContents, config, schema) => {
   }
 
   return text;
+};
+
+/**
+ * Asks the model one question: what is this term's generic ingredient?
+ *
+ * An alias only helps once a spelling has been seen before, so without this a
+ * brand-new misspelling of an already-cached medicine would still pay for a
+ * full answer. This call returns a handful of tokens instead of the ~800 a full
+ * answer costs — roughly 2% of the price — and usually turns that miss into a
+ * hit on an entry that is already there.
+ */
+const RESOLVE_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    canonicalName: {
+      type: 'STRING',
+      description:
+        'The generic (INN) active ingredient for this search term, lowercase English, ' +
+        'no brand, no strength, no dosage form. "Panadol 500mg" -> "paracetamol". ' +
+        '"Lipitor" -> "atorvastatin". Combinations join ingredients with "+" in ' +
+        'alphabetical order. Empty string if this is not a medicine, or if you cannot ' +
+        'confidently resolve it — never guess.',
+    },
+  },
+  required: ['canonicalName'],
+};
+
+const resolveCanonicalKey = async (searchTerm) => {
+  try {
+    const text = await callGeminiAPI(
+      [{ parts: [{ text: `What is the generic active ingredient of the medicine: ${searchTerm}` }] }],
+      { temperature: 0, maxOutputTokens: 200 },
+      RESOLVE_SCHEMA,
+    );
+    const parsed = JSON.parse(extractJSON(text));
+    return queryKeyFor(parsed?.canonicalName) || null;
+  } catch (error) {
+    // Never fatal. A failed resolution simply means the full answer is
+    // generated, which is exactly what used to happen every time.
+    console.warn('[resolve] could not resolve a canonical name:', error.message);
+    return null;
+  }
 };
 
 /** Normalises the several shapes the client may send into Gemini's `contents`. */
@@ -153,37 +190,41 @@ module.exports = async (req, res) => {
     }
 
     const { formattedContents, promptText } = normalizeContents(contents);
-    const normalizedName = normalizeDrugName(extractDrugName(promptText));
+    const searchTerm = extractDrugName(promptText);
     const collectionName = getCollectionName(promptText);
 
     // Image identification results are never cached — only named drug lookups.
     const isCacheable =
-      Boolean(normalizedName) && !promptText.toLowerCase().includes('identify the drug name');
+      Boolean(searchTerm) && !promptText.toLowerCase().includes('identify the drug name');
+
+    // Set by the cache read so the write can reuse it. When a search term is a
+    // known typo, its canonical key is already known before Gemini is called,
+    // and a professional answer has no canonicalName of its own to derive one
+    // from — so this is how it gets grouped with the patient-facing entry.
+    let queryKey = null;
+    let knownCanonicalKey = null;
 
     if (isCacheable) {
       const connection = await connectToDatabase();
       if (connection) {
         try {
-          const fresherThan = new Date(Date.now() - CACHE_MAX_AGE_MS);
-          const cached = await connection.db.collection(collectionName).findOne({
-            normalizedName,
-            language: 'en',
-            // Entries written before expiry existed have no updatedAt, so they
-            // fail this check and get refreshed on next lookup.
-            updatedAt: { $gte: fresherThan },
-          });
+          const found = await findCachedAnswer(connection.db, collectionName, searchTerm);
+          queryKey = found.queryKey;
+          knownCanonicalKey = found.canonicalKey;
 
-          if (cached) {
-            const payload = servableCachedPayload(cached, collectionName);
+          if (found.doc) {
+            const payload = servableCachedPayload(found.doc, collectionName);
             if (payload) {
-              console.log(`[cache HIT] ${normalizedName} in ${collectionName}`);
+              console.log(
+                `[cache HIT via ${found.via}] "${queryKey}" -> "${found.canonicalKey}" in ${collectionName}`,
+              );
               return res.status(200).json({ text: payload, cached: true });
             }
             // Stored before validation existed, or the model had returned keys
             // the UI cannot read. Treat as a miss so it is refetched and fixed.
-            console.log(`[cache STALE-SHAPE] ${normalizedName} in ${collectionName}`);
+            console.log(`[cache STALE-SHAPE] "${found.canonicalKey}" in ${collectionName}`);
           }
-          console.log(`[cache MISS] ${normalizedName} in ${collectionName}`);
+          console.log(`[cache MISS] "${queryKey}" in ${collectionName}`);
         } catch (dbError) {
           console.error('[generate] cache read failed, continuing:', dbError.message);
         }
@@ -197,6 +238,37 @@ module.exports = async (req, res) => {
     if (!budget.allowed) {
       console.warn('[generate] daily budget reached');
       return rejectRateLimited(res, budget);
+    }
+
+    // A spelling nobody has used before has no alias yet, so the lookup above
+    // missed even when the medicine itself is already cached. Resolving the
+    // ingredient first costs a few tokens and usually finds it.
+    if (isCacheable && queryKey && !knownCanonicalKey) {
+      const connection = await connectToDatabase();
+      if (connection) {
+        try {
+          const resolvedKey = await resolveCanonicalKey(searchTerm);
+          if (resolvedKey && resolvedKey !== queryKey) {
+            knownCanonicalKey = resolvedKey;
+            const doc = await findByCanonicalKey(connection.db, collectionName, resolvedKey);
+            if (doc) {
+              const payload = servableCachedPayload(doc, collectionName);
+              if (payload) {
+                // Remember the spelling so the next person typing it skips
+                // even this step.
+                await saveAlias(connection.db, queryKey, resolvedKey, doc.data?.drugName);
+                console.log(
+                  `[cache HIT via resolve] "${queryKey}" -> "${resolvedKey}" in ${collectionName}`,
+                );
+                return res.status(200).json({ text: payload, cached: true });
+              }
+            }
+            console.log(`[resolve] "${queryKey}" -> "${resolvedKey}" (not cached yet)`);
+          }
+        } catch (resolveError) {
+          console.warn('[generate] resolution step failed, continuing:', resolveError.message);
+        }
+      }
     }
 
     // Always generated in English; the client translates for display.
@@ -213,16 +285,18 @@ module.exports = async (req, res) => {
     // byte-identical text.
     let text = rawText;
     let cacheableData = null;
+    let drugInfo = null;
 
     if (collectionName === 'medications') {
       try {
         const normalized = normalizeDrugInfo(JSON.parse(extractJSON(rawText)));
         if (normalized) {
           text = JSON.stringify(normalized);
+          drugInfo = normalized;
           if (isCacheableDrugInfo(normalized)) {
             cacheableData = normalized;
           } else {
-            console.warn(`[shape] ${normalizedName} — incomplete answer, serving but not caching`);
+            console.warn(`[shape] "${queryKey}" — incomplete answer, serving but not caching`);
           }
         }
       } catch (parseError) {
@@ -240,20 +314,20 @@ module.exports = async (req, res) => {
       const connection = await connectToDatabase();
       if (connection) {
         try {
-          await connection.db.collection(collectionName).updateOne(
-            { normalizedName, language: 'en' },
-            {
-              $set: {
-                normalizedName,
-                language: 'en',
-                data: cacheableData,
-                updatedAt: new Date(),
-              },
-              $setOnInsert: { createdAt: new Date() },
-            },
-            { upsert: true },
+          // A patient answer keys itself from the ingredient the model named.
+          // A professional answer has no such field, so it reuses the key the
+          // alias table already holds and otherwise falls back to the term.
+          const savedUnder = await saveCachedAnswer(connection.db, collectionName, {
+            queryKey,
+            canonicalKey: knownCanonicalKey,
+            data: cacheableData,
+            drugInfo,
+          });
+          console.log(
+            savedUnder && savedUnder !== queryKey
+              ? `[cache SAVE] "${queryKey}" -> "${savedUnder}" in ${collectionName}`
+              : `[cache SAVE] "${savedUnder}" in ${collectionName}`,
           );
-          console.log(`[cache SAVE] ${normalizedName} to ${collectionName}`);
         } catch (dbError) {
           console.error('[generate] cache write failed, continuing:', dbError.message);
         }
