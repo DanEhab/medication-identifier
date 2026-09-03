@@ -13,7 +13,7 @@ import { NotFoundScreen } from './components/NotFoundScreen';
 import { findSavedMedication, isStale, saveMedication } from './lib/medicationStorage';
 import { useLocalization } from './context/LanguageContext';
 import { CoachMarks, shouldShowPhase1, shouldShowPhase2, resetPhase1Tutorial, resetPhase2Tutorial } from './components/CoachMarks';
-import { Capacitor } from '@capacitor/core';
+import { IntroSplash } from './components/IntroSplash';
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('home');
@@ -29,9 +29,7 @@ const App: React.FC = () => {
     diagnosis: '',
   });
   const [showIntro, setShowIntro] = useState<boolean>(true);
-  const [isFadingOut, setIsFadingOut] = useState<boolean>(false);
   const { language, t } = useLocalization();
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   // ── Tutorial state ────────────────────────────────────────
   // Phase 1: triggered on absolute first launch (home screen tour)
@@ -267,52 +265,9 @@ const App: React.FC = () => {
     }
   };
 
-  const handleVideoEnd = () => {
-    setIsFadingOut(true);
-    setTimeout(() => {
-      setShowIntro(false);
-    }, 500);
-  };
-
   return (
     <>
-      {showIntro && (
-        <div
-          className={`fixed inset-0 z-[9999] overflow-hidden bg-white transition-opacity duration-500 ${
-            isFadingOut ? 'opacity-0' : 'opacity-100'
-          }`}
-        >
-          {/*
-            The clip is portrait (428x944). object-cover used to crop it badly on
-            tablets and in landscape, so it now uses object-contain and the space
-            around it is filled with a blurred copy of the same frame. The clip
-            starts white and ends teal, so a fixed backdrop colour would clash
-            partway through; mirroring the video keeps it matched throughout.
-          */}
-          <video
-            src="/intro.mp4"
-            autoPlay
-            muted
-            playsInline
-            preload="auto"
-            aria-hidden="true"
-            tabIndex={-1}
-            className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl"
-          />
-          <video
-            ref={videoRef}
-            src="/intro.mp4"
-            autoPlay
-            muted={!Capacitor.isNativePlatform()}
-            playsInline
-            preload="auto"
-            poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
-            onEnded={handleVideoEnd}
-            className="relative h-full w-full object-contain"
-            style={{ transform: 'translateZ(0)' }}
-          />
-        </div>
-      )}
+      {showIntro && <IntroSplash onDone={() => setShowIntro(false)} />}
       {!showIntro && (
         <div className={`min-h-screen flex flex-col bg-gray-50 dark:bg-[#0D0D0D] transition-colors duration-300 ${language === 'ar' ? 'font-arabic' : 'font-sans'}`}>
       <Header onHomeClick={handleLogoClick} onShowMyMedications={handleShowMyMedications} onReplayTutorial={handleReplayTutorial} />

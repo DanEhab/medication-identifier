@@ -36,3 +36,32 @@
     display: none !important;
   }
 }
+
+/*
+  The WebView draws its own play/pause overlay on a <video> that has not
+  started. The intro clip is decoration, not a player, so those controls are
+  suppressed — the splash is dismissed by tapping anywhere or by the Skip
+  button, both of which are ours.
+
+  These are deliberately separate rules rather than one grouped selector: a
+  selector list is discarded in its entirety if any single selector in it is
+  unrecognised, so grouping them meant that one pseudo-element this engine does
+  not know about silently disabled all of the others.
+*/
+video::-webkit-media-controls {
+  display: none !important;
+  -webkit-appearance: none !important;
+}
+video::-webkit-media-controls-enclosure {
+  display: none !important;
+}
+video::-webkit-media-controls-panel {
+  display: none !important;
+}
+video::-webkit-media-controls-start-playback-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+}
+video::-webkit-media-controls-overlay-play-button {
+  display: none !important;
+}
