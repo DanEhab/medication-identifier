@@ -10,6 +10,7 @@ import { NotAMedicationError } from './types';
 import { identifyDrugFromImage, fetchDrugInformation } from './services/geminiService';
 import { MyMedicationsScreen } from './components/MyMedicationsScreen';
 import { NotFoundScreen } from './components/NotFoundScreen';
+import { findSavedMedication, isStale, saveMedication } from './lib/medicationStorage';
 import { useLocalization } from './context/LanguageContext';
 import { CoachMarks, shouldShowPhase1, shouldShowPhase2, resetPhase1Tutorial, resetPhase2Tutorial } from './components/CoachMarks';
 import { Capacitor } from '@capacitor/core';
@@ -192,7 +193,7 @@ const App: React.FC = () => {
 
     switch (view) {
       case 'results':
-        return drugInfo && <ResultsScreen drugInfo={drugInfo} patientInfo={patientInfo} onBack={handleBack} onShowProfessionalView={handleShowProfessionalView} />;
+        return drugInfo && <ResultsScreen drugInfo={drugInfo} patientInfo={patientInfo} originalDrugName={originalDrugName || drugInfo.drugName} onBack={handleBack} onShowProfessionalView={handleShowProfessionalView} />;
       case 'professional':
         // Pass original name to professional view to ensure it fetches data using the non-translated name
         return drugInfo && originalDrugName && <ProfessionalScreen drugName={originalDrugName} onBackToPatientView={handleBackToPatientView} />;
@@ -218,8 +219,35 @@ const App: React.FC = () => {
   };
 
   const handleSelectMed = async (name: string) => {
-    setIsLoading(true);
     setError(null);
+    setNotFound(null);
+
+    // A saved medicine is already on the device in full. Show it immediately —
+    // no spinner, no network, no tokens — which is what makes the list usable
+    // with no signal at all.
+    const saved = findSavedMedication(name, language);
+    if (saved) {
+      setOriginalDrugName(saved.originalName || name);
+      setDrugInfo(saved.drugInfo);
+      setView('results');
+      setIsLoading(false);
+
+      // Past the refresh window, quietly bring it up to date in the background.
+      // The user keeps reading the stored copy either way.
+      if (isStale(saved)) {
+        fetchDrugInformation(saved.originalName || name, language)
+          .then((fresh) => {
+            saveMedication(fresh, language, saved.originalName || name);
+            setDrugInfo((current) => (current === saved.drugInfo ? fresh : current));
+          })
+          .catch(() => {
+            /* Offline or unreachable — the stored copy stays on screen. */
+          });
+      }
+      return;
+    }
+
+    setIsLoading(true);
     setDrugInfo(null);
     try {
         setOriginalDrugName(name);

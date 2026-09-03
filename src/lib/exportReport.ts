@@ -1,9 +1,16 @@
 import { Capacitor } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { PdfExport } from './pdfExport';
 
-const safeFileName = (drugName: string, extension: string) =>
-  `${drugName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.${extension}`;
+const safeFileName = (drugName: string, extension: string) => {
+  // Filenames have to survive every filesystem and share target, so anything
+  // outside [A-Za-z0-9] is stripped. An Arabic name reduces to nothing but
+  // underscores, so fall back to something readable rather than "____.pdf".
+  const stem = drugName.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+  const base = /[a-zA-Z0-9]/.test(stem) ? stem : 'medication-report';
+  return `${base}_${Date.now()}.${extension}`;
+};
 
 const wasCancelled = (error: unknown) =>
   error instanceof Error && /cancel/i.test(error.message);
@@ -56,35 +63,56 @@ const downloadInBrowser = (content: string, fileName: string, mimeType: string) 
 };
 
 export const exportAsPdf = async (drugName: string, html: string, plainText: string) => {
+  // In a browser the print dialog already offers "Save as PDF".
   if (!Capacitor.isNativePlatform()) {
     window.print();
     return;
   }
 
-  await shareNativeFile(
-    html,
-    safeFileName(drugName, 'html'),
-    {
-      title: 'Open in Chrome to save as PDF',
-      text: 'Choose Chrome, then use the menu → Print → Save as PDF.',
-      dialogTitle: 'Select a browser',
-    },
-    plainText,
-  );
+  try {
+    // A genuine PDF, rendered by Android's print pipeline so Arabic shapes
+    // correctly. Previously this wrote an .html file and asked the user to
+    // open Chrome and print it themselves.
+    const { uri } = await PdfExport.exportPdf({
+      html,
+      fileName: safeFileName(drugName, '').replace(/\.$/, ''),
+    });
+
+    await Share.share({
+      title: `${drugName} report`,
+      dialogTitle: 'Share report',
+      files: [uri],
+    });
+  } catch (error) {
+    if (wasCancelled(error)) return;
+    console.error('[exportReport] PDF export failed, sharing text instead', error);
+
+    // If rendering fails there is still something useful to hand over.
+    try {
+      await Share.share({
+        title: `${drugName} report`,
+        text: plainText,
+        dialogTitle: 'Share report',
+      });
+    } catch (fallbackError) {
+      if (!wasCancelled(fallbackError)) throw fallbackError;
+    }
+  }
 };
 
 export const exportAsDocument = async (drugName: string, html: string, plainText: string) => {
+  // Word opens HTML saved as .doc natively, so this is a real Word document.
   if (!Capacitor.isNativePlatform()) {
     downloadInBrowser(html, `${drugName}_Report.doc`, 'application/msword');
     return;
   }
 
   await shareNativeFile(
-    plainText,
-    safeFileName(drugName, 'txt'),
+    html,
+    safeFileName(drugName, 'doc'),
     {
       title: 'Open with a document app',
-      text: 'Choose Google Docs or Microsoft Word to edit and save.',
+      text: 'Choose Google Docs or Microsoft Word to open and edit.',
       dialogTitle: 'Select a document app',
     },
     plainText,

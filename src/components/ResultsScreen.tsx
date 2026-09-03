@@ -10,6 +10,8 @@ import { isMedicationSaved, toggleMedication } from '../lib/medicationStorage';
 interface ResultsScreenProps {
   drugInfo: DrugInfo;
   patientInfo: PatientInfo;
+  /** The term originally searched, kept so a saved copy can be refreshed later. */
+  originalDrugName: string;
   onBack: () => void;
   onShowProfessionalView: () => void;
 }
@@ -40,7 +42,7 @@ const InfoCard: React.FC<{ title: string; icon: React.ReactNode; children: React
 );
 
 
-export const ResultsScreen: React.FC<ResultsScreenProps> = ({ drugInfo, patientInfo, onBack, onShowProfessionalView }) => {
+export const ResultsScreen: React.FC<ResultsScreenProps> = ({ drugInfo, patientInfo, originalDrugName, onBack, onShowProfessionalView }) => {
   const [activeTab, setActiveTab] = useState<Tab>('use');
   const [isSaved, setIsSaved] = useState(false);
   const { t, language } = useLocalization();
@@ -50,7 +52,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({ drugInfo, patientI
   }, [drugInfo.drugName]);
 
   const handleSaveMedication = () => {
-    setIsSaved(toggleMedication(drugInfo));
+    setIsSaved(toggleMedication(drugInfo, language, originalDrugName));
   };
 
   const handlePrint = () =>
