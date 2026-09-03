@@ -1,3 +1,5 @@
+export type Language = 'en' | 'ar';
+
 /** What the service decided the query actually is. */
 export type Recognition = 'medication' | 'substance' | 'unknown';
 

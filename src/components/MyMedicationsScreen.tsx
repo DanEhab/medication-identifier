@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import type { DrugInfo } from '../types';
 import { ChevronLeftIcon, TrashIcon, PillIcon } from './Icons';
 import { ThemeToggle } from './ThemeToggle';
 import { useLocalization } from '../context/LanguageContext';
+import type { SavedMedication } from '../lib/medicationStorage';
 import { getSavedMedications, removeMedication } from '../lib/medicationStorage';
 
 interface MyMedicationsScreenProps {
@@ -11,7 +11,7 @@ interface MyMedicationsScreenProps {
 }
 
 export const MyMedicationsScreen: React.FC<MyMedicationsScreenProps> = ({ onBack, onSelectMed }) => {
-  const [medications, setMedications] = useState<DrugInfo[]>([]);
+  const [medications, setMedications] = useState<SavedMedication[]>([]);
   const { t } = useLocalization();
 
   useEffect(() => {
@@ -37,7 +37,7 @@ export const MyMedicationsScreen: React.FC<MyMedicationsScreenProps> = ({ onBack
         
         {medications.length > 0 ? (
           <ul className="space-y-4">
-            {medications.map((med) => (
+            {medications.map(({ drugInfo: med }) => (
               <li key={med.drugName} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#2C2C2E] rounded-lg hover:bg-gray-100 dark:hover:bg-[#3A4D54] transition-colors">
                 <div className="flex items-center cursor-pointer flex-grow" onClick={() => onSelectMed(med.drugName)}>
                   <PillIcon className="w-6 h-6 text-brand-secondary dark:text-[#90E0EF] me-4" />
