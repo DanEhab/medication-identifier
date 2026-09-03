@@ -1,4 +1,5 @@
-import type { DrugInfo, ProfessionalDrugInfo } from '../types';
+import type { DrugInfo, ProfessionalDrugInfo, Recognition } from '../types';
+import { NotAMedicationError } from '../types';
 import { API_BASE_URL } from '../config';
 import { translateDrugInfo } from './translationService';
 
@@ -111,6 +112,12 @@ const FIELD_ALIASES: Record<keyof DrugInfo, string[]> = {
     storage: ['storage_instructions', 'how_to_store'],
 };
 
+const META_ALIASES: Record<string, string[]> = {
+    recognition: ['recognised', 'recognized', 'result_type', 'classification', 'category'],
+    identifiedAs: ['identified_as', 'what_it_is', 'explanation'],
+    safetyNote: ['safety_note', 'safety_warning', 'warning'],
+};
+
 const LIST_FIELDS: (keyof DrugInfo)[] = ['commonSideEffects', 'seriousSideEffects', 'consultDoctorWhen'];
 
 const flatten = (value: any): string[] => {
@@ -152,6 +159,27 @@ const normalizeDrugInfo = (raw: any): DrugInfo => {
     return out;
 };
 
+const readMeta = (source: Record<string, any>, field: keyof typeof META_ALIASES): string => {
+    const wanted = [field as string, ...META_ALIASES[field]].map(loose);
+    for (const [key, value] of Object.entries(source)) {
+        if (wanted.includes(loose(key))) return typeof value === 'string' ? value : flatten(value).join(' ');
+    }
+    return '';
+};
+
+const readRecognition = (source: Record<string, any>, info: DrugInfo): Recognition => {
+    const stated = loose(readMeta(source, 'recognition'));
+    if (stated.includes('medication') || stated.includes('medicine') || stated.includes('drug')) return 'medication';
+    if (stated.includes('substance') || stated.includes('chemical') || stated.includes('poison')) return 'substance';
+    if (stated) return 'unknown';
+
+    // No classification in the payload (an entry cached before this existed):
+    // fall back to whether it reads like a complete drug record.
+    const lists: (keyof DrugInfo)[] = ['commonSideEffects', 'seriousSideEffects', 'consultDoctorWhen'];
+    const filled = lists.filter((f) => (info[f] as string[]).length > 0).length;
+    return info.drugName && info.commonUse && filled >= 2 ? 'medication' : 'unknown';
+};
+
 export const identifyDrugFromImage = async (base64Image: string, mimeType: string): Promise<string> => {
     const prompt = 'Identify the drug name, strength, and form from this image. Provide only the name and strength, for example: "Amoxicillin 500mg". If you cannot identify it, say "Unknown".';
     
@@ -173,7 +201,24 @@ export const fetchDrugInformation = async (drugName: string, language: 'en' | 'a
     try {
         // Extract JSON from response
         const jsonText = extractJSON(text);
-        let drugInfo: DrugInfo = normalizeDrugInfo(JSON.parse(jsonText));
+        const parsed = JSON.parse(jsonText);
+        let drugInfo: DrugInfo = normalizeDrugInfo(parsed);
+
+        // Refuse to render a drug page for something that is not a drug. The
+        // model used to happily describe a banana as a medication, complete
+        // with invented side effects.
+        const recognition = readRecognition(
+            parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {},
+            drugInfo,
+        );
+        if (recognition !== 'medication') {
+            throw new NotAMedicationError({
+                recognition,
+                query: drugName,
+                identifiedAs: readMeta(parsed || {}, 'identifiedAs'),
+                safetyNote: readMeta(parsed || {}, 'safetyNote'),
+            });
+        }
 
         // If Arabic requested, translate using Google Translate
         if (language === 'ar') {
@@ -182,6 +227,7 @@ export const fetchDrugInformation = async (drugName: string, language: 'en' | 'a
         
         return drugInfo;
     } catch (e) {
+        if (e instanceof NotAMedicationError) throw e;
         console.error("Failed to parse JSON response:", e);
         console.error("Raw response:", text);
         throw new Error("Failed to retrieve structured drug information. The model may have returned an invalid format.");

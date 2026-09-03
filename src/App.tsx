@@ -5,9 +5,11 @@ import { ProfessionalScreen } from './components/ProfessionalScreen';
 import { Spinner } from './components/Spinner';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
-import type { DrugInfo, View, PatientInfo } from './types';
+import type { DrugInfo, View, PatientInfo, NotAMedicationResult } from './types';
+import { NotAMedicationError } from './types';
 import { identifyDrugFromImage, fetchDrugInformation } from './services/geminiService';
 import { MyMedicationsScreen } from './components/MyMedicationsScreen';
+import { NotFoundScreen } from './components/NotFoundScreen';
 import { useLocalization } from './context/LanguageContext';
 import { CoachMarks, shouldShowPhase1, shouldShowPhase2, resetPhase1Tutorial, resetPhase2Tutorial } from './components/CoachMarks';
 import { Capacitor } from '@capacitor/core';
@@ -16,6 +18,7 @@ const App: React.FC = () => {
   const [view, setView] = useState<View>('home');
   const [drugInfo, setDrugInfo] = useState<DrugInfo | null>(null);
   const [originalDrugName, setOriginalDrugName] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState<NotAMedicationResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [patientInfo, setPatientInfo] = useState<PatientInfo>({
@@ -68,7 +71,8 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     setDrugInfo(null);
-    
+    setNotFound(null);
+
     try {
       let identifiedName = drugName;
       if (image) {
@@ -97,8 +101,20 @@ const App: React.FC = () => {
       setDrugInfo(info);
       setView('results');
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
-      setView('home');
+      // Not every failure is an error. "That isn't a medication" deserves a
+      // proper explanation, not a red banner on the home screen.
+      if (err instanceof NotAMedicationError) {
+        setNotFound({
+          recognition: err.recognition,
+          query: err.query,
+          identifiedAs: err.identifiedAs,
+          safetyNote: err.safetyNote,
+        });
+        setView('notFound');
+      } else {
+        setError(err.message || 'An unexpected error occurred.');
+        setView('home');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -143,6 +159,7 @@ const App: React.FC = () => {
     setDrugInfo(null);
     setError(null);
     setOriginalDrugName(null);
+    setNotFound(null);
   };
 
   const handleLogoClick = () => {
@@ -179,6 +196,14 @@ const App: React.FC = () => {
       case 'professional':
         // Pass original name to professional view to ensure it fetches data using the non-translated name
         return drugInfo && originalDrugName && <ProfessionalScreen drugName={originalDrugName} onBackToPatientView={handleBackToPatientView} />;
+      case 'notFound':
+        return notFound && (
+          <NotFoundScreen
+            result={notFound}
+            onSearchAgain={handleBack}
+            onScan={handleBack}
+          />
+        );
       case 'myMedications':
         return <MyMedicationsScreen onBack={handleBack} onSelectMed={handleSelectMed}/>;
       case 'home':
@@ -202,8 +227,18 @@ const App: React.FC = () => {
         setDrugInfo(info);
         setView('results');
     } catch (err: any) {
-        setError(err.message || 'An unexpected error occurred.');
-        setView('home');
+        if (err instanceof NotAMedicationError) {
+          setNotFound({
+            recognition: err.recognition,
+            query: err.query,
+            identifiedAs: err.identifiedAs,
+            safetyNote: err.safetyNote,
+          });
+          setView('notFound');
+        } else {
+          setError(err.message || 'An unexpected error occurred.');
+          setView('home');
+        }
     } finally {
         setIsLoading(false);
     }
