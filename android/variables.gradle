@@ -1,4 +1,9 @@
 ext {
+    // Every Capacitor plugin reads rootProject.ext.kotlin_version and otherwise
+    // falls back to its own default. Without this, @capacitor/camera compiled
+    // its Kotlin 2.2 sources with whatever the root classpath happened to be,
+    // and failed with "Cannot access 'CAMERA': it is private in 'Companion'".
+    kotlin_version = '2.2.20'
     minSdkVersion = 24
     compileSdkVersion = 36
     targetSdkVersion = 36
