@@ -95,12 +95,16 @@ async function saveAlias(db, queryKey, canonicalKey, resolvedName) {
   if (!queryKey || !canonicalKey || queryKey === canonicalKey) return;
   await ensureIndexes(db);
   const now = new Date();
+
+  // resolvedName is only ever written when there is one. A professional lookup
+  // has no drug record of its own, and used to blank the name a patient lookup
+  // had already recorded on the same pointer.
+  const fields = { canonicalKey, updatedAt: now };
+  if (resolvedName) fields.resolvedName = resolvedName;
+
   await db.collection(ALIAS_COLLECTION).updateOne(
     { _id: queryKey },
-    {
-      $set: { canonicalKey, resolvedName: resolvedName || null, updatedAt: now },
-      $setOnInsert: { createdAt: now },
-    },
+    { $set: fields, $setOnInsert: { createdAt: now } },
     { upsert: true },
   );
 }
@@ -136,14 +140,7 @@ async function saveCachedAnswer(db, collectionName, { queryKey, canonicalKey, da
   // Only a term that differs from the key needs an alias. "paracetamol" finds
   // its own entry directly, so storing a self-alias would be dead weight.
   if (queryKey && queryKey !== key) {
-    await db.collection(ALIAS_COLLECTION).updateOne(
-      { _id: queryKey },
-      {
-        $set: { canonicalKey: key, resolvedName: drugInfo?.drugName || null, updatedAt: now },
-        $setOnInsert: { createdAt: now },
-      },
-      { upsert: true },
-    );
+    await saveAlias(db, queryKey, key, drugInfo?.drugName);
   }
 
   return key;
