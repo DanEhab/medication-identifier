@@ -16,6 +16,7 @@ let mongod;
 let client;
 let handler;
 let geminiCalls = 0;
+let resolveCalls = 0;
 
 /** Minimal stand-in for the req/res pair Vercel provides. */
 function invoke(body) {
@@ -44,6 +45,7 @@ function invoke(body) {
 /** A complete, well-formed answer — the shape the UI actually needs. */
 const VALID_ANSWER = {
   drugName: 'Stub Drug',
+  canonicalName: 'stub drug',
   strength: '1mg',
   commonUse: 'Used for testing.',
   dosageAdministration: 'One tablet daily.',
@@ -55,16 +57,84 @@ const VALID_ANSWER = {
   storage: 'Store below 25C.',
 };
 
-/** Counts Gemini calls without making any. */
-function installGeminiStub(payload = VALID_ANSWER) {
-  global.fetch = async () => {
-    geminiCalls++;
-    return {
+/**
+ * What a real model does: several brand names and misspellings of one medicine
+ * all resolve to the same generic ingredient. This is the behaviour the cache
+ * key now depends on, so the stub has to reproduce it.
+ */
+const PHARMACY = {
+  panadol: { drugName: 'Paracetamol (Panadol)', canonicalName: 'paracetamol' },
+  panadooll: { drugName: 'Paracetamol (Panadol)', canonicalName: 'paracetamol' },
+  panadl: { drugName: 'Paracetamol (Panadol)', canonicalName: 'paracetamol' },
+  paracetamol: { drugName: 'Paracetamol', canonicalName: 'paracetamol' },
+  acetaminophen: { drugName: 'Paracetamol (Acetaminophen)', canonicalName: 'paracetamol' },
+  بنادول: { drugName: 'Paracetamol (Panadol)', canonicalName: 'paracetamol' },
+  brufen: { drugName: 'Ibuprofen (Brufen)', canonicalName: 'ibuprofen' },
+  ibuprofin: { drugName: 'Ibuprofen', canonicalName: 'ibuprofen' },
+  ibuprofen: { drugName: 'Ibuprofen', canonicalName: 'ibuprofen' },
+};
+
+/** Pulls the requested drug out of the prompt, the way the handler does. */
+function requestedDrug(body) {
+  const text =
+    typeof body?.contents === 'string'
+      ? body.contents
+      : JSON.stringify(body?.contents ?? '');
+  const match = text.match(/(?:drug|medication):\s*([^.,"]+)/i);
+  return match ? match[1].trim() : '';
+}
+
+/**
+ * The default answer describes whatever was asked for, resolving known brands
+ * and typos to their ingredient. Anything unknown echoes the search term, so a
+ * test that looks up "Aspirin" gets an entry keyed "aspirin".
+ */
+function defaultAnswerFor(drug) {
+  const key = String(drug).toLowerCase().replace(/[^a-z0-9؀-ۿ]+/g, ' ').trim();
+  const known = PHARMACY[key] || PHARMACY[key.split(' ')[0]];
+  if (known) return { ...VALID_ANSWER, ...known, recognition: 'medication' };
+  return {
+    ...VALID_ANSWER,
+    drugName: drug || 'Stub Drug',
+    canonicalName: key || 'stub drug',
+    recognition: 'medication',
+  };
+}
+
+/**
+ * Counts Gemini calls without making any. Pass a fixed payload to force one
+ * answer, or nothing to get an answer about the drug that was requested.
+ */
+function installGeminiStub(payload) {
+  global.fetch = async (_url, init) => {
+    let body = null;
+    try {
+      body = JSON.parse(init.body);
+    } catch {
+      body = null;
+    }
+    const promptText = JSON.stringify(body?.contents ?? '');
+
+    const reply = (value) => ({
       ok: true,
       json: async () => ({
-        candidates: [{ content: { parts: [{ text: JSON.stringify(payload) }] } }],
+        candidates: [{ content: { parts: [{ text: JSON.stringify(value) }] } }],
       }),
-    };
+    });
+
+    // The cheap resolution step. Counted separately because the whole point of
+    // it is that it costs a fraction of a full answer, so a test that says
+    // "one Gemini call" must not be satisfied by a resolution.
+    if (promptText.includes('generic active ingredient')) {
+      resolveCalls++;
+      const drug = requestedDrug({ contents: promptText.replace(/.*medicine:/, 'drug:') });
+      return reply({ canonicalName: defaultAnswerFor(drug).canonicalName });
+    }
+
+    geminiCalls++;
+    const answer =
+      payload !== undefined ? payload : defaultAnswerFor(requestedDrug({ contents: promptText }));
+    return reply(answer);
   };
 }
 
@@ -96,10 +166,12 @@ test.after(async () => {
 
 test.beforeEach(async () => {
   geminiCalls = 0;
+  resolveCalls = 0;
   installGeminiStub();
   const db = client.db(DB_NAME);
   await db.collection('medications').deleteMany({});
   await db.collection('professional_medications').deleteMany({});
+  await db.collection('medication_aliases').deleteMany({});
   // Every test shares one caller identity, so without this the suite
   // rate-limits itself partway through.
   await db.collection('rate_limits').deleteMany({});
@@ -112,7 +184,7 @@ test('first lookup calls Gemini and stores the result', async () => {
   assert.equal(res.payload.cached, false);
   assert.equal(geminiCalls, 1);
 
-  const stored = await client.db(DB_NAME).collection('medications').findOne({ normalizedName: 'aspirin' });
+  const stored = await client.db(DB_NAME).collection('medications').findOne({ _id: 'aspirin' });
   assert.ok(stored, 'expected the result to be cached');
   assert.ok(stored.updatedAt instanceof Date);
 });
@@ -144,7 +216,7 @@ test('entries older than the max age are refetched and refreshed', async () => {
   await client
     .db(DB_NAME)
     .collection('medications')
-    .updateOne({ normalizedName: 'aspirin' }, { $set: { updatedAt: sevenMonthsAgo } });
+    .updateOne({ _id: 'aspirin' }, { $set: { updatedAt: sevenMonthsAgo } });
 
   const res = await invoke({ contents: patientPrompt('Aspirin') });
 
@@ -154,10 +226,10 @@ test('entries older than the max age are refetched and refreshed', async () => {
   const refreshed = await client
     .db(DB_NAME)
     .collection('medications')
-    .findOne({ normalizedName: 'aspirin' });
+    .findOne({ _id: 'aspirin' });
   assert.ok(refreshed.updatedAt > sevenMonthsAgo, 'entry should be refreshed in place');
 
-  const count = await client.db(DB_NAME).collection('medications').countDocuments({ normalizedName: 'aspirin' });
+  const count = await client.db(DB_NAME).collection('medications').countDocuments({ _id: 'aspirin' });
   assert.equal(count, 1, 'refresh must update, not duplicate');
 });
 
@@ -168,7 +240,7 @@ test('entries just inside the max age are still served from cache', async () => 
   await client
     .db(DB_NAME)
     .collection('medications')
-    .updateOne({ normalizedName: 'aspirin' }, { $set: { updatedAt: fiveMonthsAgo } });
+    .updateOne({ _id: 'aspirin' }, { $set: { updatedAt: fiveMonthsAgo } });
 
   const res = await invoke({ contents: patientPrompt('Aspirin') });
 
@@ -181,7 +253,7 @@ test('legacy entries with no updatedAt are treated as stale', async () => {
   await client
     .db(DB_NAME)
     .collection('medications')
-    .updateOne({ normalizedName: 'aspirin' }, { $unset: { updatedAt: '' } });
+    .updateOne({ _id: 'aspirin' }, { $unset: { updatedAt: '' } });
 
   const res = await invoke({ contents: patientPrompt('Aspirin') });
 
@@ -199,7 +271,7 @@ test('patient and professional views are cached separately', async () => {
   const prof = await client
     .db(DB_NAME)
     .collection('professional_medications')
-    .findOne({ normalizedName: 'aspirin' });
+    .findOne({ _id: 'aspirin' });
   assert.ok(prof, 'professional result should be stored in its own collection');
 
   // And the professional view then caches on its own.
@@ -256,9 +328,10 @@ test('a stored entry has the fields the cache relies on', async () => {
   const doc = await client
     .db(DB_NAME)
     .collection('medications')
-    .findOne({ normalizedName: 'paracetamol 500mg' });
+    .findOne({ _id: 'paracetamol' });
 
-  assert.ok(doc, 'entry should exist under its normalised name');
+  assert.ok(doc, 'entry should exist under its canonical key, with the strength stripped');
+  assert.equal(doc.canonicalKey, 'paracetamol');
   assert.equal(doc.language, 'en', 'cache is stored in English and translated on the client');
   assert.ok(doc.data, 'parsed drug data should be stored');
   assert.ok(doc.createdAt instanceof Date, 'createdAt is needed to audit age');
@@ -270,7 +343,7 @@ test('different drugs are stored as separate entries', async () => {
   await invoke({ contents: patientPrompt('Ibuprofen') });
 
   const names = (await client.db(DB_NAME).collection('medications').find({}).toArray())
-    .map((d) => d.normalizedName)
+    .map((d) => d._id)
     .sort();
 
   assert.deepEqual(names, ['aspirin', 'ibuprofen']);
@@ -329,7 +402,7 @@ test('a response too malformed to render is not cached', async () => {
   const stored = await client
     .db(DB_NAME)
     .collection('medications')
-    .findOne({ normalizedName: 'garbage' });
+    .findOne({ _id: 'garbage' });
   assert.equal(stored, null, 'a broken answer must not poison the cache');
 });
 
@@ -337,7 +410,8 @@ test('an entry already cached in the wrong shape is repaired when served', async
   // The exact shape found in production: the model had used snake_case, the UI
   // read undefined for every field and crashed to a blank screen.
   await client.db(DB_NAME).collection('medications').insertOne({
-    normalizedName: 'cetirizine',
+    _id: 'cetirizine',
+    canonicalKey: 'cetirizine',
     language: 'en',
     data: snakeCaseAnswer,
     createdAt: new Date(),
@@ -358,7 +432,8 @@ test('an entry already cached in the wrong shape is repaired when served', async
 
 test('a cached entry too broken to repair is refetched', async () => {
   await client.db(DB_NAME).collection('medications').insertOne({
-    normalizedName: 'broken',
+    _id: 'broken',
+    canonicalKey: 'broken',
     language: 'en',
     data: { totally: 'unrelated' },
     createdAt: new Date(),
@@ -374,8 +449,8 @@ test('a cached entry too broken to repair is refetched', async () => {
   const repaired = await client
     .db(DB_NAME)
     .collection('medications')
-    .findOne({ normalizedName: 'broken' });
-  assert.equal(repaired.data.drugName, 'Stub Drug', 'and rewritten correctly');
+    .findOne({ _id: 'broken' });
+  assert.equal(repaired.data.drugName, 'Broken', 'and rewritten correctly');
 });
 
 // ── Refusing to invent medications ───────────────────────────────────────────
@@ -407,7 +482,7 @@ test('a non-medication is never written to the shared cache', async () => {
   const stored = await client
     .db(DB_NAME)
     .collection('medications')
-    .findOne({ normalizedName: 'banana' });
+    .findOne({ _id: 'banana' });
   assert.equal(stored, null, 'junk must not become durable shared data');
 });
 
@@ -446,7 +521,7 @@ test('a dangerous substance is surfaced with its warning but not cached as a dru
   const stored = await client
     .db(DB_NAME)
     .collection('medications')
-    .findOne({ normalizedName: 'cyanide' });
+    .findOne({ _id: 'cyanide' });
   assert.equal(stored, null, 'a poison is not a medication and must not be cached as one');
 });
 
@@ -458,7 +533,7 @@ test('a model that claims "medication" but returns nothing is still rejected', a
   const stored = await client
     .db(DB_NAME)
     .collection('medications')
-    .findOne({ normalizedName: 'ghost' });
+    .findOne({ _id: 'ghost' });
   assert.equal(stored, null, 'an empty record must not be cached even when labelled a medication');
 });
 
@@ -479,7 +554,8 @@ test('entries cached before classification existed are still served', async () =
   const legacy = { ...VALID_ANSWER };
   delete legacy.recognition;
   await client.db(DB_NAME).collection('medications').insertOne({
-    normalizedName: 'legacydrug',
+    _id: 'legacydrug',
+    canonicalKey: 'legacydrug',
     language: 'en',
     data: legacy,
     createdAt: new Date(),
@@ -492,6 +568,177 @@ test('entries cached before classification existed are still served', async () =
   assert.equal(res.payload.cached, true, 'existing good entries must not be thrown away');
   assert.equal(geminiCalls, 0);
   assert.equal(JSON.parse(res.payload.text).recognition, 'medication');
+});
+
+// ── One medicine, one entry ──────────────────────────────────────────────────
+// The cache used to be keyed on whatever was typed, so "panadooll", "Panadol
+// 500mg" and "paracetamol" were three rows, three Gemini calls and three
+// differently worded answers for one drug. Answers are now keyed on the generic
+// ingredient the model resolves the query to, and search terms point at them.
+
+const aliases = () => client.db(DB_NAME).collection('medication_aliases');
+const medications = () => client.db(DB_NAME).collection('medications');
+
+test('every spelling of one medicine lands on a single entry', async () => {
+  await invoke({ contents: patientPrompt('Panadol') });
+  await invoke({ contents: patientPrompt('panadooll') });
+  await invoke({ contents: patientPrompt('PANADOL 500mg tablets') });
+  await invoke({ contents: patientPrompt('Acetaminophen') });
+
+  const docs = await medications().find({}).toArray();
+  assert.equal(docs.length, 1, 'four spellings must not create four rows');
+  assert.equal(docs[0]._id, 'paracetamol', 'stored under the ingredient, not the typo');
+
+  assert.equal(geminiCalls, 1, 'the full answer is generated exactly once');
+});
+
+test('a spelling nobody has used before costs a resolution, not a full answer', async () => {
+  await invoke({ contents: patientPrompt('Panadol') });
+  assert.equal(geminiCalls, 1);
+
+  // Nothing in the database has ever seen this spelling.
+  const res = await invoke({ contents: patientPrompt('panadooll') });
+
+  assert.equal(res.payload.cached, true, 'served from the existing entry');
+  assert.equal(geminiCalls, 1, 'no second answer was generated');
+  assert.ok(resolveCalls >= 1, 'it was resolved with the cheap call instead');
+});
+
+test('the second person to use a spelling costs nothing at all', async () => {
+  await invoke({ contents: patientPrompt('Panadol') });
+  await invoke({ contents: patientPrompt('panadooll') });
+  const callsSoFar = geminiCalls + resolveCalls;
+
+  const res = await invoke({ contents: patientPrompt('panadooll') });
+
+  assert.equal(res.payload.cached, true);
+  assert.equal(geminiCalls + resolveCalls, callsSoFar, 'the alias made it free');
+});
+
+test('typing the ingredient itself needs no alias and no resolution', async () => {
+  await invoke({ contents: patientPrompt('Paracetamol') });
+  const before = geminiCalls + resolveCalls;
+
+  const res = await invoke({ contents: patientPrompt('paracetamol') });
+
+  assert.equal(res.payload.cached, true);
+  assert.equal(geminiCalls + resolveCalls, before, 'a direct hit costs nothing');
+  assert.equal(await aliases().countDocuments({}), 0, 'a self-alias would be dead weight');
+});
+
+test('search terms are recorded as pointers, not as copies', async () => {
+  await invoke({ contents: patientPrompt('Panadol') });
+  await invoke({ contents: patientPrompt('panadooll') });
+
+  const rows = await aliases().find({}).sort({ _id: 1 }).toArray();
+  assert.deepEqual(rows.map((r) => r._id), ['panadol', 'panadooll']);
+  assert.ok(rows.every((r) => r.canonicalKey === 'paracetamol'), 'both point at the ingredient');
+  assert.ok(rows.every((r) => r.resolvedName), 'each records what it resolved to, for auditing');
+
+  // The point of a pointer is that it is small. A real answer runs to about
+  // 2.5 KB; the stub's is much shorter, so this asserts a fixed budget rather
+  // than a ratio against it.
+  const answerBytes = JSON.stringify(await medications().findOne({ _id: 'paracetamol' })).length;
+  const aliasBytes = JSON.stringify(rows[0]).length;
+  assert.ok(aliasBytes < 300, `an alias should be a couple of hundred bytes, got ${aliasBytes}B`);
+  assert.ok(aliasBytes < answerBytes, 'and always smaller than the answer it points at');
+});
+
+test('strength and dosage form never create a separate entry', async () => {
+  await invoke({ contents: patientPrompt('Ibuprofen 400mg') });
+  const res = await invoke({ contents: patientPrompt('ibuprofen 200 mg tablets') });
+
+  assert.equal(res.payload.cached, true, 'the answer already lists every strength');
+  assert.equal(geminiCalls, 1);
+  assert.equal(await medications().countDocuments({}), 1);
+});
+
+test('an Arabic brand name reaches the same entry as the English one', async () => {
+  await invoke({ contents: patientPrompt('Panadol') });
+  const res = await invoke({ contents: patientPrompt('بنادول') });
+
+  assert.equal(res.payload.cached, true, 'Arabic speakers hit the shared cache too');
+  assert.equal(geminiCalls, 1);
+  const alias = await aliases().findOne({ _id: 'بنادول' });
+  assert.equal(alias.canonicalKey, 'paracetamol');
+});
+
+test('everyone gets byte-identical text however they spelled it', async () => {
+  const a = await invoke({ contents: patientPrompt('Panadol') });
+  const b = await invoke({ contents: patientPrompt('panadooll') });
+  const c = await invoke({ contents: patientPrompt('Acetaminophen') });
+
+  assert.equal(a.payload.text, b.payload.text);
+  assert.equal(b.payload.text, c.payload.text);
+});
+
+test('different medicines still get their own entries', async () => {
+  await invoke({ contents: patientPrompt('Panadol') });
+  await invoke({ contents: patientPrompt('Brufen') });
+
+  const ids = (await medications().find({}).toArray()).map((d) => d._id).sort();
+  assert.deepEqual(ids, ['ibuprofen', 'paracetamol'], 'merging must not go too far');
+  assert.equal(geminiCalls, 2);
+});
+
+test('the professional view reuses the mapping the patient lookup built', async () => {
+  await invoke({ contents: patientPrompt('Panadol') });
+  await invoke({ contents: professionalPrompt('Panadol') });
+  assert.equal(geminiCalls, 2, 'the two audiences have separate answers');
+
+  const prof = await client.db(DB_NAME).collection('professional_medications').find({}).toArray();
+  assert.equal(prof.length, 1);
+  assert.equal(prof[0]._id, 'paracetamol', 'keyed by ingredient, via the shared alias table');
+
+  // A different spelling now hits the professional entry as well.
+  const res = await invoke({ contents: professionalPrompt('panadooll') });
+  assert.equal(res.payload.cached, true);
+  assert.equal(geminiCalls, 2);
+});
+
+test('a non-medication never gets an alias either', async () => {
+  installGeminiStub({
+    recognition: 'unknown',
+    identifiedAs: 'A banana is a fruit, not a medicine.',
+    safetyNote: '',
+    drugName: '',
+  });
+
+  await invoke({ contents: patientPrompt('Banana') });
+
+  assert.equal(await medications().countDocuments({}), 0);
+  assert.equal(await aliases().countDocuments({}), 0, 'junk must not pollute the alias table');
+});
+
+test('a failed resolution falls back to generating the answer', async () => {
+  const working = global.fetch;
+  global.fetch = async (url, init) => {
+    const promptText = String(init.body || '');
+    if (promptText.includes('generic active ingredient')) throw new Error('resolver unavailable');
+    return working(url, init);
+  };
+
+  const res = await invoke({ contents: patientPrompt('Panadol') });
+
+  assert.equal(res.statusCode, 200, 'the user still gets their answer');
+  assert.equal(res.payload.cached, false);
+  assert.equal(geminiCalls, 1);
+  assert.equal(await medications().countDocuments({}), 1, 'and it is still cached correctly');
+});
+
+test('expiry still works through an alias', async () => {
+  await invoke({ contents: patientPrompt('Panadol') });
+  await invoke({ contents: patientPrompt('panadooll') });
+  assert.equal(geminiCalls, 1);
+
+  const sevenMonthsAgo = new Date(Date.now() - 210 * 24 * 60 * 60 * 1000);
+  await medications().updateOne({ _id: 'paracetamol' }, { $set: { updatedAt: sevenMonthsAgo } });
+
+  const res = await invoke({ contents: patientPrompt('panadooll') });
+
+  assert.equal(res.payload.cached, false, 'a stale entry is refreshed even when reached by alias');
+  assert.equal(geminiCalls, 2);
+  assert.equal(await medications().countDocuments({}), 1, 'and refreshed in place, not duplicated');
 });
 
 // ── Rate limiting ────────────────────────────────────────────────────────────
