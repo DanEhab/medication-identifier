@@ -3,18 +3,22 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 /**
  * The opening clip.
  *
- * Three things were wrong with the previous version, all of them visible on a
- * real device:
+ * The thing that made this look broken was never the video itself. Between the
+ * element getting its metadata and the decoder producing a first frame there is
+ * close to a second on a mid-range device, and for that whole window Android's
+ * WebView paints its own grey placeholder with a large play button over it.
+ * Suppressing the media-control pseudo-elements does not touch it, because it
+ * is the element's default poster rendering rather than a control.
  *
- * 1. It started unmuted. Autoplay with sound is refused unless the platform
- *    explicitly allows it, so the clip never started and the WebView drew its
- *    own play button over a transparent poster. It now starts muted — which no
- *    policy blocks — and unmutes the instant playback is under way, falling
- *    back to silent playback rather than to a play button.
- * 2. Nothing dismissed it except the video's own `ended` event. A decode
- *    failure, a missing file or a paused tab left the user staring at a splash
- *    screen with no way into the app.
- * 3. There was no way to skip it, on every single launch.
+ * So the video is simply kept invisible until it genuinely has a frame to show.
+ * Underneath is the same flat white the clip itself opens on, which makes the
+ * hand-off invisible: white screen, then the animation fades in.
+ *
+ * There is only one video element now. The previous version played a second,
+ * blurred copy behind the first to fill the letterbox bars — which meant
+ * decoding a 428x944 clip twice at once on the slowest moment in the app's
+ * life. The clip's own background is flat white from beginning to end, so a
+ * white backdrop matches it exactly and costs nothing.
  */
 
 interface IntroSplashProps {
@@ -36,8 +40,8 @@ const prefersReducedMotion = () => {
 
 export const IntroSplash: React.FC<IntroSplashProps> = ({ onDone }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const backdropRef = useRef<HTMLVideoElement>(null);
   const [isFadingOut, setIsFadingOut] = useState(false);
+  const [hasFrame, setHasFrame] = useState(false);
   const [showSkip, setShowSkip] = useState(false);
   const finished = useRef(false);
 
@@ -45,7 +49,7 @@ export const IntroSplash: React.FC<IntroSplashProps> = ({ onDone }) => {
     if (finished.current) return;
     finished.current = true;
     setIsFadingOut(true);
-    window.setTimeout(onDone, 400);
+    window.setTimeout(onDone, 350);
   }, [onDone]);
 
   // Anyone who has asked the system to reduce motion should not be shown a
@@ -68,33 +72,35 @@ export const IntroSplash: React.FC<IntroSplashProps> = ({ onDone }) => {
 
   /**
    * Starts playback muted, because that is the one thing every autoplay policy
-   * permits, then tries to bring the sound up. If the platform refuses — it
-   * signals this by pausing the element — the clip carries on silently, which
-   * is a far better outcome than a play button the user has to find.
+   * permits, then brings the sound up. Capacitor allows unmuted playback in the
+   * WebView, so on the device the audio does come through; in a plain browser
+   * the unmute is refused and the clip carries on silently, which is a far
+   * better outcome than a play button the user has to find.
    */
   const startPlayback = useCallback(async () => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || finished.current) return;
 
     video.muted = true;
     try {
       await video.play();
     } catch {
-      // Even muted playback was refused. The ceiling above will clear the
-      // splash; there is nothing useful to do here.
-      return;
+      return; // The ceiling above will clear the splash.
     }
 
     try {
       video.muted = false;
       video.volume = 1;
-      // Some engines respond to an unpermitted unmute by pausing rather than
-      // by throwing, so the result has to be checked rather than assumed.
-      await Promise.resolve();
-      if (video.paused) {
-        video.muted = true;
-        await video.play().catch(() => {});
-      }
+      // An unpermitted unmute is signalled by pausing rather than by throwing,
+      // and the pause lands a task later — so this checks on the next turn of
+      // the event loop rather than in a microtask, which was too early to see
+      // it.
+      window.setTimeout(() => {
+        if (!finished.current && video.paused) {
+          video.muted = true;
+          void video.play().catch(() => {});
+        }
+      }, 0);
     } catch {
       video.muted = true;
     }
@@ -106,27 +112,24 @@ export const IntroSplash: React.FC<IntroSplashProps> = ({ onDone }) => {
     // Prefer the clip's real length over the blanket ceiling, so the app opens
     // promptly even if `ended` is never delivered.
     if (Number.isFinite(video.duration) && video.duration > 0) {
-      window.setTimeout(finish, video.duration * 1000 + 1200);
+      window.setTimeout(finish, video.duration * 1000 + 1000);
     }
     void startPlayback();
   }, [finish, startPlayback]);
 
-  // Keep the blurred backdrop on the same frame as the clip it is blurring.
-  const handleTimeUpdate = useCallback(() => {
+  /** Revealed only once there is a decoded frame behind it. */
+  const revealWhenReady = useCallback(() => {
     const video = videoRef.current;
-    const backdrop = backdropRef.current;
-    if (!video || !backdrop) return;
-    if (Math.abs(backdrop.currentTime - video.currentTime) > 0.25) {
-      backdrop.currentTime = video.currentTime;
-    }
+    if (video && video.readyState >= 2) setHasFrame(true);
   }, []);
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] overflow-hidden bg-black transition-opacity duration-400 ${
+      className={`fixed inset-0 z-[9999] overflow-hidden transition-opacity duration-300 ${
         isFadingOut ? 'opacity-0' : 'opacity-100'
       }`}
-      style={{ height: '100dvh' }}
+      /* The flat white the clip itself opens on, so the reveal is seamless. */
+      style={{ height: '100dvh', backgroundColor: '#FFFFFF' }}
       role="button"
       tabIndex={0}
       aria-label="Skip introduction"
@@ -135,25 +138,6 @@ export const IntroSplash: React.FC<IntroSplashProps> = ({ onDone }) => {
         if (event.key === 'Enter' || event.key === ' ' || event.key === 'Escape') finish();
       }}
     >
-      {/*
-        The clip is portrait (428x944). On a wider or shorter screen
-        object-contain leaves bars, so the space around it is filled with a
-        blurred, scaled copy of the same frame. The clip starts white and ends
-        teal, so a fixed backdrop colour would clash partway through; mirroring
-        the video keeps it matched the whole way.
-      */}
-      <video
-        ref={backdropRef}
-        src="/intro.mp4"
-        autoPlay
-        muted
-        playsInline
-        preload="auto"
-        aria-hidden="true"
-        tabIndex={-1}
-        className="pointer-events-none absolute inset-0 h-full w-full scale-125 object-cover blur-2xl"
-      />
-
       <video
         ref={videoRef}
         src="/intro.mp4"
@@ -164,11 +148,18 @@ export const IntroSplash: React.FC<IntroSplashProps> = ({ onDone }) => {
         disablePictureInPicture
         controls={false}
         onLoadedMetadata={handleLoadedMetadata}
-        onCanPlay={() => void startPlayback()}
-        onTimeUpdate={handleTimeUpdate}
+        onLoadedData={revealWhenReady}
+        onCanPlay={() => {
+          revealWhenReady();
+          void startPlayback();
+        }}
+        onPlaying={revealWhenReady}
+        onTimeUpdate={revealWhenReady}
         onEnded={finish}
         onError={finish}
-        className="pointer-events-none relative h-full w-full object-contain"
+        className={`pointer-events-none relative h-full w-full object-contain transition-opacity duration-200 ${
+          hasFrame ? 'opacity-100' : 'opacity-0'
+        }`}
         style={{ transform: 'translateZ(0)' }}
       />
 
@@ -178,7 +169,7 @@ export const IntroSplash: React.FC<IntroSplashProps> = ({ onDone }) => {
           event.stopPropagation();
           finish();
         }}
-        className={`absolute end-4 rounded-full bg-black/45 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition-opacity duration-300 ${
+        className={`absolute end-4 rounded-full bg-black/35 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition-opacity duration-300 ${
           showSkip ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
         style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
