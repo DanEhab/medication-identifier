@@ -535,6 +535,18 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
   const [toastOnly, setToastOnly] = useState(false); // true = only toast remains, app fully usable
   const [toastVisible, setToastVisible] = useState(false);
 
+  // Recorded the moment the tour is shown, not when it is finished. Leaving the
+  // screen part-way through used to leave the flag unwritten, so the tour came
+  // back on every later visit — most visibly the results tour, which returned
+  // after every single search.
+  useEffect(() => {
+    try {
+      localStorage.setItem(phase === 1 ? STORAGE_KEY_P1 : STORAGE_KEY_P2, 'true');
+    } catch (_) {
+      // Private mode or storage disabled — the tour simply shows again.
+    }
+  }, [phase]);
+
   // Lock body scroll ONLY while tutorial overlay is active (visible=true)
   useEffect(() => {
     if (!visible) return; // already unlocked when tutorial steps end

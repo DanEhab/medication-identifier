@@ -45,6 +45,15 @@ const App: React.FC = () => {
       return () => clearTimeout(tid);
     }
   }, [view]);
+
+  // A tour that has already been shown is finished with, even if the user
+  // navigated away half-way through it. These flags used to stay set, so the
+  // component remounted — and the tour replayed — every time its screen came
+  // back. That is what made the results tour appear after every search.
+  useEffect(() => {
+    if (view !== 'home') setShowPhase1(false);
+    if (view !== 'results') setShowPhase2(false);
+  }, [view]);
   // ─────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -169,6 +178,9 @@ const App: React.FC = () => {
     resetPhase1Tutorial();
     resetPhase2Tutorial();
     setShowPhase2(false);
+    // The first tour points at home-screen controls, so replaying it from
+    // anywhere else has to go there first.
+    setView('home');
     setShowPhase1(true);
   };
 
@@ -268,8 +280,17 @@ const App: React.FC = () => {
   return (
     <>
       {showIntro && <IntroSplash onDone={() => setShowIntro(false)} />}
-      {!showIntro && (
-        <div className={`min-h-screen flex flex-col bg-gray-50 dark:bg-[#0D0D0D] transition-colors duration-300 ${language === 'ar' ? 'font-arabic' : 'font-sans'}`}>
+      {/*
+        The app is built underneath the splash rather than after it. It used to
+        wait for the clip to finish before mounting at all, so the first render
+        — fonts, layout, saved medicines — happened at the moment the splash
+        cleared and the user watched it assemble. The splash covers it while it
+        gets ready, so it is already there when the clip ends.
+      */}
+      {(
+        <div
+          aria-hidden={showIntro}
+          className={`min-h-screen flex flex-col bg-gray-50 dark:bg-[#0D0D0D] transition-colors duration-300 ${language === 'ar' ? 'font-arabic' : 'font-sans'}`}>
       <Header onHomeClick={handleLogoClick} onShowMyMedications={handleShowMyMedications} onReplayTutorial={handleReplayTutorial} />
       <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
         {renderContent()}
@@ -277,13 +298,13 @@ const App: React.FC = () => {
       <Footer />
 
       {/* ── Onboarding Coach Marks ── */}
-      {showPhase1 && view === 'home' && !isLoading && (
+      {showPhase1 && !showIntro && view === 'home' && !isLoading && (
         <CoachMarks
           phase={1}
           onPhaseComplete={() => setShowPhase1(false)}
         />
       )}
-      {showPhase2 && view === 'results' && !isLoading && (
+      {showPhase2 && !showIntro && view === 'results' && !isLoading && (
         <CoachMarks
           phase={2}
           onPhaseComplete={() => setShowPhase2(false)}
