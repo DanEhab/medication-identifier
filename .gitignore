@@ -70,3 +70,7 @@ SETUP_GUIDE.md
 project_context.md
 /SECURITY.md
 api/# Code Citations.md
+
+# The design canvas export. The folder is kept as the redesign's source of
+# truth; the zip beside it is the same content and is not worth versioning.
+Mobile app logo and UI redesign.zip
