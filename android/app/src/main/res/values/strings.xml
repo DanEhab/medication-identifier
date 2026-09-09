@@ -1,8 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
     <!-- Basic App Info -->
-    <string name="app_name">Medication Identifier</string>
-    <string name="title_activity_main">Medication Identifier</string>
+    <string name="app_name">Medication Identifier - دوائك</string>
+    <string name="title_activity_main">Medication Identifier - دوائك</string>
     <string name="package_name">com.danehab.medicationidentifier</string>
     <string name="custom_url_scheme">com.danehab.medicationidentifier</string>
     
@@ -29,7 +29,7 @@
     <string name="terms_url">https://medication-identifier-gamma.vercel.app/terms-of-service.html</string>
     
     <!-- Version Info -->
-    <string name="version_name">1.2.1</string>
+    <string name="version_name">1.3.0</string>
     <string name="version_changelog">
         Version 1.0.0 - Initial Release\n
         • AI-powered medication identification\n
