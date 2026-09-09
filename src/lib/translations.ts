@@ -38,6 +38,15 @@ export const translations = {
     cameraDenied: 'The camera is blocked.',
     cameraUnavailable: 'No camera available.',
     useGalleryOrType: 'Use a photo you already have, or type the name.',
+
+    // First run — the disclaimer, accepted once
+    appNameArabic: 'دوائك',
+    tagline: 'اعرف دوائك',
+    disclaimerLeadIn: 'This app explains medicines in plain language. It is ',
+    disclaimerEmphasis: 'information, not medical advice',
+    disclaimerRest: ', it can be wrong, and it never replaces your pharmacist or doctor.',
+    iUnderstandContinue: 'I understand — continue',
+    shownOnce: 'Shown once. Never again.',
     error: 'Error',
     takeAPhoto: 'Take a Photo',
     useYourCamera: "Use your device's camera",
@@ -175,6 +184,15 @@ export const translations = {
     cameraDenied: 'الكاميرا محجوبة.',
     cameraUnavailable: 'لا توجد كاميرا متاحة.',
     useGalleryOrType: 'استخدم صورة لديك بالفعل، أو اكتب الاسم.',
+
+    // التشغيل الأول — إخلاء المسؤولية
+    appNameArabic: 'دوائك',
+    tagline: 'اعرف دوائك',
+    disclaimerLeadIn: 'يشرح هذا التطبيق الأدوية بلغة بسيطة. هو ',
+    disclaimerEmphasis: 'معلومات وليس نصيحة طبية',
+    disclaimerRest: '، وقد يكون غير دقيق، ولا يغني أبداً عن الصيدلي أو الطبيب.',
+    iUnderstandContinue: 'فهمت — متابعة',
+    shownOnce: 'يظهر مرة واحدة فقط.',
     error: 'خطأ',
     takeAPhoto: 'التقط صورة',
     useYourCamera: 'استخدم كاميرا جهازك',

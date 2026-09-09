@@ -15,6 +15,7 @@ import { useLocalization } from './context/LanguageContext';
 import { CoachMarks, shouldShowPhase1, shouldShowPhase2, resetPhase1Tutorial, resetPhase2Tutorial } from './components/CoachMarks';
 import { IntroSplash } from './components/IntroSplash';
 import { CameraHome } from './components/CameraHome';
+import { FirstRun, hasAcceptedDisclaimer } from './components/FirstRun';
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('home');
@@ -30,6 +31,9 @@ const App: React.FC = () => {
     diagnosis: '',
   });
   const [showIntro, setShowIntro] = useState<boolean>(true);
+  // The disclaimer gates the app on first launch. Existing installs have no
+  // flag yet, so they see it once too — nobody loses the notice.
+  const [needsDisclaimer, setNeedsDisclaimer] = useState<boolean>(() => !hasAcceptedDisclaimer());
   const { language, t } = useLocalization();
 
   // ── Tutorial state ────────────────────────────────────────
@@ -193,7 +197,7 @@ const App: React.FC = () => {
   const handleBackToPatientView = () => setView('results');
 
   /** The camera screen is full-bleed and supplies its own bar. */
-  const isCameraScreen = view === 'home' && !isLoading;
+  const isCameraScreen = view === 'home' && !isLoading && !needsDisclaimer;
 
   const renderContent = () => {
     if (isLoading) {
@@ -292,6 +296,7 @@ const App: React.FC = () => {
   return (
     <>
       {showIntro && <IntroSplash onDone={() => setShowIntro(false)} />}
+      {!showIntro && needsDisclaimer && <FirstRun onAccept={() => setNeedsDisclaimer(false)} />}
       {/*
         The app is built underneath the splash rather than after it. It used to
         wait for the clip to finish before mounting at all, so the first render
@@ -308,7 +313,7 @@ const App: React.FC = () => {
         app chrome and the padded container would only crop the viewfinder.
         Every other screen keeps them.
       */}
-      {isCameraScreen ? (
+      {needsDisclaimer ? null : isCameraScreen ? (
         renderContent()
       ) : (
         <>
@@ -321,13 +326,13 @@ const App: React.FC = () => {
       )}
 
       {/* ── Onboarding Coach Marks ── */}
-      {showPhase1 && !showIntro && view === 'home' && !isLoading && (
+      {showPhase1 && !showIntro && !needsDisclaimer && view === 'home' && !isLoading && (
         <CoachMarks
           phase={1}
           onPhaseComplete={() => setShowPhase1(false)}
         />
       )}
-      {showPhase2 && !showIntro && view === 'results' && !isLoading && (
+      {showPhase2 && !showIntro && !needsDisclaimer && view === 'results' && !isLoading && (
         <CoachMarks
           phase={2}
           onPhaseComplete={() => setShowPhase2(false)}
