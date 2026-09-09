@@ -14,6 +14,7 @@ import { findSavedMedication, isStale, saveMedication } from './lib/medicationSt
 import { useLocalization } from './context/LanguageContext';
 import { CoachMarks, shouldShowPhase1, shouldShowPhase2, resetPhase1Tutorial, resetPhase2Tutorial } from './components/CoachMarks';
 import { IntroSplash } from './components/IntroSplash';
+import { CameraHome } from './components/CameraHome';
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('home');
@@ -191,6 +192,9 @@ const App: React.FC = () => {
   const handleShowProfessionalView = () => setView('professional');
   const handleBackToPatientView = () => setView('results');
 
+  /** The camera screen is full-bleed and supplies its own bar. */
+  const isCameraScreen = view === 'home' && !isLoading;
+
   const renderContent = () => {
     if (isLoading) {
       return (
@@ -217,9 +221,17 @@ const App: React.FC = () => {
         );
       case 'myMedications':
         return <MyMedicationsScreen onBack={handleBack} onSelectMed={handleSelectMed}/>;
+      case 'search':
+        return <HomeScreen onIdentify={handleIdentify} error={error} />;
       case 'home':
       default:
-        return <HomeScreen onIdentify={handleIdentify} error={error} />;
+        return (
+          <CameraHome
+            onIdentify={handleIdentify}
+            onTypeInstead={() => setView('search')}
+            error={error}
+          />
+        );
     }
   };
 
@@ -290,12 +302,23 @@ const App: React.FC = () => {
       {(
         <div
           aria-hidden={showIntro}
-          className={`min-h-screen flex flex-col bg-gray-50 dark:bg-[#0D0D0D] transition-colors duration-300 ${language === 'ar' ? 'font-arabic' : 'font-sans'}`}>
-      <Header onHomeClick={handleLogoClick} onShowMyMedications={handleShowMyMedications} onReplayTutorial={handleReplayTutorial} />
-      <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
-        {renderContent()}
-      </main>
-      <Footer />
+          className={`min-h-screen flex flex-col ${isCameraScreen ? 'bg-paper' : 'bg-gray-50 dark:bg-[#0D0D0D]'} transition-colors duration-300 ${language === 'ar' ? 'font-arabic' : 'font-sans'}`}>
+      {/*
+        The camera screen carries its own bar and runs edge to edge, so the
+        app chrome and the padded container would only crop the viewfinder.
+        Every other screen keeps them.
+      */}
+      {isCameraScreen ? (
+        renderContent()
+      ) : (
+        <>
+          <Header onHomeClick={handleLogoClick} onShowMyMedications={handleShowMyMedications} onReplayTutorial={handleReplayTutorial} />
+          <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
+            {renderContent()}
+          </main>
+          <Footer />
+        </>
+      )}
 
       {/* ── Onboarding Coach Marks ── */}
       {showPhase1 && !showIntro && view === 'home' && !isLoading && (
