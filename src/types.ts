@@ -79,4 +79,4 @@ export interface PatientInfo {
   diagnosis: string;
 }
 
-export type View = 'home' | 'results' | 'myMedications' | 'professional' | 'notFound';
+export type View = 'home' | 'search' | 'results' | 'myMedications' | 'professional' | 'notFound';
