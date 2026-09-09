@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.danehab.medicationidentifier',
-  appName: 'Medication Identifier',
+  appName: 'Medication Identifier - دوائك',
   webDir: 'dist',
   server: {
     // Allow navigation to external URLs (your Vercel backend)
