@@ -182,11 +182,13 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
       <div className="px-5 pt-1.5">
         {showIngredient && (
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-11 h-11 rounded-[11px] bg-night-lens shrink-0" aria-hidden="true" />
-            <Eyebrow>{ingredient!.toUpperCase()}</Eyebrow>
+            <div className="w-11 h-11 rounded-[11px] bg-night-lens shrink-0 rtl:hidden" aria-hidden="true" />
+            {/* Arabic has no capitals, so upper-casing it does nothing but
+                risk mangling the odd Latin ingredient name inside it. */}
+            <Eyebrow>{language === 'ar' ? ingredient! : ingredient!.toUpperCase()}</Eyebrow>
           </div>
         )}
-        <h1 className="font-semibold text-[40px] leading-[1.05] tracking-[-0.03em] text-ink m-0 mb-1.5 break-words">
+        <h1 className="result-name font-semibold text-[40px] leading-[1.05] tracking-[-0.03em] text-ink m-0 mb-1.5 break-words">
           {brand}
         </h1>
         {drugInfo.strength && (

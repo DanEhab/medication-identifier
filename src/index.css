@@ -65,3 +65,54 @@ video::-webkit-media-controls-start-playback-button {
 video::-webkit-media-controls-overlay-play-button {
   display: none !important;
 }
+
+/*
+  ── Arabic typography ──────────────────────────────────────────────────────
+
+  Mirroring is not translation. The Arabic face has no capitals, taller
+  ascenders and deeper descenders, and letters that join — so the Latin sizes,
+  leading and tracking that make the English screens feel spare make the Arabic
+  ones feel cramped and, in the case of tracking, actively wrong: letter-spacing
+  pulls joined letters apart.
+
+  Worse, the section labels are set in IBM Plex Mono, which has no Arabic
+  glyphs at all. Arabic fell back to whatever the system offered while keeping
+  the mono letter-spacing, which is why those labels arrived looking spaced out.
+
+  All of it lives here rather than as a language branch in every component, so
+  a screen written from now on gets it without anyone remembering to.
+*/
+
+[dir='rtl'] .font-mono {
+  font-family: 'IBM Plex Sans Arabic', 'IBM Plex Sans', sans-serif;
+  letter-spacing: normal;
+}
+
+/*
+  Letter-spacing is wrong for Arabic wherever it appears: positive tracking
+  pulls joined letters apart, negative tracking crushes them together. Every
+  place the app sets it does so through a tracking-* utility, so cancelling
+  those is both complete and specific -- it caught the app name in the camera
+  header, which is a span rather than a heading and would have been missed by
+  a rule aimed at headings.
+*/
+[dir='rtl'] [class*='tracking-'] {
+  letter-spacing: normal;
+}
+
+[dir='rtl'] h1 { line-height: 1.35; }
+[dir='rtl'] h2 { line-height: 1.4; }
+
+/* Body copy needs the extra leading; short labels and chips do not. */
+[dir='rtl'] p {
+  line-height: 1.8;
+}
+
+/*
+  The one size the design changes outright. 40px Latin and 36px Arabic occupy
+  about the same optical weight, and 40px Arabic overruns two lines on a narrow
+  phone where the Latin fits on one.
+*/
+[dir='rtl'] .result-name {
+  font-size: 36px;
+}
