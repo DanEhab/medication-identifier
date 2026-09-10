@@ -25,7 +25,7 @@ interface ConfirmScreenProps {
 }
 
 const ChevronBack: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#0B2B2E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="rtl:rotate-180">
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink rtl:rotate-180">
     <path d="m15 5-7 7 7 7" />
   </svg>
 );
@@ -41,9 +41,9 @@ export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
   // The chip states what the reader actually reported rather than dressing
   // every reading up as confident.
   const confidence = {
-    high: { label: t('confidentMatch'), fg: '#0A5A56', bg: '#E4F1ED' },
-    medium: { label: t('likelyMatch'), fg: '#7A4E0B', bg: '#FDF1DC' },
-    low: { label: t('unsureMatch'), fg: '#8C2F23', bg: '#FBEDE9' },
+    high: { label: t('confidentMatch'), fg: 'var(--teal)', bg: 'var(--teal-wash)' },
+    medium: { label: t('likelyMatch'), fg: 'var(--saffron)', bg: 'var(--saffron-wash)' },
+    low: { label: t('unsureMatch'), fg: 'var(--clay-deep)', bg: 'var(--clay-wash)' },
   }[reading.confidence];
 
   return (
@@ -56,7 +56,7 @@ export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
       </div>
 
       <div className="px-4 pt-2">
-        <div className="bg-white border border-paper-sand rounded-[20px] p-[18px] flex gap-4 items-center">
+        <div className="bg-surface border border-paper-sand rounded-[20px] p-[18px] flex gap-4 items-center">
           <div className="w-[92px] h-[92px] rounded-[14px] bg-night-lens shrink-0 overflow-hidden">
             {photoUrl && <img src={photoUrl} alt="" className="w-full h-full object-cover" />}
           </div>
@@ -94,14 +94,14 @@ export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
           type="button"
           onClick={() => onConfirm(reading.readAs)}
           className="h-[58px] rounded-full bg-teal flex items-center justify-center
-            font-semibold text-[17px] text-white active:scale-[0.98] transition-transform"
+            font-semibold text-[17px] text-teal-on active:scale-[0.98] transition-transform"
         >
           {t('yesShowInfo')}
         </button>
         <button
           type="button"
           onClick={onReject}
-          className="h-[58px] rounded-full bg-white border border-paper-edge flex items-center justify-center
+          className="h-[58px] rounded-full bg-surface border border-paper-edge flex items-center justify-center
             font-semibold text-[17px] text-ink active:scale-[0.98] transition-transform"
         >
           {t('noThatIsNotIt')}
@@ -119,7 +119,7 @@ export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
                 key={`${alternative.name}-${alternative.detail}`}
                 type="button"
                 onClick={() => onConfirm(alternative.name)}
-                className="w-full bg-white border border-paper-sand rounded-[14px] py-3.5 px-4
+                className="w-full bg-surface border border-paper-sand rounded-[14px] py-3.5 px-4
                   flex items-center justify-between gap-3 text-start active:scale-[0.99] transition-transform"
               >
                 <span className="min-w-0">
@@ -128,7 +128,7 @@ export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
                     <span className="block text-[14px] text-ink-soft truncate">{alternative.detail}</span>
                   )}
                 </span>
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#5B6A6A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 rtl:rotate-180">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 rtl:rotate-180">
                   <path d="m9 5 7 7-7 7" />
                 </svg>
               </button>
@@ -141,7 +141,7 @@ export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
         className="mt-auto px-4 pt-5 pb-[18px] flex gap-2.5 items-start"
         style={{ paddingBottom: 'max(1.125rem, env(safe-area-inset-bottom))' }}
       >
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#5B6A6A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
           <rect x="4" y="10" width="16" height="10" rx="2.5" />
           <path d="M8 10V7a4 4 0 0 1 8 0v3" />
         </svg>

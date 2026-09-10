@@ -157,7 +157,7 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
   };
 
   const paperControl =
-    'w-[52px] h-[52px] rounded-[15px] bg-white border border-paper-sand ' +
+    'w-[52px] h-[52px] rounded-[15px] bg-surface border border-paper-sand ' +
     'flex items-center justify-center active:scale-95 transition-transform';
 
   return (
@@ -165,7 +165,7 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
       {/* ── Bar: the icon needs a light ground, so the chrome is paper ── */}
       <header className="flex items-center justify-between px-4 py-3 shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-[9px] bg-white overflow-hidden shrink-0">
+          <div className="w-8 h-8 rounded-[9px] bg-surface overflow-hidden shrink-0">
             <img src="/app-icon.png" alt="" className="w-full h-full object-cover" />
           </div>
           <span className="font-semibold text-[17px] text-ink tracking-[-0.01em] truncate">
@@ -181,10 +181,10 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
             onClick={onShowMyMedicines}
             aria-label={t('tabMedicines')}
             data-tutorial="my-medicines"
-            className="w-[34px] h-[34px] rounded-full border border-paper-sand bg-white
+            className="w-[34px] h-[34px] rounded-full border border-paper-sand bg-surface
               flex items-center justify-center active:scale-95 transition-transform"
           >
-            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#0B2B2E"
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 6h16M4 12h16M4 18h16" />
             </svg>
@@ -194,7 +194,7 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
             type="button"
             onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
             aria-label={t('switchLanguage')}
-            className={`h-[34px] px-[13px] rounded-full border border-paper-sand bg-white
+            className={`h-[34px] px-[13px] rounded-full border border-paper-sand bg-surface
               flex items-center font-semibold text-[15px] text-ink active:scale-95 transition-transform
               ${language === 'en' ? 'font-arabic' : ''}`}
           >
@@ -269,7 +269,7 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
       {/* ── Gallery, shutter, flash ── */}
       <div className="flex items-center justify-between px-4 pt-[18px] pb-1.5 shrink-0">
         <button type="button" onClick={pickFromGallery} aria-label={t('uploadAnImage')} className={paperControl}>
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#0B2B2E" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="4" width="18" height="16" rx="3" />
             <path d="m4 17 5-5 4 4 3-3 4 4" />
           </svg>
@@ -297,7 +297,7 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
             torchOn ? '!bg-teal !border-teal' : ''
           }`}
         >
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke={torchOn ? '#FFFFFF' : '#0B2B2E'} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke={torchOn ? '#FFFFFF' : 'var(--ink)'} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
             <path d="M13 2 4 14h7l-1 8 9-12h-7z" />
           </svg>
         </button>
@@ -308,10 +308,10 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
         <button
           type="button"
           onClick={onTypeInstead}
-          className="w-full h-14 rounded-full bg-white border border-paper-sand
+          className="w-full h-14 rounded-full bg-surface border border-paper-sand
             flex items-center gap-3 px-5 active:scale-[0.99] transition-transform"
         >
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#5B6A6A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="7" />
             <path d="m20 20-4-4" />
           </svg>

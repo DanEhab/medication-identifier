@@ -33,13 +33,13 @@ interface SearchScreenProps {
 const DEBOUNCE_MS = 250;
 
 const ChevronBack: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#0B2B2E"
-    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="rtl:rotate-180">
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink rtl:rotate-180">
     <path d="m15 5-7 7 7 7" />
   </svg>
 );
 
-const SearchIcon: React.FC<{ color?: string }> = ({ color = '#5B6A6A' }) => (
+const SearchIcon: React.FC<{ color?: string }> = ({ color = 'var(--ink-soft)' }) => (
   <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke={color}
     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
     <circle cx="11" cy="11" r="7" />
@@ -48,15 +48,15 @@ const SearchIcon: React.FC<{ color?: string }> = ({ color = '#5B6A6A' }) => (
 );
 
 const ChevronForward: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#5B6A6A"
-    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 rtl:rotate-180">
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink-soft shrink-0 rtl:rotate-180">
     <path d="m9 5 7 7-7 7" />
   </svg>
 );
 
 const ScanHintIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#0A5A56"
-    strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+    strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="text-teal shrink-0">
     <path d="M4 8V6a2 2 0 0 1 2-2h2" />
     <path d="M16 4h2a2 2 0 0 1 2 2v2" />
     <path d="M20 16v2a2 2 0 0 1-2 2h-2" />
@@ -66,8 +66,8 @@ const ScanHintIcon: React.FC = () => (
 );
 
 const ClearIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#5B6A6A"
-    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink-soft">
     <circle cx="12" cy="12" r="9" />
     <path d="m9 9 6 6M15 9l-6 6" />
   </svg>
@@ -164,7 +164,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, 
             search(query);
           }}
         >
-          <div className="h-12 rounded-full bg-white border border-paper-sand flex items-center gap-2.5 px-4">
+          <div className="h-12 rounded-full bg-surface border border-paper-sand flex items-center gap-2.5 px-4">
             <SearchIcon />
             <input
               ref={inputRef}
@@ -241,9 +241,9 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, 
             type="button"
             onClick={() => search(query)}
             className="w-full h-[52px] rounded-full bg-teal flex items-center justify-center gap-2.5
-              font-semibold text-[16px] text-white active:scale-[0.98] transition-transform"
+              font-semibold text-[16px] text-teal-on active:scale-[0.98] transition-transform"
           >
-            <SearchIcon color="#ffffff" />
+            <SearchIcon color="var(--on-teal)" />
             {t('searchFor')} <bdi>“{query.trim()}”</bdi>
           </button>
         </div>
@@ -261,7 +261,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, 
                 key={recent}
                 type="button"
                 onClick={() => search(recent)}
-                className="font-medium text-[15px] text-ink bg-white border border-paper-sand
+                className="font-medium text-[15px] text-ink bg-surface border border-paper-sand
                   rounded-full py-[9px] px-3.5 active:scale-[0.97] transition-transform"
               >
                 <bdi>{recent}</bdi>

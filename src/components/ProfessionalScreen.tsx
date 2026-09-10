@@ -28,15 +28,15 @@ interface ProfessionalScreenProps {
 }
 
 const ChevronBack: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#0B2B2E"
-    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="rtl:rotate-180">
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink rtl:rotate-180">
     <path d="m15 5-7 7 7 7" />
   </svg>
 );
 
 const ShareIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="#0B2B2E"
-    strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor"
+    strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="text-ink">
     <path d="M12 3v13" />
     <path d="m7 8 5-5 5 5" />
     <path d="M5 14v6h14v-6" />
@@ -60,7 +60,7 @@ const Row: React.FC<{ label: string; value: string; last?: boolean }> = ({ label
 
 /** A skeleton in the shape of the card, so the wait does not read as a hang. */
 const LoadingCard: React.FC = () => (
-  <div className="bg-white border border-paper-sand rounded-[16px] px-[18px] py-1" aria-hidden="true">
+  <div className="bg-surface border border-paper-sand rounded-[16px] px-[18px] py-1" aria-hidden="true">
     {[0, 1, 2, 3].map((row) => (
       <div key={row} className={`py-3.5 ${row === 3 ? '' : 'border-b border-paper-deep'}`}>
         <div className="h-2.5 w-24 rounded-full bg-paper-deep mb-2.5" />
@@ -149,8 +149,8 @@ export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({
             role="tab"
             aria-selected
             data-testid="tab-professional"
-            className="flex-1 h-[42px] rounded-full bg-ink flex items-center justify-center
-              font-semibold text-[15px] text-white"
+            className="flex-1 h-[42px] rounded-full bg-selected flex items-center justify-center
+              font-semibold text-[15px] text-selected-fg"
           >
             {t('professionalTab')}
           </button>
@@ -176,14 +176,14 @@ export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({
         {isLoading && <LoadingCard />}
 
         {error && (
-          <div className="bg-white rounded-[16px] py-4 px-[18px]" style={{ border: '2px solid #E7BDB4' }} role="alert">
+          <div className="bg-surface rounded-[16px] py-4 px-[18px]" style={{ border: '2px solid var(--clay-soft)' }} role="alert">
             <p className="font-semibold text-[16px] text-clay m-0 mb-1.5">{t('professionalLoadFailed')}</p>
             <p className="text-[15px] leading-[1.55] text-clay-deep m-0">{error}</p>
           </div>
         )}
 
         {info && !isLoading && !error && (
-          <div className="bg-white border border-paper-sand rounded-[16px] px-[18px] py-1" data-testid="clinical-card">
+          <div className="bg-surface border border-paper-sand rounded-[16px] px-[18px] py-1" data-testid="clinical-card">
             <Row label={t('classLabel')} value={info.drugClass} />
             <Row label={t('mechanismLabel')} value={info.mechanism} />
             <Row label={t('pharmacokineticsLabel')} value={info.pharmacokinetics} />

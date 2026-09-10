@@ -55,7 +55,7 @@ export const TabBar: React.FC<TabBarProps> = ({ active, onSelect }) => {
     <nav
       className="sticky bottom-0 mt-auto border-t border-paper-sand flex px-2 pt-2 pb-1.5"
       style={{
-        background: 'rgba(247, 243, 236, 0.96)',
+        background: 'var(--bar)',
         backdropFilter: 'blur(8px)',
         paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom))',
       }}
@@ -63,7 +63,7 @@ export const TabBar: React.FC<TabBarProps> = ({ active, onSelect }) => {
     >
       {tabs.map((tab) => {
         const isActive = tab.key === active;
-        const color = isActive ? '#0A5A56' : '#5B6A6A';
+        const color = isActive ? 'var(--teal)' : 'var(--ink-soft)';
         return (
           <button
             key={tab.key}

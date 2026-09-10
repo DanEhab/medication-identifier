@@ -23,7 +23,7 @@ interface ReadingScreenProps {
 const STAGE_ORDER: ReadingStage[] = ['reading', 'matching', 'writing'];
 
 const CheckIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#0A5A56" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="text-teal">
     <path d="M9 12l2.5 2.5L16 9" />
     <circle cx="12" cy="12" r="9" />
   </svg>
@@ -32,7 +32,7 @@ const CheckIcon: React.FC = () => (
 const Spinner: React.FC = () => (
   <span
     className="block w-[19px] h-[19px] rounded-full animate-spin"
-    style={{ border: '3px solid #0A5A56', borderTopColor: 'transparent' }}
+    style={{ border: '3px solid var(--teal)', borderTopColor: 'transparent' }}
     aria-hidden="true"
   />
 );
@@ -40,7 +40,7 @@ const Spinner: React.FC = () => (
 const Pending: React.FC = () => (
   <span
     className="block w-[19px] h-[19px] rounded-full"
-    style={{ border: '2px solid #CFC5B2' }}
+    style={{ border: '2px solid var(--paper-edge)' }}
     aria-hidden="true"
   />
 );
@@ -81,7 +81,7 @@ export const ReadingScreen: React.FC<ReadingScreenProps> = ({ photoUrl, stage, o
         </h1>
         <p className="text-[15px] leading-[1.55] text-ink-soft m-0">{t('usuallyFewSeconds')}</p>
 
-        <ol className="mt-5 bg-white border border-paper-sand rounded-[18px] px-[18px] py-1.5 list-none m-0">
+        <ol className="mt-5 bg-surface border border-paper-sand rounded-[18px] px-[18px] py-1.5 list-none m-0">
           {steps.map((step, index) => {
             const done = index < current;
             const active = index === current;
@@ -108,7 +108,7 @@ export const ReadingScreen: React.FC<ReadingScreenProps> = ({ photoUrl, stage, o
         className="mt-auto p-5 flex gap-2.5 items-start"
         style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
       >
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#5B6A6A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
           <rect x="4" y="10" width="16" height="10" rx="2.5" />
           <path d="M8 10V7a4 4 0 0 1 8 0v3" />
         </svg>

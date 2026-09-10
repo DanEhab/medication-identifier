@@ -4,8 +4,6 @@ import { ResultScreen } from './components/ResultScreen';
 import { SideEffectsScreen } from './components/SideEffectsScreen';
 import { recordRecentSearch } from './lib/recentSearches';
 import { ProfessionalScreen } from './components/ProfessionalScreen';
-import { Header } from './components/Header';
-import { Footer } from './components/Footer';
 import type { DrugInfo, View, PatientInfo, NotAMedicationResult, PackReading, ReadingStage, DetailSection } from './types';
 import { NotAMedicationError } from './types';
 import { identifyDrugFromImage, fetchDrugInformation } from './services/geminiService';
@@ -14,7 +12,7 @@ import type { Tab } from './components/TabBar';
 import { NotFoundScreen } from './components/NotFoundScreen';
 import { findSavedMedication, isStale, saveMedication } from './lib/medicationStorage';
 import { useLocalization } from './context/LanguageContext';
-import { CoachMarks, shouldShowPhase1, shouldShowPhase2, resetPhase1Tutorial, resetPhase2Tutorial } from './components/CoachMarks';
+import { CoachMarks, shouldShowPhase1, shouldShowPhase2 } from './components/CoachMarks';
 import { IntroSplash } from './components/IntroSplash';
 import { CameraHome } from './components/CameraHome';
 import { FirstRun, hasAcceptedDisclaimer } from './components/FirstRun';
@@ -287,19 +285,6 @@ const App: React.FC = () => {
     void lookUp(notFound.query, runId, true);
   };
 
-  const handleLogoClick = () => {
-    handleBack();
-  };
-  
-  const handleReplayTutorial = () => {
-    resetPhase1Tutorial();
-    resetPhase2Tutorial();
-    setShowPhase2(false);
-    // The first tour points at home-screen controls, so replaying it from
-    // anywhere else has to go there first.
-    setView('home');
-    setShowPhase1(true);
-  };
 
   const handleShowMyMedications = () => {
     setView('myMedications');
@@ -321,13 +306,6 @@ const App: React.FC = () => {
 
   const handleShowProfessionalView = () => setView('professional');
   const handleBackToPatientView = () => setView('results');
-
-  /** These screens are full-bleed and supply their own bar. */
-  const fullBleed: View[] = [
-    'home', 'search', 'reading', 'confirm', 'results',
-    'sideEffects', 'myMedications', 'notFound', 'professional',
-  ];
-  const isCameraScreen = fullBleed.includes(view) && !needsDisclaimer;
 
   const renderContent = () => {
     switch (view) {
@@ -486,23 +464,12 @@ const App: React.FC = () => {
       {(
         <div
           aria-hidden={showIntro}
-          className={`min-h-screen flex flex-col ${isCameraScreen ? 'bg-paper' : 'bg-gray-50 dark:bg-[#0D0D0D]'} transition-colors duration-300 ${language === 'ar' ? 'font-arabic' : 'font-sans'}`}>
+          className={`min-h-screen flex flex-col bg-paper transition-colors duration-300 ${language === 'ar' ? 'font-arabic' : 'font-sans'}`}>
       {/*
-        The camera screen carries its own bar and runs edge to edge, so the
-        app chrome and the padded container would only crop the viewfinder.
-        Every other screen keeps them.
+        Every screen in the redesign carries its own bar and runs edge to edge,
+        so there is no shared chrome left to draw around them.
       */}
-      {needsDisclaimer ? null : isCameraScreen ? (
-        renderContent()
-      ) : (
-        <>
-          <Header onHomeClick={handleLogoClick} onShowMyMedications={handleShowMyMedications} onReplayTutorial={handleReplayTutorial} />
-          <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
-            {renderContent()}
-          </main>
-          <Footer />
-        </>
-      )}
+      {needsDisclaimer ? null : renderContent()}
 
       {/* ── Onboarding Coach Marks ── */}
       {showPhase1 && !showIntro && !needsDisclaimer && view === 'home' && !isLoading && (

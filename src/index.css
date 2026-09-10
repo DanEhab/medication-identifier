@@ -4,8 +4,7 @@
 
 @layer base {
   body {
-    /* Matches the root container in App.tsx so there is no seam behind it. */
-    @apply bg-brand-light font-sans dark:bg-[#0D0D0D];
+    @apply font-sans;
   }
 }
 
@@ -64,6 +63,137 @@ video::-webkit-media-controls-start-playback-button {
 }
 video::-webkit-media-controls-overlay-play-button {
   display: none !important;
+}
+
+/*
+  ── The palette, as tokens ─────────────────────────────────────────────────
+
+  Every colour in the redesign is named here once and redefined once for dark.
+  The alternative — a dark: variant beside every colour class — puts the same
+  decision in a hundred places and misses every colour that is set as an SVG
+  stroke or an inline style, which is most of the icons.
+
+  The dark values are the design's own, not a filter over the light ones. Paper
+  does not become dark paper: it becomes a deep green-black that a phone screen
+  can hold at low brightness without glowing, and the accents move from ink-dark
+  to light-on-dark so they stay legible against it rather than disappearing.
+*/
+
+:root {
+  --paper: #F7F3EC;
+  --paper-deep: #F0E9DC;
+  --paper-sand: #E2D9C9;
+  --paper-edge: #CFC5B2;
+
+  /* Cards and anything raised off the ground. */
+  --surface: #FFFFFF;
+
+  --ink: #0B2B2E;
+  --ink-mid: #3D4F50;
+  --ink-soft: #5B6A6A;
+  --ink-dim: #2C3E3F;
+
+  --teal: #0A5A56;
+  --teal-light: #7FBDB4;
+  --teal-wash: #E4F1ED;
+  --teal-mist: #EDF3F1;
+  /* Text and icons that sit on a filled teal button. */
+  --on-teal: #FFFFFF;
+
+  --clay: #B23A2B;
+  --clay-deep: #8C2F23;
+  --clay-soft: #E7BDB4;
+  --clay-wash: #FBEDE9;
+  --clay-light: #F09080;
+  /* The "never with" card: white in light, a clay wash in dark. */
+  --surface-danger: #FFFFFF;
+
+  --saffron: #7A4E0B;
+  --saffron-mid: #9A6414;
+  --saffron-soft: #F0C070;
+  --saffron-wash: #FDF1DC;
+  --saffron-light: #F5DCB0;
+  /* The warning card's body copy, one step softer than its heading. */
+  --saffron-body: #7A4E0B;
+
+  --night: #06231F;
+  --night-surface: #0F2E2D;
+  --night-sunk: #08201F;
+  --night-lens: #123B3F;
+  --night-ink: #EDF3F1;
+  --night-soft: #9FB5B2;
+
+  /* Deliberately inverted against the ground: the selected pill or tab. */
+  --selected-bg: #0B2B2E;
+  --selected-fg: #FFFFFF;
+  /* A card that is dark on a light page — "Still unsure?" */
+  --invert-surface: #0B2B2E;
+  --invert-ink: #FFFFFF;
+  --invert-soft: rgba(255, 255, 255, 0.75);
+
+  /* The sticky bars, which sit over scrolling content. */
+  --bar: rgba(247, 243, 236, 0.96);
+  /* The scrim behind a sheet. */
+  --scrim: rgba(11, 43, 46, 0.45);
+}
+
+:root.dark {
+  --paper: #08201F;
+  --paper-deep: rgba(255, 255, 255, 0.1);
+  --paper-sand: rgba(255, 255, 255, 0.14);
+  --paper-edge: rgba(255, 255, 255, 0.14);
+
+  --surface: #0F2E2D;
+
+  --ink: #EDF3F1;
+  --ink-mid: #9FB5B2;
+  --ink-soft: #9FB5B2;
+  --ink-dim: #EDF3F1;
+
+  /* The accent has to carry against a dark ground, so it lightens rather than
+     staying the ink-dark teal that reads as a hole at low brightness. */
+  --teal: #7FBDB4;
+  --teal-light: #7FBDB4;
+  --teal-wash: rgba(127, 189, 180, 0.16);
+  --teal-mist: rgba(127, 189, 180, 0.1);
+  --on-teal: #06231F;
+
+  --clay: #F09080;
+  --clay-deep: #F5C0B4;
+  --clay-soft: rgba(226, 110, 90, 0.45);
+  --clay-wash: rgba(226, 110, 90, 0.14);
+  --clay-light: #F09080;
+  --surface-danger: rgba(226, 110, 90, 0.14);
+
+  --saffron: #F0C070;
+  --saffron-mid: #F0C070;
+  --saffron-soft: #F0C070;
+  --saffron-wash: rgba(250, 204, 120, 0.14);
+  --saffron-light: #F5DCB0;
+  --saffron-body: #F5DCB0;
+
+  --selected-bg: #7FBDB4;
+  --selected-fg: #06231F;
+  --invert-surface: #0F2E2D;
+  --invert-ink: #EDF3F1;
+  --invert-soft: rgba(237, 243, 241, 0.75);
+
+  --bar: rgba(8, 32, 31, 0.96);
+  --scrim: rgba(0, 0, 0, 0.6);
+}
+
+/*
+  The ground itself, so a short screen does not show a light strip below the
+  fold. This used to be a Tailwind base rule with a dark: variant, which
+  generated a `.dark body` selector that outranked anything written as plain
+  `body` and quietly kept the old near-black in place.
+*/
+html,
+body {
+  background: var(--paper);
+  /* So an icon drawn with currentColor has a sane colour to inherit, whatever
+     the theme, rather than the browser's default black. */
+  color: var(--ink);
 }
 
 /*

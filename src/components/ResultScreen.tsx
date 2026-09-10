@@ -35,14 +35,14 @@ interface ResultScreenProps {
 
 // ── Icons, sized and stroked to the design rather than to the shared set ──
 
-const Chevron: React.FC<{ back?: boolean; color?: string }> = ({ back, color = '#0B2B2E' }) => (
+const Chevron: React.FC<{ back?: boolean; color?: string }> = ({ back, color = 'var(--ink)' }) => (
   <svg viewBox="0 0 24 24" width={back ? 24 : 20} height={back ? 24 : 20} fill="none" stroke={color}
     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="rtl:rotate-180">
     <path d={back ? 'm15 5-7 7 7 7' : 'm9 5 7 7-7 7'} />
   </svg>
 );
 
-const ShareIcon: React.FC<{ size?: number; color?: string }> = ({ size = 21, color = '#0B2B2E' }) => (
+const ShareIcon: React.FC<{ size?: number; color?: string }> = ({ size = 21, color = 'var(--ink)' }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke={color}
     strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 3v13" />
@@ -53,7 +53,7 @@ const ShareIcon: React.FC<{ size?: number; color?: string }> = ({ size = 21, col
 
 const BookmarkIcon: React.FC<{ size?: number; color?: string; filled?: boolean }> = ({
   size = 21,
-  color = '#0B2B2E',
+  color = 'var(--ink)',
   filled = false,
 }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill={filled ? color : 'none'} stroke={color}
@@ -63,8 +63,8 @@ const BookmarkIcon: React.FC<{ size?: number; color?: string; filled?: boolean }
 );
 
 const WarnIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#9A6414"
-    strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
+    strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" className="text-saffron-mid shrink-0">
     <circle cx="12" cy="12" r="9" />
     <path d="M12 8v5" />
     <path d="M12 17h.01" />
@@ -72,8 +72,8 @@ const WarnIcon: React.FC = () => (
 );
 
 const DangerIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#B23A2B"
-    strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
+    strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" className="text-clay shrink-0">
     <path d="M12 4 2.5 20h19z" />
     <path d="M12 10v4" />
     <path d="M12 17.5h.01" />
@@ -81,8 +81,8 @@ const DangerIcon: React.FC = () => (
 );
 
 const ProfessionalIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#0A5A56"
-    strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+    strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="text-teal shrink-0">
     <path d="M4 5h16v11H4z" />
     <path d="M9 20h6" />
     <path d="M12 16v4" />
@@ -92,7 +92,7 @@ const ProfessionalIcon: React.FC = () => (
 /** A label in the mono caps used for every section heading in the design. */
 const Eyebrow: React.FC<{ children: React.ReactNode; color?: string; className?: string }> = ({
   children,
-  color = '#5B6A6A',
+  color = 'var(--ink-soft)',
   className = '',
 }) => (
   <div className={`font-mono font-semibold text-[12px] tracking-[0.06em] ${className}`} style={{ color }}>
@@ -101,7 +101,7 @@ const Eyebrow: React.FC<{ children: React.ReactNode; color?: string; className?:
 );
 
 const QuickFact: React.FC<{ value: string; note: string }> = ({ value, note }) => (
-  <div className="bg-white border border-paper-sand rounded-[14px] py-3 px-2 text-center">
+  <div className="bg-surface border border-paper-sand rounded-[14px] py-3 px-2 text-center">
     <div className="font-semibold text-[16px] leading-[1.2] text-ink"><bdi>{value}</bdi></div>
     {note && <div className="text-[13px] leading-[1.3] text-ink-soft mt-0.5"><bdi>{note}</bdi></div>}
   </div>
@@ -173,7 +173,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             aria-pressed={isSaved}
             className="active:scale-90 transition-transform"
           >
-            <BookmarkIcon filled={isSaved} color={isSaved ? '#0A5A56' : '#0B2B2E'} />
+            <BookmarkIcon filled={isSaved} color={isSaved ? 'var(--teal)' : 'var(--ink)'} />
           </button>
         </div>
       </div>
@@ -197,7 +197,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
 
         {drugInfo.whatItIsFor?.trim() && (
           <div className="bg-teal-wash rounded-[16px] py-4 px-[18px] mt-[18px]" data-tutorial="what-it-is-for">
-            <Eyebrow color="#0A5A56" className="mb-1.5">{t('whatItIsForLabel')}</Eyebrow>
+            <Eyebrow color="var(--teal)" className="mb-1.5">{t('whatItIsForLabel')}</Eyebrow>
             <p className="text-[17px] leading-[1.5] text-ink m-0" style={{ textWrap: 'pretty' } as React.CSSProperties}>
               <bdi>{drugInfo.whatItIsFor}</bdi>
             </p>
@@ -241,7 +241,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
 
       {drugInfo.neverWith?.trim() && (
         <div className="px-5 pt-3">
-          <div className="bg-white rounded-[16px] py-4 px-[18px]" style={{ border: '2px solid #E7BDB4' }}>
+          <div className="bg-surface rounded-[16px] py-4 px-[18px]" style={{ border: '2px solid var(--clay-soft)' }}>
             <div className="flex items-center gap-[9px] mb-2">
               <DangerIcon />
               <span className="font-semibold text-[16px] text-clay">{t('neverWithLabel')}</span>
@@ -268,7 +268,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             type="button"
             onClick={() => onShowDetails(chip.key)}
             className="h-10 px-[15px] rounded-full flex items-center font-medium text-[15px]
-              bg-white text-ink border border-paper-sand active:scale-[0.97] transition-transform"
+              bg-surface text-ink border border-paper-sand active:scale-[0.97] transition-transform"
           >
             {chip.label}
           </button>
@@ -281,7 +281,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
           type="button"
           onClick={onShowProfessionalView}
           data-tutorial="professional-link"
-          className="w-full bg-white border border-paper-sand rounded-[16px] py-[15px] px-[18px]
+          className="w-full bg-surface border border-paper-sand rounded-[16px] py-[15px] px-[18px]
             flex items-center gap-[13px] text-start active:scale-[0.99] transition-transform"
         >
           <ProfessionalIcon />
@@ -289,7 +289,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             <span className="block font-semibold text-[16px] leading-[1.35] text-ink">{t('professionalView')}</span>
             <span className="block text-[14px] leading-[1.4] text-ink-soft">{t('professionalViewSub')}</span>
           </span>
-          <Chevron color="#5B6A6A" />
+          <Chevron color="var(--ink-soft)" />
         </button>
       </div>
 
@@ -300,7 +300,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
       <div
         className="sticky bottom-0 mt-auto border-t border-paper-sand px-4 pt-3 flex gap-2.5"
         style={{
-          background: 'rgba(247, 243, 236, 0.96)',
+          background: 'var(--bar)',
           backdropFilter: 'blur(8px)',
           paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
         }}
@@ -311,17 +311,17 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
           data-tutorial="save-medicine"
           className={`flex-1 h-[54px] rounded-full flex items-center justify-center gap-[9px]
             font-semibold text-[17px] active:scale-[0.98] transition-transform ${
-              isSaved ? 'bg-white border border-teal text-teal' : 'bg-teal text-white'
+              isSaved ? 'bg-surface border border-teal text-teal' : 'bg-teal text-teal-on'
             }`}
         >
-          <BookmarkIcon size={21} color={isSaved ? '#0A5A56' : '#ffffff'} filled={isSaved} />
+          <BookmarkIcon size={21} color={isSaved ? 'var(--teal)' : 'var(--on-teal)'} filled={isSaved} />
           {isSaved ? t('savedToMyMedicines') : t('saveToMyMedicines')}
         </button>
         <button
           type="button"
           onClick={() => setExportOpen(true)}
           aria-label={t('exportShare')}
-          className="w-[54px] h-[54px] rounded-full bg-white border border-paper-edge
+          className="w-[54px] h-[54px] rounded-full bg-surface border border-paper-edge
             flex items-center justify-center shrink-0 active:scale-95 transition-transform"
         >
           <ShareIcon />
@@ -332,7 +332,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
       {exportOpen && (
         <div
           className="fixed inset-0 z-40 flex items-end"
-          style={{ background: 'rgba(11, 43, 46, 0.45)' }}
+          style={{ background: 'var(--scrim)' }}
           onClick={() => setExportOpen(false)}
         >
           <div
@@ -347,7 +347,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             <button
               type="button"
               onClick={() => { setExportOpen(false); requestExport('pdf'); }}
-              className="h-[54px] rounded-[14px] bg-white border border-paper-sand px-4
+              className="h-[54px] rounded-[14px] bg-surface border border-paper-sand px-4
                 flex items-center font-medium text-[16px] text-ink active:scale-[0.99] transition-transform"
             >
               {t('exportAsPdfLabel')}
@@ -355,7 +355,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             <button
               type="button"
               onClick={() => { setExportOpen(false); requestExport('doc'); }}
-              className="h-[54px] rounded-[14px] bg-white border border-paper-sand px-4
+              className="h-[54px] rounded-[14px] bg-surface border border-paper-sand px-4
                 flex items-center font-medium text-[16px] text-ink active:scale-[0.99] transition-transform"
             >
               {t('exportAsDocLabel')}
@@ -364,7 +364,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
               type="button"
               onClick={() => { setExportOpen(false); openDetails(); }}
               data-tutorial="report-details"
-              className="rounded-[14px] bg-white border border-paper-sand px-4 py-3.5
+              className="rounded-[14px] bg-surface border border-paper-sand px-4 py-3.5
                 text-start active:scale-[0.99] transition-transform"
             >
               <span className="block font-medium text-[16px] text-ink">{t('addPatientDetails')}</span>
