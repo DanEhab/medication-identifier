@@ -107,6 +107,23 @@ const asText = (value) => {
 
 const asList = (value) => flatten(value).map((s) => s.trim()).filter(Boolean);
 
+/**
+ * "Never with" is asked for as a ·-separated line, and the model often
+ * answers with newlines or bullets instead. Left alone those collapse into an
+ * unpunctuated run-on -- "Grapefruit juice gemfibrozil cyclosporine" -- so the
+ * separators it did use are turned into the one the screen expects.
+ */
+const asSeparatedLine = (value) => {
+  const text = asText(value);
+  if (!text) return '';
+  return text
+    .replace(/\s*[\r\n]+\s*/g, ' · ')
+    .replace(/\s*[·•‣⁃-]\s+/g, ' · ')
+    .replace(/(\s*·\s*)+/g, ' · ')
+    .replace(/^\s*·\s*|\s*·\s*$/g, '')
+    .trim();
+};
+
 /** Case- and separator-insensitive key lookup, so DrugName == drug_name. */
 const canonicalise = (key) => key.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -163,7 +180,9 @@ function normalizeDrugInfo(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
 
   const out = {};
-  for (const field of TEXT_FIELDS) out[field] = asText(pick(raw, field));
+  for (const field of TEXT_FIELDS) {
+    out[field] = field === 'neverWith' ? asSeparatedLine(pick(raw, field)) : asText(pick(raw, field));
+  }
   for (const field of LIST_FIELDS) out[field] = asList(pick(raw, field));
 
   out.identifiedAs = asText(pick(raw, 'identifiedAs'));

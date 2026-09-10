@@ -789,6 +789,32 @@ test('expiry still works through an alias', async () => {
   assert.equal(await medications().countDocuments({}), 1, 'and refreshed in place, not duplicated');
 });
 
+test('a never-with line answered with newlines is punctuated', async () => {
+  // What the live model actually returns: the schema asks for · between
+  // items and it uses line breaks, which collapse into an unreadable run-on.
+  stubGeminiWith({
+    ...VALID_ANSWER,
+    drugName: 'Linebreaks',
+    canonicalName: 'linebreaks',
+    neverWith: 'Grapefruit juice \r\n gemfibrozil \r\n cyclosporine',
+  });
+  const res = await invoke({ contents: patientPrompt('Linebreaks') });
+  const info = JSON.parse(res.payload.text);
+  assert.equal(info.neverWith, 'Grapefruit juice · gemfibrozil · cyclosporine');
+});
+
+test('a hyphenated medicine name is not broken up', async () => {
+  stubGeminiWith({
+    ...VALID_ANSWER,
+    drugName: 'Hyphens',
+    canonicalName: 'hyphens',
+    neverWith: 'co-trimoxazole, warfarin',
+  });
+  const res = await invoke({ contents: patientPrompt('Hyphens') });
+  const info = JSON.parse(res.payload.text);
+  assert.match(info.neverWith, /co-trimoxazole/);
+});
+
 test('an entry written before the result screen existed is refetched once', async () => {
   // It would otherwise render as a page of empty cards.
   const beforeTheRedesign = { ...VALID_ANSWER };
