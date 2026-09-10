@@ -32,6 +32,10 @@ const COLLECTION = 'rate_limits';
 const LIMITS = {
   generate: Number(process.env.RATE_LIMIT_GENERATE_PER_MINUTE || 20),
   translate: Number(process.env.RATE_LIMIT_TRANSLATE_PER_MINUTE || 150),
+  // Type-ahead is one indexed lookup and no Gemini call, but it fires while
+  // somebody is still typing, so it needs headroom the answer bucket must not
+  // give away.
+  suggest: Number(process.env.RATE_LIMIT_SUGGEST_PER_MINUTE || 120),
 };
 
 /** Kept for callers that do not name a bucket. */

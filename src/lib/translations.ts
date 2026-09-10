@@ -56,6 +56,15 @@ export const translations = {
     stageMatching: 'Matching it to a known medicine',
     stageWriting: 'Writing it in plain language',
     readOnYourPhone: 'Read on your phone. The photo is not uploaded or stored.',
+    // Search screen
+    searchPlaceholder: 'Type the name on the pack',
+    clearSearch: 'Clear',
+    suggestionsLabel: 'Suggestions',
+    searchFor: 'Search for',
+    youLookedUpRecently: 'YOU LOOKED UP RECENTLY',
+    cannotSpellIt: 'Cannot spell it? Point the camera at the box instead — it reads the name for you.',
+    savedLabel: 'Saved to my medicines',
+    recentLabel: 'You looked this up before',
     // Side effects screen
     sideEffectsEyebrow: 'SIDE EFFECTS',
     sideEffectsHeadline: 'Not everyone gets these',
@@ -252,6 +261,15 @@ export const translations = {
     stageMatching: 'نطابقه مع دواء معروف',
     stageWriting: 'نكتبه بلغة بسيطة',
     readOnYourPhone: 'تتم القراءة على هاتفك. الصورة لا تُرفع ولا تُخزّن.',
+    // Search screen
+    searchPlaceholder: 'اكتب الاسم المكتوب على العلبة',
+    clearSearch: 'مسح',
+    suggestionsLabel: 'اقتراحات',
+    searchFor: 'ابحث عن',
+    youLookedUpRecently: 'بحثت عنها مؤخراً',
+    cannotSpellIt: 'لا تعرف كتابته؟ وجّه الكاميرا نحو العلبة بدلاً من ذلك — سيقرأ الاسم نيابة عنك.',
+    savedLabel: 'محفوظ في أدويتي',
+    recentLabel: 'بحثت عنه من قبل',
     // Side effects screen
     sideEffectsEyebrow: 'الآثار الجانبية',
     sideEffectsHeadline: 'لا تصيب الجميع',

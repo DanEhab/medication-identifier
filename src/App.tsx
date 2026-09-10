@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { HomeScreen } from './components/HomeScreen';
+import { SearchScreen } from './components/SearchScreen';
 import { ResultScreen } from './components/ResultScreen';
 import { SideEffectsScreen } from './components/SideEffectsScreen';
+import { recordRecentSearch } from './lib/recentSearches';
 import { ProfessionalScreen } from './components/ProfessionalScreen';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
@@ -104,6 +105,12 @@ const App: React.FC = () => {
    * Looks a medicine up by name and shows the result. Used by the confirm
    * step, by typed search, and by the saved list.
    */
+  /**
+   * Where the lookup was started from, so a failure goes back there. A typed
+   * search that failed used to land on the camera with the typed name gone.
+   */
+  const lookupOrigin = useRef<View>('home');
+
   const lookUp = useCallback(
     async (drugName: string, runId: number) => {
       setReadingStage('matching');
@@ -112,6 +119,9 @@ const App: React.FC = () => {
         const info = await fetchDrugInformation(drugName, language);
         if (runIdRef.current !== runId) return;
         setDrugInfo(info);
+        // Only a lookup that actually found something is worth offering back
+        // as a suggestion; a misspelling that went nowhere is not.
+        recordRecentSearch(drugName);
         setView('results');
         releasePhoto();
       } catch (err: any) {
@@ -126,7 +136,7 @@ const App: React.FC = () => {
           setView('notFound');
         } else {
           setError(err.message || 'An unexpected error occurred.');
-          setView('home');
+          setView(lookupOrigin.current);
         }
         releasePhoto();
       }
@@ -149,6 +159,7 @@ const App: React.FC = () => {
 
       releasePhoto();
       setPhotoUrl(URL.createObjectURL(image));
+      lookupOrigin.current = 'home';
       setView('reading');
 
       try {
@@ -187,6 +198,7 @@ const App: React.FC = () => {
       setReading(null);
       releasePhoto();
       setReadingStage('matching');
+      lookupOrigin.current = 'search';
       setView('reading');
       void lookUp(drugName, runId);
     },
@@ -283,7 +295,7 @@ const App: React.FC = () => {
   const handleBackToPatientView = () => setView('results');
 
   /** These screens are full-bleed and supply their own bar. */
-  const fullBleed: View[] = ['home', 'reading', 'confirm', 'results', 'sideEffects'];
+  const fullBleed: View[] = ['home', 'search', 'reading', 'confirm', 'results', 'sideEffects'];
   const isCameraScreen = fullBleed.includes(view) && !needsDisclaimer;
 
   const renderContent = () => {
@@ -345,7 +357,13 @@ const App: React.FC = () => {
           )
         );
       case 'search':
-        return <HomeScreen onIdentify={handleIdentify} error={error} />;
+        return (
+          <SearchScreen
+            onIdentify={handleIdentify}
+            onBack={() => { setError(null); setView('home'); }}
+            error={error}
+          />
+        );
       case 'home':
       default:
         return (
