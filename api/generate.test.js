@@ -46,7 +46,18 @@ function invoke(body) {
 const VALID_ANSWER = {
   drugName: 'Stub Drug',
   canonicalName: 'stub drug',
+  brandName: 'Stub Drug',
   strength: '1mg',
+  whatItIsFor: 'Used for testing, in one sentence.',
+  howToTake: 'Swallow with water. If you miss a dose, skip it.',
+  tellYourDoctorIf: 'anything unexpected happens.',
+  neverWith: 'Grapefruit juice',
+  quickDose: '1 tablet',
+  quickDoseNote: 'a day',
+  quickTiming: 'Any time',
+  quickTimingNote: 'same hour',
+  quickFood: 'Food',
+  quickFoodNote: 'not needed',
   commonUse: 'Used for testing.',
   dosageAdministration: 'One tablet daily.',
   foodDrinkEffect: 'Take with food.',
@@ -360,6 +371,8 @@ const snakeCaseAnswer = {
   strength: '10mg',
   common_uses: 'Relieves allergy symptoms.',
   how_to_take_it: 'One tablet daily.',
+  what_it_is_for: 'Relieves allergy symptoms so you can get through the day.',
+  never_with: 'Alcohol',
   what_to_expect: 'May cause mild drowsiness.',
   if_you_miss_a_dose: 'Take it when you remember.',
   common_side_effects: ['Drowsiness', 'Dry mouth'],
@@ -379,6 +392,27 @@ test('snake_case keys from the model are mapped onto the shape the UI needs', as
   assert.equal(info.commonUse, 'Relieves allergy symptoms.');
   assert.deepEqual(info.commonSideEffects, ['Drowsiness', 'Dry mouth']);
   assert.deepEqual(info.consultDoctorWhen, ['Severe dizziness']);
+  assert.equal(info.whatItIsFor, 'Relieves allergy symptoms so you can get through the day.');
+  assert.equal(info.howToTake, 'One tablet daily.', 'how_to_take_it belongs to howToTake now');
+  assert.equal(info.neverWith, 'Alcohol');
+});
+
+test('no two fields claim the same incoming key', async () => {
+  // Aliases are compared with punctuation and case stripped, so "howToTake"
+  // and "how_to_take" are the same key. Two fields listing it would resolve by
+  // whichever the model happened to emit first.
+  const { ALIASES } = require('./_drugInfo.js');
+  const owner = new Map();
+  for (const [field, aliases] of Object.entries(ALIASES)) {
+    for (const key of [field, ...aliases]) {
+      const flat = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+      assert.ok(
+        !owner.has(flat) || owner.get(flat) === field,
+        `"${key}" is claimed by both ${owner.get(flat)} and ${field}`,
+      );
+      owner.set(flat, field);
+    }
+  }
 });
 
 test('every list field is always an array, so the UI can never crash on .map()', async () => {
@@ -552,7 +586,7 @@ test('a real medication is unaffected and still caches', async () => {
 test('entries cached before classification existed are still served', async () => {
   // Backwards compatibility: no recognition field, but a complete drug record.
   const legacy = { ...VALID_ANSWER };
-  delete legacy.recognition;
+  delete legacy.recognition;   // the only thing this fixture is missing
   await client.db(DB_NAME).collection('medications').insertOne({
     _id: 'legacydrug',
     canonicalKey: 'legacydrug',
@@ -753,6 +787,29 @@ test('expiry still works through an alias', async () => {
   assert.equal(res.payload.cached, false, 'a stale entry is refreshed even when reached by alias');
   assert.equal(geminiCalls, 2);
   assert.equal(await medications().countDocuments({}), 1, 'and refreshed in place, not duplicated');
+});
+
+test('an entry written before the result screen existed is refetched once', async () => {
+  // It would otherwise render as a page of empty cards.
+  const beforeTheRedesign = { ...VALID_ANSWER };
+  delete beforeTheRedesign.whatItIsFor;
+  await client.db(DB_NAME).collection('medications').insertOne({
+    _id: 'oldshape',
+    canonicalKey: 'oldshape',
+    language: 'en',
+    data: beforeTheRedesign,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  geminiCalls = 0;
+  const res = await invoke({ contents: patientPrompt('OldShape') });
+
+  assert.equal(res.payload.cached, false, 'it must not be served as it stands');
+  assert.equal(geminiCalls, 1, 'it is fetched again');
+
+  const rewritten = await client.db(DB_NAME).collection('medications').findOne({ _id: 'oldshape' });
+  assert.ok(rewritten.data.whatItIsFor, 'and rewritten with the fields the screen needs');
 });
 
 // ── Rate limiting ────────────────────────────────────────────────────────────
