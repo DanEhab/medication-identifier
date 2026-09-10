@@ -16,7 +16,14 @@
     </style>
 
 
+    <!--
+      The launch window. It was Capacitor's placeholder artwork on a white
+      ground: not this app's mark, and a white flash before a dark app on a
+      phone in night mode. A flat ground in each theme removes the flash; the
+      real splash artwork belongs with the logo work.
+    -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@drawable/splash</item>
+        <item name="android:background">@color/splashBackground</item>
+        <item name="windowSplashScreenBackground">@color/splashBackground</item>
     </style>
 </resources>

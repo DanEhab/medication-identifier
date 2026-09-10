@@ -26,7 +26,7 @@ interface MyMedicinesScreenProps {
   onSelectTab: (tab: Tab) => void;
 }
 
-const Chevron: React.FC<{ color?: string }> = ({ color = '#5B6A6A' }) => (
+const Chevron: React.FC<{ color?: string }> = ({ color = 'var(--ink-soft)' }) => (
   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke={color}
     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 rtl:rotate-180">
     <path d="m9 5 7 7-7 7" />
@@ -34,8 +34,8 @@ const Chevron: React.FC<{ color?: string }> = ({ color = '#5B6A6A' }) => (
 );
 
 const DangerIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#B23A2B"
-    strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
+    strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" className="text-clay shrink-0">
     <path d="M12 4 2.5 20h19z" />
     <path d="M12 10v4" />
     <path d="M12 17.5h.01" />
@@ -43,8 +43,8 @@ const DangerIcon: React.FC = () => (
 );
 
 const ClockIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#5B6A6A"
-    strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+    strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="text-ink-soft shrink-0">
     <circle cx="12" cy="12" r="9" />
     <path d="M12 7v5l3 2" />
   </svg>
@@ -135,17 +135,17 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
               onDoubleClick={() => profile.id !== DEFAULT_PROFILE_ID && handleRemoveProfile(profile.id)}
               aria-pressed={isActive}
               className={`h-10 rounded-full flex items-center gap-2 ps-1.5 pe-3.5 transition-colors
-                active:scale-[0.97] ${isActive ? 'bg-ink' : 'bg-white border border-paper-sand'}`}
+                active:scale-[0.97] ${isActive ? 'bg-selected' : 'bg-surface border border-paper-sand'}`}
             >
               <span
                 className="w-7 h-7 rounded-full flex items-center justify-center font-semibold text-[13px]"
                 style={isActive
-                  ? { background: '#7FBDB4', color: '#0B2B2E' }
-                  : { background: '#EDE4D4', color: '#5B6A6A' }}
+                  ? { background: 'var(--selected-fg)', color: 'var(--selected-bg)' }
+                  : { background: 'var(--paper-deep)', color: 'var(--ink-soft)' }}
               >
                 {initialFor(profile.name)}
               </span>
-              <span className={`text-[15px] ${isActive ? 'font-semibold text-white' : 'font-medium text-ink'}`}>
+              <span className={`text-[15px] ${isActive ? 'font-semibold text-selected-fg' : 'font-medium text-ink'}`}>
                 <bdi>{profile.name}</bdi>
               </span>
             </button>
@@ -164,7 +164,7 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
             }}
             placeholder={t('whoIsThisFor')}
             aria-label={t('whoIsThisFor')}
-            className="h-10 w-36 rounded-full bg-white border border-paper-edge px-4
+            className="h-10 w-36 rounded-full bg-surface border border-paper-edge px-4
               text-[15px] text-ink outline-none placeholder:text-ink-soft"
           />
         ) : (
@@ -172,9 +172,9 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
             type="button"
             onClick={() => setAddingProfile(true)}
             aria-label={t('addPerson')}
-            className="w-10 h-10 rounded-full bg-white flex items-center justify-center
+            className="w-10 h-10 rounded-full bg-surface flex items-center justify-center
               text-[20px] text-ink-soft active:scale-95 transition-transform"
-            style={{ border: '1px dashed #CFC5B2' }}
+            style={{ border: '1px dashed var(--paper-edge)' }}
           >
             +
           </button>
@@ -188,9 +188,9 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
             type="button"
             onClick={() => setInteractionsOpen(true)}
             data-testid="interaction-warning"
-            className="w-full bg-white rounded-[16px] py-3.5 px-4 flex items-center gap-3
+            className="w-full bg-surface rounded-[16px] py-3.5 px-4 flex items-center gap-3
               text-start active:scale-[0.99] transition-transform"
-            style={{ border: '2px solid #E7BDB4' }}
+            style={{ border: '2px solid var(--clay-soft)' }}
           >
             <DangerIcon />
             <span className="flex-1 min-w-0">
@@ -201,7 +201,7 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
                 <bdi>{interactions[0].aName} + {interactions[0].bName}</bdi>
               </span>
             </span>
-            <Chevron color="#B23A2B" />
+            <Chevron color="var(--clay)" />
           </button>
         </div>
       )}
@@ -218,7 +218,7 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
           <button
             type="button"
             onClick={() => onSelectTab('scan')}
-            className="h-[52px] px-6 rounded-full bg-teal font-semibold text-[16px] text-white
+            className="h-[52px] px-6 rounded-full bg-teal font-semibold text-[16px] text-teal-on
               active:scale-[0.98] transition-transform"
           >
             {t('scanAMedicine')}
@@ -235,7 +235,7 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
             const schedule = entry.schedule;
 
             return (
-              <div key={`${entry.profileId}-${entry.drugInfo.drugName}`} className="bg-white border border-paper-sand rounded-[16px] p-4">
+              <div key={`${entry.profileId}-${entry.drugInfo.drugName}`} className="bg-surface border border-paper-sand rounded-[16px] p-4">
                 <button
                   type="button"
                   onClick={() => onSelectMed(entry.originalName || entry.drugInfo.drugName)}
@@ -307,7 +307,7 @@ const Sheet: React.FC<{ label: string; onClose: () => void; children: React.Reac
 }) => (
   <div
     className="fixed inset-0 z-40 flex items-end"
-    style={{ background: 'rgba(11, 43, 46, 0.45)' }}
+    style={{ background: 'var(--scrim)' }}
     onClick={onClose}
   >
     <div
@@ -337,8 +337,8 @@ const InteractionSheet: React.FC<{ interactions: Interaction[]; onClose: () => v
         {interactions.map((interaction) => (
           <div
             key={`${interaction.aName}-${interaction.bName}`}
-            className="bg-white rounded-[16px] p-4"
-            style={{ border: '2px solid #E7BDB4' }}
+            className="bg-surface rounded-[16px] p-4"
+            style={{ border: '2px solid var(--clay-soft)' }}
           >
             <div className="font-semibold text-[16px] leading-[1.35] text-clay mb-1.5">
               <bdi>{interaction.aName} + {interaction.bName}</bdi>
@@ -356,7 +356,7 @@ const InteractionSheet: React.FC<{ interactions: Interaction[]; onClose: () => v
       <button
         type="button"
         onClick={onClose}
-        className="w-full h-[52px] rounded-full bg-teal font-semibold text-[16px] text-white
+        className="w-full h-[52px] rounded-full bg-teal font-semibold text-[16px] text-teal-on
           mt-4 active:scale-[0.98] transition-transform"
       >
         {t('gotIt')}
@@ -414,13 +414,13 @@ const ScheduleSheet: React.FC<{
           value={adding}
           onChange={(event) => setAdding(event.target.value)}
           aria-label={t('addTime')}
-          className="flex-1 h-[52px] rounded-[14px] bg-white border border-paper-sand px-4
+          className="flex-1 h-[52px] rounded-[14px] bg-surface border border-paper-sand px-4
             text-[16px] text-ink outline-none"
         />
         <button
           type="button"
           onClick={addTime}
-          className="h-[52px] px-5 rounded-[14px] bg-ink font-semibold text-[15px] text-white
+          className="h-[52px] px-5 rounded-[14px] bg-selected font-semibold text-[15px] text-selected-fg
             active:scale-[0.98] transition-transform"
         >
           {t('addTime')}
@@ -432,14 +432,14 @@ const ScheduleSheet: React.FC<{
         onChange={(event) => setNote(event.target.value)}
         placeholder={t('schedulePlaceholder')}
         aria-label={t('scheduleNote')}
-        className="w-full h-[52px] rounded-[14px] bg-white border border-paper-sand px-4
+        className="w-full h-[52px] rounded-[14px] bg-surface border border-paper-sand px-4
           text-[16px] text-ink outline-none placeholder:text-ink-soft mb-4"
       />
 
       <button
         type="button"
         onClick={() => onSave({ times, note })}
-        className="w-full h-[54px] rounded-full bg-teal font-semibold text-[17px] text-white
+        className="w-full h-[54px] rounded-full bg-teal font-semibold text-[17px] text-teal-on
           active:scale-[0.98] transition-transform"
       >
         {t('save')}

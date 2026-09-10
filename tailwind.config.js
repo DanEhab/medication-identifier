@@ -27,45 +27,67 @@ export default {
           The brand-* names above stay until the last screen has moved over,
           so the app keeps working while it is migrated a screen at a time.
         */
+        /*
+          Pointed at the tokens in index.css rather than at literals, so every
+          one of these classes follows the theme. The values themselves, light
+          and dark, live in one place there.
+        */
         ink: {
-          DEFAULT: '#0B2B2E',
-          mid: '#3D4F50',
-          dim: '#2C3E3F',
-          soft: '#5B6A6A',
+          DEFAULT: 'var(--ink)',
+          mid: 'var(--ink-mid)',
+          soft: 'var(--ink-soft)',
+          dim: 'var(--ink-dim)',
         },
         paper: {
-          DEFAULT: '#F7F3EC',
-          deep: '#F0E9DC',
-          sand: '#E2D9C9',
-          edge: '#CFC5B2',
+          DEFAULT: 'var(--paper)',
+          deep: 'var(--paper-deep)',
+          sand: 'var(--paper-sand)',
+          edge: 'var(--paper-edge)',
+        },
+        /* Cards and anything raised off the ground. Was a literal white. */
+        surface: {
+          DEFAULT: 'var(--surface)',
+          danger: 'var(--surface-danger)',
         },
         teal: {
-          DEFAULT: '#0A5A56',
-          light: '#7FBDB4',
-          wash: '#E4F1ED',
-          mist: '#EDF3F1',
+          DEFAULT: 'var(--teal)',
+          light: 'var(--teal-light)',
+          wash: 'var(--teal-wash)',
+          mist: 'var(--teal-mist)',
+          on: 'var(--on-teal)',
         },
         clay: {
-          DEFAULT: '#B23A2B',
-          deep: '#8C2F23',
-          soft: '#E7BDB4',
-          wash: '#FBEDE9',
-          light: '#F09080',
+          DEFAULT: 'var(--clay)',
+          deep: 'var(--clay-deep)',
+          soft: 'var(--clay-soft)',
+          wash: 'var(--clay-wash)',
+          light: 'var(--clay-light)',
         },
         saffron: {
-          DEFAULT: '#7A4E0B',
-          mid: '#9A6414',
-          soft: '#F0C070',
-          wash: '#FDF1DC',
-          light: '#F5DCB0',
+          DEFAULT: 'var(--saffron)',
+          mid: 'var(--saffron-mid)',
+          soft: 'var(--saffron-soft)',
+          wash: 'var(--saffron-wash)',
+          light: 'var(--saffron-light)',
+          body: 'var(--saffron-body)',
         },
         night: {
-          DEFAULT: '#06231F',
-          surface: '#0F2E2D',
-          sunk: '#08201F',
-          lens: '#123B3F',
-          ink: '#EDF3F1',
-          soft: '#9FB5B2',
+          DEFAULT: 'var(--night)',
+          surface: 'var(--night-surface)',
+          sunk: 'var(--night-sunk)',
+          lens: 'var(--night-lens)',
+          ink: 'var(--night-ink)',
+          soft: 'var(--night-soft)',
+        },
+        /* Deliberately inverted against the ground. */
+        selected: {
+          DEFAULT: 'var(--selected-bg)',
+          fg: 'var(--selected-fg)',
+        },
+        invert: {
+          DEFAULT: 'var(--invert-surface)',
+          ink: 'var(--invert-ink)',
+          soft: 'var(--invert-soft)',
         },
       },
       animation: {

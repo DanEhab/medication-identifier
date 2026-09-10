@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The window shown before the WebView has painted. It has to match the
+      app's own ground, or the launch is a flash of a different colour.
+    -->
+    <color name="splashBackground">#F7F3EC</color>
+</resources>

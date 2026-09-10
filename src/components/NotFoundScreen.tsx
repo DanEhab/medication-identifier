@@ -26,15 +26,15 @@ interface NotFoundScreenProps {
 }
 
 const ChevronBack: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#0B2B2E"
-    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="rtl:rotate-180">
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink rtl:rotate-180">
     <path d="m15 5-7 7 7 7" />
   </svg>
 );
 
 const ScanIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#ffffff"
-    strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+    strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="text-teal-on">
     <path d="M4 8V6a2 2 0 0 1 2-2h2" />
     <path d="M16 4h2a2 2 0 0 1 2 2v2" />
     <path d="M20 16v2a2 2 0 0 1-2 2h-2" />
@@ -44,8 +44,8 @@ const ScanIcon: React.FC = () => (
 );
 
 const QuestionIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#9A6414"
-    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-saffron-mid">
     <circle cx="12" cy="12" r="9" />
     <path d="M12 8v5" />
     <path d="M12 17h.01" />
@@ -53,8 +53,8 @@ const QuestionIcon: React.FC = () => (
 );
 
 const DangerIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#B23A2B"
-    strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
+    strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" className="text-clay shrink-0">
     <path d="M12 4 2.5 20h19z" />
     <path d="M12 10v4" />
     <path d="M12 17.5h.01" />
@@ -113,7 +113,7 @@ export const NotFoundScreen: React.FC<NotFoundScreenProps> = ({
 
       {/* ── The point of the screen ── */}
       <div className="px-5 pt-6">
-        <div className="bg-white rounded-[16px] py-4 px-[18px]" style={{ border: '2px solid #E7BDB4' }}>
+        <div className="bg-surface rounded-[16px] py-4 px-[18px]" style={{ border: '2px solid var(--clay-soft)' }}>
           <div className="flex items-center gap-[9px] mb-2">
             <DangerIcon />
             <span className="font-semibold text-[16px] text-clay">{t('doNotUseAppToJudge')}</span>
@@ -132,7 +132,7 @@ export const NotFoundScreen: React.FC<NotFoundScreenProps> = ({
           type="button"
           onClick={onScan}
           className="h-[58px] rounded-full bg-teal flex items-center justify-center gap-2.5
-            font-semibold text-[17px] text-white active:scale-[0.98] transition-transform"
+            font-semibold text-[17px] text-teal-on active:scale-[0.98] transition-transform"
         >
           <ScanIcon />
           {t('scanThePackInstead')}
@@ -140,7 +140,7 @@ export const NotFoundScreen: React.FC<NotFoundScreenProps> = ({
         <button
           type="button"
           onClick={onSearchAgain}
-          className="h-[58px] rounded-full bg-white border border-paper-edge flex items-center justify-center
+          className="h-[58px] rounded-full bg-surface border border-paper-edge flex items-center justify-center
             font-semibold text-[17px] text-ink active:scale-[0.98] transition-transform"
         >
           {t('typeTheName')}

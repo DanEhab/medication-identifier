@@ -72,7 +72,7 @@ const PHASE2_STEPS: TutorialStep[] = [
   },
 ];
 
-const TEAL = '#007B8A';
+const TEAL = 'var(--teal)';
 const STORAGE_KEY_P1 = 'tutorial_phase1_done';
 const STORAGE_KEY_P2 = 'tutorial_phase2_done';
 
@@ -169,8 +169,8 @@ const SuccessToast: React.FC<{ visible: boolean; phase: 1 | 2 }> = ({ visible, p
       transform: `translateX(-50%) translateY(${visible ? 0 : 80}px)`,
       opacity: visible ? 1 : 0,
       transition: 'all 0.4s cubic-bezier(0.34,1.1,0.64,1)',
-      background: TEAL,
-      color: '#fff',
+      background: 'var(--teal)',
+      color: 'var(--on-teal)',
       borderRadius: 999,
       padding: '12px 28px',
       fontWeight: 700,
@@ -335,7 +335,7 @@ const TooltipCard: React.FC<TooltipProps> = ({ step, totalSteps, currentIndex, r
     >
       <div
         style={{
-          background: 'rgba(255, 255, 255, 0.94)',
+          background: 'var(--surface)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
           borderRadius: 28,
@@ -368,7 +368,7 @@ const TooltipCard: React.FC<TooltipProps> = ({ step, totalSteps, currentIndex, r
         {/* Step counter */}
         {!isWelcome && (
           <p
-            style={{ color: '#9CA3AF', fontSize: 13, fontWeight: 500, marginBottom: 8 }}
+            style={{ color: 'var(--ink-soft)', fontSize: 13, fontWeight: 500, marginBottom: 8 }}
             aria-label={`Step ${currentIndex + 1} of ${totalSteps}`}
           >
             Step {currentIndex + 1} / {totalSteps}
@@ -379,7 +379,7 @@ const TooltipCard: React.FC<TooltipProps> = ({ step, totalSteps, currentIndex, r
         {step.title && (
           <h2
             style={{
-              color: '#1A3A40', fontWeight: 800, fontSize: 22, marginBottom: 10,
+              color: 'var(--ink)', fontWeight: 800, fontSize: 22, marginBottom: 10,
               textAlign: 'center', lineHeight: 1.35,
             }}
             accessKey={step.title}
@@ -390,7 +390,7 @@ const TooltipCard: React.FC<TooltipProps> = ({ step, totalSteps, currentIndex, r
 
         {/* Body */}
         <p
-          style={{ color: '#374151', fontSize: 16, lineHeight: 1.7, textAlign: 'center', marginBottom: 22 }}
+          style={{ color: 'var(--ink-dim)', fontSize: 16, lineHeight: 1.7, textAlign: 'center', marginBottom: 22 }}
           aria-label={step.message}
         >
           {step.message}
@@ -406,7 +406,7 @@ const TooltipCard: React.FC<TooltipProps> = ({ step, totalSteps, currentIndex, r
                   width: i === currentIndex ? 20 : 7,
                   height: 7,
                   borderRadius: 999,
-                  background: i === currentIndex ? TEAL : '#D1D5DB',
+                  background: i === currentIndex ? 'var(--teal)' : 'var(--paper-edge)',
                   transition: 'all 0.3s ease',
                 }}
               />
@@ -421,8 +421,8 @@ const TooltipCard: React.FC<TooltipProps> = ({ step, totalSteps, currentIndex, r
           style={{
             display: 'block',
             width: '100%',
-            background: TEAL,
-            color: '#fff',
+            background: 'var(--teal)',
+            color: 'var(--on-teal)',
             fontWeight: 700,
             fontSize: 18,
             border: 'none',

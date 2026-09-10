@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The same window on a phone in night mode. Without this the launch is a
+      white flash before a dark app, which is the thing the dark theme exists
+      to avoid.
+    -->
+    <color name="splashBackground">#08201F</color>
+</resources>
