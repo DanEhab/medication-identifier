@@ -29,6 +29,21 @@ const TEXT_FIELDS = [
   'canonicalName',
   'strength',
   'commonUse',
+  // The result screen leads with an answer and weights the warnings, so it
+  // needs a few things the old flat record never carried: a single-sentence
+  // purpose, the three facts people actually act on, and the two warnings
+  // separated by how urgent they are.
+  'brandName',
+  'whatItIsFor',
+  'howToTake',
+  'tellYourDoctorIf',
+  'neverWith',
+  'quickDose',
+  'quickDoseNote',
+  'quickTiming',
+  'quickTimingNote',
+  'quickFood',
+  'quickFoodNote',
   'dosageAdministration',
   'foodDrinkEffect',
   'missedDose',
@@ -45,8 +60,19 @@ const ALIASES = {
     'active_ingredient', 'inn', 'ingredient',
   ],
   strength: ['dose', 'dosage_strength', 'strengths'],
-  commonUse: ['common_use', 'common_uses', 'commonUses', 'what_it_is_for', 'uses', 'indication', 'indications'],
-  dosageAdministration: ['dosage_administration', 'how_to_take_it', 'howToTake', 'dosage', 'administration'],
+  commonUse: ['common_use', 'common_uses', 'commonUses', 'uses', 'indication', 'indications'],
+  brandName: ['brand_name', 'brand', 'tradeName', 'trade_name'],
+  whatItIsFor: ['what_it_is_for', 'whatItsFor', 'purpose', 'summary'],
+  howToTake: ['how_to_take', 'howToTakeIt', 'how_to_take_it'],
+  tellYourDoctorIf: ['tell_your_doctor_if', 'tellDoctorIf', 'warning_signs'],
+  neverWith: ['never_with', 'avoidWith', 'avoid_with', 'contraindications', 'majorInteractions'],
+  quickDose: ['quick_dose', 'doseAmount', 'dose_amount'],
+  quickDoseNote: ['quick_dose_note', 'doseFrequency', 'dose_frequency'],
+  quickTiming: ['quick_timing', 'timing'],
+  quickTimingNote: ['quick_timing_note', 'timingNote', 'timing_note'],
+  quickFood: ['quick_food', 'foodRule', 'food_rule'],
+  quickFoodNote: ['quick_food_note', 'foodNote', 'food_note'],
+  dosageAdministration: ['dosage_administration', 'dosage', 'administration', 'how_much_to_take'],
   foodDrinkEffect: ['food_drink_effect', 'food_and_drink', 'foodAndDrink', 'food_interactions', 'what_to_expect'],
   missedDose: ['missed_dose', 'if_you_miss_a_dose', 'missedDoseAdvice'],
   storage: ['storage_instructions', 'how_to_store', 'storageInstructions'],
@@ -118,6 +144,15 @@ function looksLikeCompleteDrug(info) {
  */
 function hasCanonicalName(info) {
   return Boolean(info && info.canonicalName && info.canonicalName.trim());
+}
+
+/**
+ * Whether an entry carries what the result screen needs. Anything cached before
+ * these fields existed would render as a page of empty cards, so generate.js
+ * treats a false here as a stale shape and refetches it once.
+ */
+function hasResultFields(info) {
+  return Boolean(info && info.whatItIsFor && info.whatItIsFor.trim());
 }
 
 /**
@@ -202,6 +237,47 @@ const DRUG_INFO_SCHEMA = {
         '"amoxicillin+clavulanic acid". Empty string unless recognition is "medication".',
     },
     strength: { type: 'STRING', description: 'Available strengths and forms' },
+    brandName: {
+      type: 'STRING',
+      description:
+        'The best-known brand name on its own, with no strength or form, e.g. "Lipitor". ' +
+        'If the medicine is only sold generically, repeat the generic name.',
+    },
+    whatItIsFor: {
+      type: 'STRING',
+      description:
+        'ONE plain sentence, under 110 characters, saying what this medicine does for the ' +
+        'person taking it and why that matters. Lead with the benefit, not the mechanism. ' +
+        'Example: "Lowers bad cholesterol to cut your risk of a heart attack or stroke."',
+    },
+    howToTake: {
+      type: 'STRING',
+      description:
+        'Two short sentences at most: how to physically take it, and what to do about a ' +
+        'missed dose. Example: "Swallow whole with water. If you miss a dose, skip it, and ' +
+        'never double up the next day."',
+    },
+    tellYourDoctorIf: {
+      type: 'STRING',
+      description:
+        'ONE sentence naming the symptom that should send the person to a doctor soon but ' +
+        'not to an emergency room. Written as the continuation of "Tell your doctor if", ' +
+        'so it starts lower-case. Empty string if there is no such symptom.',
+    },
+    neverWith: {
+      type: 'STRING',
+      description:
+        'The things that must not be taken with this medicine, separated by " \u00b7 ". ' +
+        'Foods, drinks and drug classes in plain words, e.g. ' +
+        '"Grapefruit juice \u00b7 clarithromycin \u00b7 some HIV medicines". ' +
+        'Empty string when there are no serious interactions.',
+    },
+    quickDose: { type: 'STRING', description: 'The usual dose in two or three words, e.g. "1 tablet".' },
+    quickDoseNote: { type: 'STRING', description: 'How often, in two or three words, e.g. "a day".' },
+    quickTiming: { type: 'STRING', description: 'When to take it, e.g. "Any time" or "Morning".' },
+    quickTimingNote: { type: 'STRING', description: 'A short qualifier, e.g. "same hour".' },
+    quickFood: { type: 'STRING', description: 'The single word Food.' },
+    quickFoodNote: { type: 'STRING', description: 'Whether food is needed, e.g. "not needed" or "with meals".' },
     commonUse: { type: 'STRING', description: 'What the medicine treats, in plain language' },
     dosageAdministration: { type: 'STRING', description: 'How and when to take it' },
     foodDrinkEffect: { type: 'STRING', description: 'Food, drink and alcohol interactions' },
@@ -213,23 +289,31 @@ const DRUG_INFO_SCHEMA = {
   },
   required: [
     'recognition', 'identifiedAs', 'safetyNote',
-    'drugName', 'canonicalName', 'strength', 'commonUse', 'dosageAdministration', 'foodDrinkEffect',
-    'missedDose', 'commonSideEffects', 'seriousSideEffects', 'consultDoctorWhen', 'storage',
+    'drugName', 'canonicalName', 'brandName', 'strength', 'whatItIsFor', 'commonUse',
+    'howToTake', 'dosageAdministration', 'foodDrinkEffect', 'missedDose',
+    'tellYourDoctorIf', 'neverWith',
+    'quickDose', 'quickDoseNote', 'quickTiming', 'quickTimingNote', 'quickFood', 'quickFoodNote',
+    'commonSideEffects', 'seriousSideEffects', 'consultDoctorWhen', 'storage',
   ],
   propertyOrdering: [
     'recognition', 'identifiedAs', 'safetyNote',
-    'drugName', 'canonicalName', 'strength', 'commonUse', 'dosageAdministration', 'foodDrinkEffect',
-    'missedDose', 'commonSideEffects', 'seriousSideEffects', 'consultDoctorWhen', 'storage',
+    'drugName', 'canonicalName', 'brandName', 'strength', 'whatItIsFor', 'commonUse',
+    'howToTake', 'dosageAdministration', 'foodDrinkEffect', 'missedDose',
+    'tellYourDoctorIf', 'neverWith',
+    'quickDose', 'quickDoseNote', 'quickTiming', 'quickTimingNote', 'quickFood', 'quickFoodNote',
+    'commonSideEffects', 'seriousSideEffects', 'consultDoctorWhen', 'storage',
   ],
 };
 
 module.exports = {
   normalizeDrugInfo,
   hasCanonicalName,
+  hasResultFields,
   isCacheableDrugInfo,
   looksLikeCompleteDrug,
   DRUG_INFO_SCHEMA,
   RECOGNITION,
   TEXT_FIELDS,
+  ALIASES,
   LIST_FIELDS,
 };

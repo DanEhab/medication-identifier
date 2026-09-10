@@ -4,7 +4,7 @@
 
 const { connectToDatabase } = require('./db');
 const { applyCors } = require('./_cors');
-const { normalizeDrugInfo, isCacheableDrugInfo, DRUG_INFO_SCHEMA } = require('./_drugInfo');
+const { normalizeDrugInfo, isCacheableDrugInfo, hasResultFields, DRUG_INFO_SCHEMA } = require('./_drugInfo');
 const { checkRequestLimit, checkDailyBudget, rejectRateLimited } = require('./_rateLimit');
 const { findCachedAnswer, findByCanonicalKey, saveCachedAnswer, saveAlias } = require('./_cache');
 const { IDENTIFY_SCHEMA, isIdentifyPrompt, normalizeIdentification } = require('./_identify');
@@ -157,6 +157,9 @@ const servableCachedPayload = (cached, collectionName) => {
   }
   const normalized = normalizeDrugInfo(data);
   if (!isCacheableDrugInfo(normalized)) return null;
+  // An entry written before the result screen's fields existed would render as
+  // a page of empty cards, so it is refetched once rather than served.
+  if (!hasResultFields(normalized)) return null;
   return JSON.stringify(normalized);
 };
 
