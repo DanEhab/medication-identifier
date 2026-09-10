@@ -1,4 +1,4 @@
-import type { DrugInfo, ProfessionalDrugInfo, Recognition } from '../types';
+import type { DrugInfo, PackReading, ProfessionalDrugInfo, Recognition } from '../types';
 import { NotAMedicationError, RateLimitedError } from '../types';
 import { API_BASE_URL } from '../config';
 import { translateDrugInfo } from './translationService';
@@ -192,16 +192,46 @@ const readRecognition = (source: Record<string, any>, info: DrugInfo): Recogniti
     return info.drugName && info.commonUse && filled >= 2 ? 'medication' : 'unknown';
 };
 
-export const identifyDrugFromImage = async (base64Image: string, mimeType: string): Promise<string> => {
-    const prompt = 'Identify the drug name, strength, and form from this image. Provide only the name and strength, for example: "Amoxicillin 500mg". If you cannot identify it, say "Unknown".';
-    
+/**
+ * Reads a photo of a pack.
+ *
+ * Returns what it read, how sure it is, and the near neighbours it might have
+ * confused it with, so the user can confirm before anything is looked up. The
+ * old version returned a bare name and the app went straight to a drug page,
+ * which turned a misread label into a confident page about the wrong medicine.
+ *
+ * The phrase "identify the drug name" is load-bearing: the server matches on it
+ * to apply the reading schema and to keep photos out of the cache.
+ */
+export const identifyDrugFromImage = async (
+    base64Image: string,
+    mimeType: string,
+): Promise<PackReading> => {
+    const prompt =
+        'Identify the drug name, strength and pack size from this photo of a medicine package. ' +
+        'Report the product name exactly as printed, say how confident you are, and list up to ' +
+        'three other products it could plausibly be. Return ONLY the JSON object.';
+
     const text = await callBackend(prompt, 'en', base64Image, mimeType);
 
-    const trimmedText = text.trim();
-    if (trimmedText.toLowerCase() === 'unknown') {
-        throw new Error('Could not identify the drug from the image. Please try again with a clearer picture.');
+    let reading: PackReading;
+    try {
+        reading = JSON.parse(extractJSON(text)) as PackReading;
+    } catch {
+        throw new Error('Could not read that photo. Please try again with a clearer picture.');
     }
-    return trimmedText;
+
+    if (!reading?.recognised || !reading.readAs) {
+        throw new Error('Could not find a medicine in that photo. Try to fill the frame with the front of the pack.');
+    }
+
+    return {
+        recognised: true,
+        readAs: reading.readAs,
+        strengthAndPack: reading.strengthAndPack || '',
+        confidence: reading.confidence || 'low',
+        alternatives: Array.isArray(reading.alternatives) ? reading.alternatives : [],
+    };
 };
 
 export const fetchDrugInformation = async (drugName: string, language: 'en' | 'ar'): Promise<DrugInfo> => {

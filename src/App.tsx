@@ -2,10 +2,9 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { HomeScreen } from './components/HomeScreen';
 import { ResultsScreen } from './components/ResultsScreen';
 import { ProfessionalScreen } from './components/ProfessionalScreen';
-import { Spinner } from './components/Spinner';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
-import type { DrugInfo, View, PatientInfo, NotAMedicationResult } from './types';
+import type { DrugInfo, View, PatientInfo, NotAMedicationResult, PackReading, ReadingStage } from './types';
 import { NotAMedicationError } from './types';
 import { identifyDrugFromImage, fetchDrugInformation } from './services/geminiService';
 import { MyMedicationsScreen } from './components/MyMedicationsScreen';
@@ -16,6 +15,8 @@ import { CoachMarks, shouldShowPhase1, shouldShowPhase2, resetPhase1Tutorial, re
 import { IntroSplash } from './components/IntroSplash';
 import { CameraHome } from './components/CameraHome';
 import { FirstRun, hasAcceptedDisclaimer } from './components/FirstRun';
+import { ReadingScreen } from './components/ReadingScreen';
+import { ConfirmScreen } from './components/ConfirmScreen';
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('home');
@@ -34,7 +35,25 @@ const App: React.FC = () => {
   // The disclaimer gates the app on first launch. Existing installs have no
   // flag yet, so they see it once too — nobody loses the notice.
   const [needsDisclaimer, setNeedsDisclaimer] = useState<boolean>(() => !hasAcceptedDisclaimer());
-  const { language, t } = useLocalization();
+
+  // ── Reading a pack ────────────────────────────────────────
+  const [reading, setReading] = useState<PackReading | null>(null);
+  const [readingStage, setReadingStage] = useState<ReadingStage>('reading');
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  /**
+   * Bumped whenever the user cancels or starts again. Every async step checks
+   * it before touching state, so an abandoned lookup can never arrive late and
+   * push the user into a screen they walked away from.
+   */
+  const runIdRef = useRef(0);
+
+  const releasePhoto = useCallback(() => {
+    setPhotoUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return null;
+    });
+  }, []);
+  const { language } = useLocalization();
 
   // ── Tutorial state ────────────────────────────────────────
   // Phase 1: triggered on absolute first launch (home screen tour)
@@ -80,58 +99,116 @@ const App: React.FC = () => {
     });
   };
 
-  const handleIdentify = useCallback(async (image: File | null, drugName: string) => {
-    setIsLoading(true);
-    setError(null);
-    setDrugInfo(null);
-    setNotFound(null);
-
-    try {
-      let identifiedName = drugName;
-      if (image) {
-        const reader = new FileReader();
-        reader.readAsDataURL(image);
-        await new Promise<void>((resolve, reject) => {
-            reader.onload = async () => {
-                try {
-                    const base64Image = (reader.result as string).split(',')[1];
-                    identifiedName = await identifyDrugFromImage(base64Image, image.type);
-                    resolve();
-                } catch (e) {
-                    reject(e);
-                }
-            };
-            reader.onerror = error => reject(error);
-        });
+  /**
+   * Looks a medicine up by name and shows the result. Used by the confirm
+   * step, by typed search, and by the saved list.
+   */
+  const lookUp = useCallback(
+    async (drugName: string, runId: number) => {
+      setReadingStage('matching');
+      try {
+        setOriginalDrugName(drugName);
+        const info = await fetchDrugInformation(drugName, language);
+        if (runIdRef.current !== runId) return;
+        setDrugInfo(info);
+        setView('results');
+        releasePhoto();
+      } catch (err: any) {
+        if (runIdRef.current !== runId) return;
+        if (err instanceof NotAMedicationError) {
+          setNotFound({
+            recognition: err.recognition,
+            query: err.query,
+            identifiedAs: err.identifiedAs,
+            safetyNote: err.safetyNote,
+          });
+          setView('notFound');
+        } else {
+          setError(err.message || 'An unexpected error occurred.');
+          setView('home');
+        }
+        releasePhoto();
       }
+    },
+    [language, releasePhoto],
+  );
 
-      if (!identifiedName) {
-        throw new Error('Could not identify the drug. Please try again with a clearer image or by typing the name.');
-      }
-      
-      setOriginalDrugName(identifiedName);
-      const info = await fetchDrugInformation(identifiedName, language);
-      setDrugInfo(info);
-      setView('results');
-    } catch (err: any) {
-      // Not every failure is an error. "That isn't a medication" deserves a
-      // proper explanation, not a red banner on the home screen.
-      if (err instanceof NotAMedicationError) {
-        setNotFound({
-          recognition: err.recognition,
-          query: err.query,
-          identifiedAs: err.identifiedAs,
-          safetyNote: err.safetyNote,
+  /**
+   * A photo is read first and confirmed second. Going straight to a drug page
+   * turned a misread label into a confident page about the wrong medicine.
+   */
+  const handleScan = useCallback(
+    async (image: File) => {
+      const runId = ++runIdRef.current;
+      setError(null);
+      setDrugInfo(null);
+      setNotFound(null);
+      setReading(null);
+      setReadingStage('reading');
+
+      releasePhoto();
+      setPhotoUrl(URL.createObjectURL(image));
+      setView('reading');
+
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.onerror = () => reject(new Error('Could not read that photo.'));
+          reader.readAsDataURL(image);
         });
-        setView('notFound');
-      } else {
+
+        const result = await identifyDrugFromImage(base64, image.type);
+        if (runIdRef.current !== runId) return;
+        setReading(result);
+        setView('confirm');
+      } catch (err: any) {
+        if (runIdRef.current !== runId) return;
         setError(err.message || 'An unexpected error occurred.');
         setView('home');
+        releasePhoto();
       }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [language]);
+    },
+    [releasePhoto],
+  );
+
+  /** The typed path needs no confirmation: the user supplied the name. */
+  const handleIdentify = useCallback(
+    (image: File | null, drugName: string) => {
+      if (image) {
+        void handleScan(image);
+        return;
+      }
+      const runId = ++runIdRef.current;
+      setError(null);
+      setDrugInfo(null);
+      setNotFound(null);
+      setReading(null);
+      releasePhoto();
+      setReadingStage('matching');
+      setView('reading');
+      void lookUp(drugName, runId);
+    },
+    [handleScan, lookUp, releasePhoto],
+  );
+
+  const handleConfirmReading = useCallback(
+    (drugName: string) => {
+      const runId = ++runIdRef.current;
+      setView('reading');
+      void lookUp(drugName, runId);
+    },
+    [lookUp],
+  );
+
+  /** Cancelling abandons the run: a late result can no longer land. */
+  const handleCancelReading = useCallback(() => {
+    runIdRef.current += 1;
+    releasePhoto();
+    setReading(null);
+    setError(null);
+    setView('home');
+  }, [releasePhoto]);
 
   // Re-fetches drug info ONLY when the language actually changes while
   // viewing results or professional screen. Uses a ref to track the previous
@@ -197,18 +274,10 @@ const App: React.FC = () => {
   const handleBackToPatientView = () => setView('results');
 
   /** The camera screen is full-bleed and supplies its own bar. */
-  const isCameraScreen = view === 'home' && !isLoading && !needsDisclaimer;
+  const fullBleed: View[] = ['home', 'reading', 'confirm'];
+  const isCameraScreen = fullBleed.includes(view) && !needsDisclaimer;
 
   const renderContent = () => {
-    if (isLoading) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full pt-20">
-          <Spinner />
-          <p className="text-brand-dark mt-4 text-lg">{t('analyzingMedication')}</p>
-        </div>
-      );
-    }
-
     switch (view) {
       case 'results':
         return drugInfo && <ResultsScreen drugInfo={drugInfo} patientInfo={patientInfo} originalDrugName={originalDrugName || drugInfo.drugName} onBack={handleBack} onShowProfessionalView={handleShowProfessionalView} onPatientInfoChange={handlePatientInfoChange} />;
@@ -225,6 +294,21 @@ const App: React.FC = () => {
         );
       case 'myMedications':
         return <MyMedicationsScreen onBack={handleBack} onSelectMed={handleSelectMed}/>;
+      case 'reading':
+        return (
+          <ReadingScreen photoUrl={photoUrl} stage={readingStage} onCancel={handleCancelReading} />
+        );
+      case 'confirm':
+        return (
+          reading && (
+            <ConfirmScreen
+              reading={reading}
+              photoUrl={photoUrl}
+              onConfirm={handleConfirmReading}
+              onReject={handleCancelReading}
+            />
+          )
+        );
       case 'search':
         return <HomeScreen onIdentify={handleIdentify} error={error} />;
       case 'home':

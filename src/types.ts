@@ -79,4 +79,22 @@ export interface PatientInfo {
   diagnosis: string;
 }
 
-export type View = 'home' | 'search' | 'results' | 'myMedications' | 'professional' | 'notFound';
+export type View = 'home' | 'search' | 'reading' | 'confirm' | 'results' | 'myMedications' | 'professional' | 'notFound';
+
+/** How sure the reader is that it read the right pack. */
+export type ReadingConfidence = 'high' | 'medium' | 'low';
+
+/**
+ * What the model made of a photo of a pack. Structured rather than a bare name
+ * so the app can ask "is this your box?" before looking anything up.
+ */
+export interface PackReading {
+  recognised: boolean;
+  readAs: string;
+  strengthAndPack: string;
+  confidence: ReadingConfidence;
+  alternatives: { name: string; detail: string }[];
+}
+
+/** Which part of the lookup is currently running, for the reading screen. */
+export type ReadingStage = 'reading' | 'matching' | 'writing';
