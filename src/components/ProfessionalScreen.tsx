@@ -1,158 +1,223 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { ProfessionalDrugInfo } from '../types';
 import { fetchProfessionalDrugInformation } from '../services/geminiService';
-import { Spinner } from './Spinner';
-import { ChevronLeftIcon, BookOpenIcon } from './Icons';
 import { useLocalization } from '../context/LanguageContext';
+import { useReportExport } from '../lib/useReportExport';
+import type { DrugInfo, PatientInfo } from '../types';
+
+/**
+ * The same drug, for clinicians.
+ *
+ * Not a different app: the segmented control at the top is the point — one
+ * medicine, two registers, a tap apart. Where the patient view leads with what
+ * the medicine does for you, this one leads with what it is: ATC code, class,
+ * mechanism, kinetics, in the compressed form somebody who already knows the
+ * vocabulary reads fastest.
+ *
+ * It says what it is at the bottom. A model summary is a starting point for
+ * somebody who can check it, not a substitute for the SPC.
+ */
 
 interface ProfessionalScreenProps {
   drugName: string;
+  /** The patient record behind this, so the share button can export it. */
+  drugInfo: DrugInfo | null;
+  patientInfo: PatientInfo;
   onBackToPatientView: () => void;
+  onPatientInfoChange: (info: Partial<PatientInfo>) => void;
 }
 
-const InfoSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
-    // Convert markdown bold (**text**) to HTML bold
-    const formatMarkdown = (text: string): React.ReactNode => {
-        const parts = text.split(/(\*\*.*?\*\*)/);
-        return parts.map((part, idx) => {
-            if (part.startsWith('**') && part.endsWith('**')) {
-                return <strong key={idx} className="font-bold">{part.slice(2, -2)}</strong>;
-            }
-            return <span key={idx}>{part}</span>;
-        });
-    };
+const ChevronBack: React.FC = () => (
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#0B2B2E"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="rtl:rotate-180">
+    <path d="m15 5-7 7 7 7" />
+  </svg>
+);
 
-    // Handle both string and object/array values
-    const renderValue = (value: any): React.ReactNode => {
-        // Handle undefined or null values
-        if (value === undefined || value === null || value === '') {
-            return <div className="text-gray-400 dark:text-[#A1A1AA] italic">No information available</div>;
-        }
-        
-        if (typeof value === 'string') {
-            return <div>{formatMarkdown(value)}</div>;
-        }
-        if (Array.isArray(value)) {
-            if (value.length === 0) {
-                return <div className="text-gray-400 dark:text-[#A1A1AA] italic">No information available</div>;
-            }
-            return (
-                <ul className="list-none space-y-2 ms-4">
-                    {value.map((item, idx) => (
-                        <li key={idx} className="flex items-start">
-                            <span className="text-brand-primary dark:text-[#90E0EF] me-2">•</span>
-                            <span className="flex-1">{typeof item === 'string' ? formatMarkdown(item) : renderValue(item)}</span>
-                        </li>
-                    ))}
-                </ul>
-            );
-        }
-        if (typeof value === 'object' && value !== null) {
-            return (
-                <div className="space-y-4">
-                    {Object.entries(value).map(([key, val]) => (
-                        <div key={key}>
-                            <strong className="text-brand-primary dark:text-[#90E0EF] font-semibold">
-                                {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim()}:
-                            </strong>
-                            <div className="ms-4 mt-1">{renderValue(val)}</div>
-                        </div>
-                    ))}
-                </div>
-            );
-        }
-        return String(value);
-    };
+const ShareIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="#0B2B2E"
+    strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 3v13" />
+    <path d="m7 8 5-5 5 5" />
+    <path d="M5 14v6h14v-6" />
+  </svg>
+);
 
-    return (
-        <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-lg dark:shadow-none p-6 transition-colors duration-300">
-            <div className="flex items-center mb-4">
-                <div className="bg-brand-accent dark:bg-[#2C2C2E] text-brand-primary dark:text-[#90E0EF] p-2 rounded-full me-4">
-                    <BookOpenIcon className="w-6 h-6" />
-                </div>
-                <h3 className="text-xl font-bold text-brand-dark dark:text-white">{title}</h3>
-            </div>
-            <div className="text-gray-700 dark:text-[#A1A1AA] leading-relaxed">
-                {renderValue(children)}
-            </div>
-        </div>
-    );
+/** One labelled row of the clinical card. */
+const Row: React.FC<{ label: string; value: string; last?: boolean }> = ({ label, value, last }) => {
+  if (!value || !value.trim()) return null;
+  return (
+    <div className={`py-3.5 ${last ? '' : 'border-b border-paper-deep'}`}>
+      <div className="font-mono font-semibold text-[11px] tracking-[0.06em] text-ink-soft mb-[5px]">
+        {label}
+      </div>
+      <div className="text-[15.5px] leading-[1.55] text-ink">
+        <bdi>{value}</bdi>
+      </div>
+    </div>
+  );
 };
 
-export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({ drugName, onBackToPatientView }) => {
-  const [profInfo, setProfInfo] = useState<ProfessionalDrugInfo | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+/** A skeleton in the shape of the card, so the wait does not read as a hang. */
+const LoadingCard: React.FC = () => (
+  <div className="bg-white border border-paper-sand rounded-[16px] px-[18px] py-1" aria-hidden="true">
+    {[0, 1, 2, 3].map((row) => (
+      <div key={row} className={`py-3.5 ${row === 3 ? '' : 'border-b border-paper-deep'}`}>
+        <div className="h-2.5 w-24 rounded-full bg-paper-deep mb-2.5" />
+        <div className="h-3.5 rounded-full bg-paper-deep mb-2" style={{ width: `${88 - row * 9}%` }} />
+        <div className="h-3.5 rounded-full bg-paper-deep" style={{ width: `${64 - row * 7}%` }} />
+      </div>
+    ))}
+  </div>
+);
+
+export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({
+  drugName,
+  drugInfo,
+  patientInfo,
+  onBackToPatientView,
+  onPatientInfoChange,
+}) => {
   const { t } = useLocalization();
+  const [info, setInfo] = useState<ProfessionalDrugInfo | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Sharing exports the patient record, which is the thing a clinician hands
+  // to somebody. There is no patient record when this was opened cold.
+  const { requestExport, dialog } = useReportExport(
+    drugInfo ?? ({ drugName, strength: '', commonUse: '', dosageAdministration: '', foodDrinkEffect: '',
+      missedDose: '', storage: '', commonSideEffects: [], seriousSideEffects: [], consultDoctorWhen: [] } as DrugInfo),
+    patientInfo,
+    onPatientInfoChange,
+  );
 
   useEffect(() => {
     let cancelled = false;
 
-    const getProfInfo = async () => {
+    (async () => {
       try {
         setIsLoading(true);
         setError(null);
-        const info = await fetchProfessionalDrugInformation(drugName);
-        if (!cancelled) setProfInfo(info);
+        const found = await fetchProfessionalDrugInformation(drugName);
+        if (!cancelled) setInfo(found);
       } catch (err: any) {
-        if (!cancelled) setError(err.message || 'Failed to load professional information.');
+        if (!cancelled) setError(err.message || t('professionalLoadFailed'));
       } finally {
         if (!cancelled) setIsLoading(false);
       }
-    };
-    getProfInfo();
+    })();
 
-    // Stops a slow response for a previous drug from overwriting the current one.
-    return () => {
-      cancelled = true;
-    };
-  }, [drugName]);
+    // Stops a slow response for a previous drug overwriting the current one.
+    return () => { cancelled = true; };
+  }, [drugName, t]);
 
-  const renderContent = () => {
-    if (isLoading) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full pt-20">
-          <Spinner />
-          <p className="text-brand-dark dark:text-[#A1A1AA] mt-4 text-lg">{t('loadingProfessionalData')}</p>
-        </div>
-      );
-    }
-    if (error) {
-      return (
-        <div className="bg-red-100 border-s-4 border-red-500 text-red-700 p-4 rounded-md" role="alert">
-          <p className="font-bold">{t('error')}</p>
-          <p>{error}</p>
-        </div>
-      );
-    }
-    if (profInfo) {
-      return (
-        <div className="space-y-6 animate-fade-in-fast">
-          <InfoSection title={t('chemistry')}>{profInfo.chemistry}</InfoSection>
-          <InfoSection title={t('bcsClass')}>{profInfo.bcsClass}</InfoSection>
-          <InfoSection title={t('pharmacology')}>{profInfo.pharmacology}</InfoSection>
-          <InfoSection title={t('pharmacokinetics')}>{profInfo.pharmacokinetics}</InfoSection>
-          <InfoSection title={t('mechanismOfAction')}>{profInfo.mechanismOfAction}</InfoSection>
-          <InfoSection title={t('adverseEffects')}>{profInfo.adverseEffects}</InfoSection>
-          <InfoSection title={t('drugInteractions')}>{profInfo.drugInteractions}</InfoSection>
-          <InfoSection title={t('references')}>{profInfo.references}</InfoSection>
-        </div>
-      );
-    }
-    return null;
-  };
+  const title = (info?.genericName || '').trim() || drugName;
 
   return (
-    <div className="max-w-4xl mx-auto animate-fade-in">
-      <button onClick={onBackToPatientView} className="flex items-center text-brand-primary dark:text-[#90E0EF] font-semibold hover:underline mb-6">
-        <ChevronLeftIcon className="w-5 h-5 me-1 rtl:rotate-180" />
-        {t('backToPatientView')}
-      </button>
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-brand-dark dark:text-white">{drugName}</h1>
-        <p className="text-xl text-gray-500 dark:text-[#A1A1AA]">{t('professionalInformation')}</p>
+    <div className="flex flex-col bg-paper" style={{ minHeight: '100dvh' }}>
+      <div className="flex items-center justify-between px-4 pt-3.5 pb-2.5">
+        <button type="button" onClick={onBackToPatientView} aria-label={t('backToSearch')} className="active:scale-90 transition-transform">
+          <ChevronBack />
+        </button>
+        <button
+          type="button"
+          onClick={() => requestExport('pdf')}
+          aria-label={t('exportShare')}
+          className="active:scale-90 transition-transform"
+        >
+          <ShareIcon />
+        </button>
       </div>
-      {renderContent()}
+
+      {/* ── One medicine, two registers, a tap apart ── */}
+      <div className="px-4">
+        <div className="flex bg-paper-sand rounded-full p-1" role="tablist" aria-label={t('viewSwitch')}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={false}
+            data-testid="tab-plain"
+            onClick={onBackToPatientView}
+            className="flex-1 h-[42px] rounded-full flex items-center justify-center
+              font-medium text-[15px] text-ink-soft active:scale-[0.98] transition-transform"
+          >
+            {t('plainLanguage')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected
+            data-testid="tab-professional"
+            className="flex-1 h-[42px] rounded-full bg-ink flex items-center justify-center
+              font-semibold text-[15px] text-white"
+          >
+            {t('professionalTab')}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Identity, in the order a clinician reads it ── */}
+      <div className="px-5 pt-5">
+        {info?.atcCode?.trim() && (
+          <div className="font-mono font-semibold text-[12px] tracking-[0.06em] text-ink-soft">
+            {t('atcLabel')} {info.atcCode}
+          </div>
+        )}
+        <h1 className="font-semibold text-[30px] leading-[1.15] tracking-[-0.02em] text-ink mt-1.5 mb-1 break-words">
+          <bdi>{title}</bdi>
+        </h1>
+        {info?.formAndStrength?.trim() && (
+          <div className="text-[16px] text-ink-soft"><bdi>{info.formAndStrength}</bdi></div>
+        )}
+      </div>
+
+      <div className="px-5 pt-[18px]">
+        {isLoading && <LoadingCard />}
+
+        {error && (
+          <div className="bg-white rounded-[16px] py-4 px-[18px]" style={{ border: '2px solid #E7BDB4' }} role="alert">
+            <p className="font-semibold text-[16px] text-clay m-0 mb-1.5">{t('professionalLoadFailed')}</p>
+            <p className="text-[15px] leading-[1.55] text-clay-deep m-0">{error}</p>
+          </div>
+        )}
+
+        {info && !isLoading && !error && (
+          <div className="bg-white border border-paper-sand rounded-[16px] px-[18px] py-1" data-testid="clinical-card">
+            <Row label={t('classLabel')} value={info.drugClass} />
+            <Row label={t('mechanismLabel')} value={info.mechanism} />
+            <Row label={t('pharmacokineticsLabel')} value={info.pharmacokinetics} />
+            <Row label={t('contraindicationsLabel')} value={info.contraindications} />
+
+            {info.majorInteractions.length > 0 && (
+              <div className="py-3.5 border-b border-paper-deep">
+                <div className="font-mono font-semibold text-[11px] tracking-[0.06em] text-clay mb-2">
+                  {t('majorInteractionsLabel')}
+                </div>
+                <div className="flex flex-wrap gap-[7px]">
+                  {info.majorInteractions.map((interaction) => (
+                    <span
+                      key={interaction}
+                      className="font-medium text-[13.5px] text-clay-deep bg-clay-wash rounded-lg py-1.5 px-2.5"
+                    >
+                      <bdi>{interaction}</bdi>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Row label={t('monitoringLabel')} value={info.monitoring} last />
+          </div>
+        )}
+      </div>
+
+      {/* ── What this is, and is not ── */}
+      <div className="px-5 pt-4 pb-7">
+        <p className="text-[13px] leading-[1.6] text-ink-soft m-0">{t('referenceSummaryNote')}</p>
+      </div>
+
+      {dialog}
     </div>
   );
 };

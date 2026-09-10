@@ -8,6 +8,9 @@ const { normalizeDrugInfo, isCacheableDrugInfo, hasResultFields, DRUG_INFO_SCHEM
 const { checkRequestLimit, checkDailyBudget, rejectRateLimited } = require('./_rateLimit');
 const { findCachedAnswer, findByCanonicalKey, saveCachedAnswer, saveAlias } = require('./_cache');
 const { IDENTIFY_SCHEMA, isIdentifyPrompt, normalizeIdentification } = require('./_identify');
+const {
+  normalizeProfessionalInfo, isCacheableProfessionalInfo, hasProfessionalFields, PROFESSIONAL_SCHEMA,
+} = require('./_professional');
 const { queryKeyFor } = require('./_cacheKey');
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
@@ -152,6 +155,14 @@ const normalizeContents = (contents) => {
  */
 const servableCachedPayload = (cached, collectionName) => {
   const data = cached.data;
+  if (collectionName === 'professional_medications') {
+    const normalized = normalizeProfessionalInfo(data);
+    if (!isCacheableProfessionalInfo(normalized)) return null;
+    // Entries written before the clinical screen's fields existed would render
+    // as a page of empty rows, so they are refetched once rather than served.
+    if (!hasProfessionalFields(normalized)) return null;
+    return JSON.stringify(normalized);
+  }
   if (collectionName !== 'medications') {
     return typeof data === 'object' ? JSON.stringify(data) : data;
   }
@@ -284,7 +295,9 @@ module.exports = async (req, res) => {
         ? IDENTIFY_SCHEMA
         : collectionName === 'medications' && isCacheable
           ? DRUG_INFO_SCHEMA
-          : undefined,
+          : collectionName === 'professional_medications'
+            ? PROFESSIONAL_SCHEMA
+            : undefined,
     );
 
     // Normalise the patient view before anyone sees it. The model does not
@@ -320,6 +333,23 @@ module.exports = async (req, res) => {
         }
       } catch (parseError) {
         console.error('[generate] could not parse model response:', parseError.message);
+      }
+    } else if (collectionName === 'professional_medications') {
+      // Same treatment as the patient record: normalise before anyone sees it,
+      // so the screen renders a known shape and every caller gets identical
+      // text whether it came from the model or the cache.
+      try {
+        const normalized = normalizeProfessionalInfo(JSON.parse(extractJSON(rawText)));
+        if (normalized) {
+          text = JSON.stringify(normalized);
+          if (isCacheableProfessionalInfo(normalized)) {
+            cacheableData = normalized;
+          } else {
+            console.warn(`[shape] "${queryKey}" — thin clinical answer, serving but not caching`);
+          }
+        }
+      } catch (parseError) {
+        console.error('[generate] could not parse clinical response:', parseError.message);
       }
     } else {
       try {
