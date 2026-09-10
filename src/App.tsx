@@ -112,12 +112,15 @@ const App: React.FC = () => {
    */
   const lookupOrigin = useRef<View>('home');
 
+  /** True once "we got it wrong" has been used and still found nothing. */
+  const [insistedAlready, setInsistedAlready] = useState(false);
+
   const lookUp = useCallback(
-    async (drugName: string, runId: number) => {
+    async (drugName: string, runId: number, insist = false) => {
       setReadingStage('matching');
       try {
         setOriginalDrugName(drugName);
-        const info = await fetchDrugInformation(drugName, language);
+        const info = await fetchDrugInformation(drugName, language, { insist });
         if (runIdRef.current !== runId) return;
         setDrugInfo(info);
         // Only a lookup that actually found something is worth offering back
@@ -134,6 +137,9 @@ const App: React.FC = () => {
             identifiedAs: err.identifiedAs,
             safetyNote: err.safetyNote,
           });
+          // Asking again and getting the same answer is worth saying out loud,
+          // rather than letting somebody tap the same link forever.
+          setInsistedAlready(insist);
           setView('notFound');
         } else {
           setError(err.message || 'An unexpected error occurred.');
@@ -264,6 +270,21 @@ const App: React.FC = () => {
     setError(null);
     setOriginalDrugName(null);
     setNotFound(null);
+    setInsistedAlready(false);
+  };
+
+  /**
+   * "We got it wrong — it is a medicine". Asks again, saying so. Nothing is
+   * forced: something genuinely not a medicine is refused a second time, and
+   * the screen then says the second attempt found nothing either.
+   */
+  const handleInsist = () => {
+    if (!notFound) return;
+    const runId = ++runIdRef.current;
+    setNotFound(null);
+    setReadingStage('matching');
+    setView('reading');
+    void lookUp(notFound.query, runId, true);
   };
 
   const handleLogoClick = () => {
@@ -302,7 +323,7 @@ const App: React.FC = () => {
   const handleBackToPatientView = () => setView('results');
 
   /** These screens are full-bleed and supply their own bar. */
-  const fullBleed: View[] = ['home', 'search', 'reading', 'confirm', 'results', 'sideEffects', 'myMedications'];
+  const fullBleed: View[] = ['home', 'search', 'reading', 'confirm', 'results', 'sideEffects', 'myMedications', 'notFound'];
   const isCameraScreen = fullBleed.includes(view) && !needsDisclaimer;
 
   const renderContent = () => {
@@ -342,8 +363,10 @@ const App: React.FC = () => {
         return notFound && (
           <NotFoundScreen
             result={notFound}
-            onSearchAgain={handleBack}
             onScan={handleBack}
+            onSearchAgain={() => { setNotFound(null); setInsistedAlready(false); setView('search'); }}
+            onInsist={handleInsist}
+            insistedAlready={insistedAlready}
           />
         );
       case 'myMedications':

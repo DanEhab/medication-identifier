@@ -263,10 +263,31 @@ export const identifyDrugFromImage = async (
     };
 };
 
-export const fetchDrugInformation = async (drugName: string, language: 'en' | 'ar'): Promise<DrugInfo> => {
+export interface LookupOptions {
+    /**
+     * The person has been told this is not a medicine and says otherwise.
+     * Asks again, saying so — a pack name the model did not recognise the
+     * first time is often recognised when it is told one exists. It does not
+     * force an answer: something that is genuinely not a medicine is still
+     * refused, which is the whole point of the check.
+     */
+    insist?: boolean;
+}
+
+export const fetchDrugInformation = async (
+    drugName: string,
+    language: 'en' | 'ar',
+    options: LookupOptions = {},
+): Promise<DrugInfo> => {
+    const insistence = options.insist
+        ? ' The person searching says this IS a medicine sold under this name, and a previous answer said it was not.'
+        + ' Check again carefully for a brand, generic or regional pack name that matches, including common misspellings.'
+        + ' If it genuinely is not a medicine, say so again rather than inventing one.'
+        : '';
+
     // The server pins the exact response schema; this says what the fields are
     // for, so the two do not drift apart.
-    const prompt = `Provide patient-friendly information for the drug: ${drugName}. Lead with one plain sentence saying what it does for the person taking it ("whatItIsFor"), the usual dose, timing and whether food matters ("quickDose"/"quickTiming"/"quickFood" and their notes), how to take it and what to do about a missed dose ("howToTake"), the one symptom that should send them to a doctor ("tellYourDoctorIf"), and anything it must never be taken with ("neverWith"). The information should be simple, clear, and based on reliable sources like the FDA and MedlinePlus. Return ONLY the JSON object, no additional text.`;
+    const prompt = `Provide patient-friendly information for the drug: ${drugName}. Lead with one plain sentence saying what it does for the person taking it ("whatItIsFor"), the usual dose, timing and whether food matters ("quickDose"/"quickTiming"/"quickFood" and their notes), how to take it and what to do about a missed dose ("howToTake"), the one symptom that should send them to a doctor ("tellYourDoctorIf"), and anything it must never be taken with ("neverWith"). The information should be simple, clear, and based on reliable sources like the FDA and MedlinePlus. Return ONLY the JSON object, no additional text.${insistence}`;
     
     // Always fetch in English (caching is in English)
     const text = await callBackend(prompt, 'en');

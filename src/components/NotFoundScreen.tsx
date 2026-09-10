@@ -1,103 +1,166 @@
 import React from 'react';
 import type { NotAMedicationResult } from '../types';
 import { useLocalization } from '../context/LanguageContext';
-import { AlertTriangleIcon, CameraIcon, ChevronLeftIcon, MagnifyingGlassIcon } from './Icons';
+
+/**
+ * The screen worth keeping.
+ *
+ * The app used to render a full drug page for anything at all — a banana came
+ * back as a medicine with invented side effects. Saying "this is not a
+ * medicine" plainly is the most valuable thing this app does, so the screen
+ * never borrows the visual language of a real answer: no cards of facts, no
+ * quick-fact grid, nothing that could be skimmed as an answer.
+ *
+ * It also refuses to be the last word. Somebody holding a real pack the model
+ * did not recognise can say so, and it asks again.
+ */
 
 interface NotFoundScreenProps {
   result: NotAMedicationResult;
-  onSearchAgain: () => void;
   onScan: () => void;
+  onSearchAgain: () => void;
+  /** Asks again, told that the person is certain it is a medicine. */
+  onInsist: () => void;
+  /** True once asking again has also come back saying it is not a medicine. */
+  insistedAlready?: boolean;
 }
 
-/**
- * Shown when a search did not resolve to a medication.
- *
- * The app previously rendered a full drug page for anything at all — a banana
- * came back as a medicine with invented side effects. Being clear about not
- * knowing is the whole point of this screen, so it never borrows the visual
- * language of a real result.
- */
-export const NotFoundScreen: React.FC<NotFoundScreenProps> = ({ result, onSearchAgain, onScan }) => {
-  const { t } = useLocalization();
-  const isSubstance = result.recognition === 'substance';
+const ChevronBack: React.FC = () => (
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#0B2B2E"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="rtl:rotate-180">
+    <path d="m15 5-7 7 7 7" />
+  </svg>
+);
 
-  const title = isSubstance ? t('notAMedicationTitle') : t('notFoundTitle');
-  const body = t('notFoundBody').replace('{query}', result.query);
+const ScanIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#ffffff"
+    strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 8V6a2 2 0 0 1 2-2h2" />
+    <path d="M16 4h2a2 2 0 0 1 2 2v2" />
+    <path d="M20 16v2a2 2 0 0 1-2 2h-2" />
+    <path d="M8 20H6a2 2 0 0 1-2-2v-2" />
+    <path d="M9 12h6" />
+  </svg>
+);
+
+const QuestionIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#9A6414"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 8v5" />
+    <path d="M12 17h.01" />
+  </svg>
+);
+
+const DangerIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#B23A2B"
+    strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+    <path d="M12 4 2.5 20h19z" />
+    <path d="M12 10v4" />
+    <path d="M12 17.5h.01" />
+  </svg>
+);
+
+export const NotFoundScreen: React.FC<NotFoundScreenProps> = ({
+  result,
+  onScan,
+  onSearchAgain,
+  onInsist,
+  insistedAlready = false,
+}) => {
+  const { t } = useLocalization();
+
+  const explanation = result.identifiedAs.trim();
+
+  // "This is not a medicine" is only honest when the thing was recognised and
+  // turned out not to be one. Recognition alone does not settle that: the
+  // classification deliberately files foods and drinks under "unknown", so a
+  // flavoured drink the model described perfectly well arrived as unknown and
+  // was announced as unreadable. What settles it is whether it explained what
+  // the thing is — if it did, we know; if it did not, we do not.
+  const identified = result.recognition === 'substance' || explanation.length > 0;
+  const title = identified ? t('notAMedicineTitle') : t('notRecognisedTitle');
 
   return (
-    <div className="mx-auto w-full max-w-lg animate-fade-in">
-      <button
-        onClick={onSearchAgain}
-        className="mb-6 flex items-center font-semibold text-brand-primary hover:underline dark:text-[#90E0EF]"
-      >
-        <ChevronLeftIcon className="me-1 h-5 w-5 rtl:rotate-180" />
-        {t('backToSearch')}
-      </button>
+    <div className="flex flex-col bg-paper" style={{ minHeight: '100dvh' }}>
+      <div className="px-4 py-3.5">
+        <button type="button" onClick={onSearchAgain} aria-label={t('backToSearch')} className="active:scale-90 transition-transform">
+          <ChevronBack />
+        </button>
+      </div>
 
-      <div className="rounded-2xl bg-white p-6 shadow-lg transition-colors duration-300 dark:bg-[#1C1C1E] dark:shadow-none sm:p-8">
-        <div className="flex flex-col items-center text-center">
-          <div
-            className={`mb-5 flex h-16 w-16 items-center justify-center rounded-full ${
-              isSubstance
-                ? 'bg-amber-100 text-amber-600 dark:bg-[#2C2418] dark:text-amber-400'
-                : 'bg-brand-accent text-brand-primary dark:bg-[#2C2C2E] dark:text-[#90E0EF]'
-            }`}
-          >
-            {isSubstance ? (
-              <AlertTriangleIcon className="h-8 w-8" />
-            ) : (
-              <MagnifyingGlassIcon className="h-8 w-8" />
-            )}
+      <div className="px-5 pt-5 flex flex-col items-start">
+        <div className="w-[72px] h-[72px] rounded-full bg-saffron-wash flex items-center justify-center mb-[22px]">
+          <QuestionIcon />
+        </div>
+
+        <h1
+          className="font-semibold text-[32px] leading-[1.2] tracking-[-0.02em] text-ink m-0 mb-3"
+          style={{ textWrap: 'pretty' } as React.CSSProperties}
+        >
+          {title}
+        </h1>
+
+        <p
+          className="text-[17px] leading-[1.6] text-ink-soft m-0"
+          style={{ textWrap: 'pretty' } as React.CSSProperties}
+        >
+          {t('weReadOnTheLabel')}{' '}
+          <strong className="font-semibold text-ink"><bdi>“{result.query}”</bdi></strong>
+          {explanation ? <>. <bdi>{explanation}</bdi></> : <>. {t('nothingToTellSafely')}</>}
+        </p>
+      </div>
+
+      {/* ── The point of the screen ── */}
+      <div className="px-5 pt-6">
+        <div className="bg-white rounded-[16px] py-4 px-[18px]" style={{ border: '2px solid #E7BDB4' }}>
+          <div className="flex items-center gap-[9px] mb-2">
+            <DangerIcon />
+            <span className="font-semibold text-[16px] text-clay">{t('doNotUseAppToJudge')}</span>
           </div>
-
-          <h1 className="mb-3 text-2xl font-bold text-brand-dark dark:text-white">{title}</h1>
-
-          {/* The searched term, quoted back so it is obvious what was looked up. */}
-          <p className="mb-2 text-gray-600 dark:text-[#A1A1AA]">{body}</p>
-
-          {result.identifiedAs && (
-            <p className="mb-1 font-medium text-brand-dark dark:text-white">{result.identifiedAs}</p>
+          <p className="text-[16px] leading-[1.55] text-clay-deep m-0">{t('safeToSwallowIsAQuestion')}</p>
+          {result.safetyNote.trim() && (
+            <p className="text-[16px] leading-[1.55] text-clay-deep m-0 mt-2.5">
+              <bdi>{result.safetyNote}</bdi>
+            </p>
           )}
         </div>
+      </div>
 
-        {result.safetyNote && (
-          <div className="mt-6 rounded-xl border-2 border-red-200 bg-red-50 p-4 dark:border-red-900/60 dark:bg-[#2A1618]">
-            <div className="mb-1 flex items-center">
-              <AlertTriangleIcon className="me-2 h-5 w-5 flex-shrink-0 text-red-600 dark:text-red-400" />
-              <h2 className="font-bold text-red-700 dark:text-red-300">{t('importantSafety')}</h2>
-            </div>
-            <p className="text-red-800 dark:text-red-200">{result.safetyNote}</p>
-          </div>
-        )}
+      <div className="px-5 pt-6 flex flex-col gap-2.5">
+        <button
+          type="button"
+          onClick={onScan}
+          className="h-[58px] rounded-full bg-teal flex items-center justify-center gap-2.5
+            font-semibold text-[17px] text-white active:scale-[0.98] transition-transform"
+        >
+          <ScanIcon />
+          {t('scanThePackInstead')}
+        </button>
+        <button
+          type="button"
+          onClick={onSearchAgain}
+          className="h-[58px] rounded-full bg-white border border-paper-edge flex items-center justify-center
+            font-semibold text-[17px] text-ink active:scale-[0.98] transition-transform"
+        >
+          {t('typeTheName')}
+        </button>
+      </div>
 
-        {/* Only offer spelling advice when we genuinely did not recognise it —
-            it is unhelpful noise when the answer was "that is a fruit". */}
-        {!isSubstance && (
-          <ul className="mt-6 space-y-3 border-t border-gray-100 pt-6 dark:border-[#2C2C2E]">
-            {[t('checkSpelling'), t('tryBrandOrGeneric'), t('photoIsMoreAccurate')].map((tip) => (
-              <li key={tip} className="flex items-start text-gray-600 dark:text-[#A1A1AA]">
-                <span className="me-3 mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-brand-secondary dark:bg-[#90E0EF]" />
-                <span>{tip}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+      {/* ── It refuses to be the last word ── */}
+      <div className="mt-auto p-5 text-center">
+        {insistedAlready ? (
+          <p className="text-[15px] leading-[1.6] text-ink-soft m-0">{t('askedAgainStillNothing')}</p>
+        ) : (
           <button
-            onClick={onScan}
-            className="flex flex-1 items-center justify-center rounded-full bg-brand-primary px-6 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-brand-secondary dark:bg-[#90E0EF] dark:text-[#0D0D0D] dark:hover:bg-[#63C7CE]"
+            type="button"
+            onClick={onInsist}
+            className="font-medium text-[15px] text-ink-soft underline underline-offset-[3px]
+              active:scale-[0.98] transition-transform"
           >
-            <CameraIcon className="me-2 h-5 w-5" />
-            {t('scanThePack')}
+            {t('weGotItWrong')}
           </button>
-          <button
-            onClick={onSearchAgain}
-            className="flex flex-1 items-center justify-center rounded-full border border-gray-300 bg-white px-6 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-[#3A4D54] dark:bg-[#1C1C1E] dark:text-white dark:hover:bg-[#2C2C2E]"
-          >
-            {t('searchAgain')}
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );
