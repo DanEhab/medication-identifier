@@ -30,6 +30,7 @@ export default {
         ink: {
           DEFAULT: '#0B2B2E',
           mid: '#3D4F50',
+          dim: '#2C3E3F',
           soft: '#5B6A6A',
         },
         paper: {

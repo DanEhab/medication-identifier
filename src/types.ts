@@ -51,6 +51,21 @@ export interface NotAMedicationResult {
 export interface DrugInfo {
   drugName: string;
   strength: string;
+  // The result screen's own fields. Optional because a medicine saved to the
+  // phone before the redesign has none of them, and an old saved card must
+  // still open rather than crash.
+  canonicalName?: string;
+  brandName?: string;
+  whatItIsFor?: string;
+  howToTake?: string;
+  tellYourDoctorIf?: string;
+  neverWith?: string;
+  quickDose?: string;
+  quickDoseNote?: string;
+  quickTiming?: string;
+  quickTimingNote?: string;
+  quickFood?: string;
+  quickFoodNote?: string;
   commonUse: string;
   dosageAdministration: string;
   foodDrinkEffect: string;
