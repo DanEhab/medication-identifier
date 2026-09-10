@@ -323,7 +323,10 @@ const App: React.FC = () => {
   const handleBackToPatientView = () => setView('results');
 
   /** These screens are full-bleed and supply their own bar. */
-  const fullBleed: View[] = ['home', 'search', 'reading', 'confirm', 'results', 'sideEffects', 'myMedications', 'notFound'];
+  const fullBleed: View[] = [
+    'home', 'search', 'reading', 'confirm', 'results',
+    'sideEffects', 'myMedications', 'notFound', 'professional',
+  ];
   const isCameraScreen = fullBleed.includes(view) && !needsDisclaimer;
 
   const renderContent = () => {
@@ -358,7 +361,15 @@ const App: React.FC = () => {
         );
       case 'professional':
         // Pass original name to professional view to ensure it fetches data using the non-translated name
-        return drugInfo && originalDrugName && <ProfessionalScreen drugName={originalDrugName} onBackToPatientView={handleBackToPatientView} />;
+        return drugInfo && originalDrugName && (
+          <ProfessionalScreen
+            drugName={originalDrugName}
+            drugInfo={drugInfo}
+            patientInfo={patientInfo}
+            onBackToPatientView={handleBackToPatientView}
+            onPatientInfoChange={handlePatientInfoChange}
+          />
+        );
       case 'notFound':
         return notFound && (
           <NotFoundScreen

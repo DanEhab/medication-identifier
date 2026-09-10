@@ -143,9 +143,33 @@ function installGeminiStub(payload) {
     }
 
     geminiCalls++;
-    const answer =
-      payload !== undefined ? payload : defaultAnswerFor(requestedDrug({ contents: promptText }));
+    const drug = requestedDrug({ contents: promptText });
+
+    // A clinical prompt gets a clinical answer. The two audiences have had
+    // separate response schemas since the clinical screen was rebuilt, and a
+    // patient-shaped blob is now correctly refused as a clinical summary.
+    if (payload === undefined && promptText.includes('healthcare professional')) {
+      return reply(professionalAnswerFor(drug));
+    }
+
+    const answer = payload !== undefined ? payload : defaultAnswerFor(drug);
     return reply(answer);
+  };
+}
+
+/** The clinical counterpart of defaultAnswerFor. */
+function professionalAnswerFor(drug) {
+  const patient = defaultAnswerFor(drug);
+  return {
+    genericName: patient.canonicalName,
+    atcCode: 'N02BE01',
+    formAndStrength: patient.strength,
+    drugClass: 'A pharmacological class long enough to count as substantive.',
+    mechanism: 'A mechanism of action sentence long enough to count as substantive.',
+    pharmacokinetics: 'Kinetics text long enough to count as substantive, with a half-life in it.',
+    contraindications: 'Nothing absolute.',
+    majorInteractions: ['Warfarin'],
+    monitoring: 'Nothing routine.',
   };
 }
 

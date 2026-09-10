@@ -76,15 +76,24 @@ export interface DrugInfo {
   storage: string;
 }
 
+/**
+ * The clinician's view. Every field is a plain string or a list of them: the
+ * server flattens whatever shape the model used, so nothing here is `any` and
+ * the screen cannot be handed a nested object to render.
+ */
 export interface ProfessionalDrugInfo {
-    chemistry: any;  // Can be string or object with nested properties
-    bcsClass: string;
-    pharmacology: any;  // Can be string or object with nested properties
-    pharmacokinetics: any;  // Can be string or object with nested properties
-    mechanismOfAction: string;
-    adverseEffects: any;  // Can be string or object with nested properties
-    drugInteractions: any;  // Can be string or object with nested properties
-    references: string[] | string;  // Can be array of strings or single string
+    genericName: string;
+    /** WHO ATC code, e.g. "C10AA05". Empty when there is no single one. */
+    atcCode: string;
+    /** Salt and presentation, e.g. "calcium trihydrate · 20 mg f/c tab". */
+    formAndStrength: string;
+    drugClass: string;
+    mechanism: string;
+    pharmacokinetics: string;
+    contraindications: string;
+    /** Short labels, not sentences: "Strong CYP3A4 inhibitors". */
+    majorInteractions: string[];
+    monitoring: string;
 }
 
 export interface PatientInfo {

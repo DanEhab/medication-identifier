@@ -328,29 +328,77 @@ export const fetchDrugInformation = async (
     }
 };
 
+/**
+ * Like flatten, but keeps the key as a label. A clinical answer's ADME comes
+ * back as { absorption, metabolism, excretion } about as often as a sentence,
+ * and four unlabelled clauses in a row are far harder to read than four
+ * labelled ones. The server does the same thing; this is here because the
+ * client does not trust the payload to have been through it.
+ */
+const flattenLabelled = (value: any): string[] => {
+    if (Array.isArray(value)) return value.flatMap(flattenLabelled);
+    if (value === null || value === undefined) return [];
+    if (typeof value === 'object') {
+        return Object.entries(value).flatMap(([key, nested]) => {
+            const parts = flattenLabelled(nested);
+            if (parts.length === 0) return [];
+            const label = key.replace(/[_-]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim();
+            return parts.map((part) => (label ? `${label[0].toUpperCase()}${label.slice(1)}: ${part}` : part));
+        });
+    }
+    return [String(value)];
+};
+
+/** Field names the model has been seen to substitute in the clinical answer. */
+const PROFESSIONAL_ALIASES: Record<keyof ProfessionalDrugInfo, string[]> = {
+    genericName: ['generic_name', 'inn', 'active_ingredient', 'drug_name'],
+    atcCode: ['atc_code', 'atc'],
+    formAndStrength: ['form_and_strength', 'form', 'strength', 'presentation'],
+    drugClass: ['drug_class', 'class', 'pharmacological_class'],
+    mechanism: ['mechanism_of_action', 'moa', 'pharmacodynamics'],
+    pharmacokinetics: ['pk', 'adme', 'pharmacology'],
+    contraindications: ['contraindication', 'cautions'],
+    majorInteractions: ['major_interactions', 'drug_interactions', 'interactions'],
+    monitoring: ['monitoring_requirements', 'monitoring_parameters'],
+};
+
+const PROFESSIONAL_LISTS: (keyof ProfessionalDrugInfo)[] = ['majorInteractions'];
+
+/**
+ * Guarantees the shape the clinical screen renders. The server normalises too,
+ * but this one used to JSON.parse the raw answer straight into a typed object
+ * whose fields were `any` -- a nested object then reached the screen and React
+ * threw rather than rendering it.
+ */
+const normalizeProfessional = (raw: any): ProfessionalDrugInfo => {
+    const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    const out = {} as ProfessionalDrugInfo;
+
+    (Object.keys(PROFESSIONAL_ALIASES) as (keyof ProfessionalDrugInfo)[]).forEach((field) => {
+        const wanted = [field as string, ...PROFESSIONAL_ALIASES[field]].map(loose);
+        let value: any;
+        for (const [key, candidate] of Object.entries(source)) {
+            if (wanted.includes(loose(key))) { value = candidate; break; }
+        }
+        if (PROFESSIONAL_LISTS.includes(field)) {
+            (out[field] as unknown as string[]) = flattenLabelled(value).map((s) => s.trim()).filter(Boolean);
+        } else {
+            (out[field] as unknown as string) = flattenLabelled(value).map((s) => s.trim()).filter(Boolean).join(' ');
+        }
+    });
+
+    return out;
+};
+
 export const fetchProfessionalDrugInformation = async (drugName: string): Promise<ProfessionalDrugInfo> => {
-    const prompt = `Provide detailed technical information for the drug: ${drugName}, intended for a healthcare professional. Format the output as a JSON object with these EXACT keys:
+    // The server pins the exact response schema; this says what the fields are
+    // for, so the two do not drift apart.
+    const prompt = `Provide detailed technical information for the drug: ${drugName}, intended for a healthcare professional. Give the generic name and ATC code, the salt and usual presentation, the pharmacological class, the mechanism of action, ADME with the enzymes and half-life a clinician would want, absolute contraindications, the clinically significant interactions as short labels rather than sentences, and what to monitor and when. Use reliable medical sources. Return ONLY the JSON object, no additional text.`;
 
-{
-  "chemistry": "Chemical composition and structure",
-  "bcsClass": "BCS Classification",
-  "pharmacology": "Pharmacological properties",
-  "pharmacokinetics": "ADME properties",
-  "mechanismOfAction": "How the drug works",
-  "adverseEffects": "Adverse effects (can be string, array, or object)",
-  "drugInteractions": "Drug interactions (can be string, array, or object)",
-  "references": "Sources consulted (array of strings or single string)"
-}
-
-Use reliable medical sources. Return ONLY the JSON object, no additional text.`;
-    
     const text = await callBackend(prompt, 'en');
-    
+
     try {
-        // Extract JSON from response
-        const jsonText = extractJSON(text);
-        const profInfo: ProfessionalDrugInfo = JSON.parse(jsonText);
-        return profInfo;
+        return normalizeProfessional(JSON.parse(extractJSON(text)));
     } catch (e) {
         console.error("Failed to parse professional JSON response:", e);
         console.error("Raw response:", text);
