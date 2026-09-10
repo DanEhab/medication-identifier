@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { HomeScreen } from './components/HomeScreen';
-import { ResultsScreen } from './components/ResultsScreen';
+import { ResultScreen } from './components/ResultScreen';
 import { ProfessionalScreen } from './components/ProfessionalScreen';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
@@ -273,14 +273,26 @@ const App: React.FC = () => {
   const handleShowProfessionalView = () => setView('professional');
   const handleBackToPatientView = () => setView('results');
 
-  /** The camera screen is full-bleed and supplies its own bar. */
-  const fullBleed: View[] = ['home', 'reading', 'confirm'];
+  /** These screens are full-bleed and supply their own bar. */
+  const fullBleed: View[] = ['home', 'reading', 'confirm', 'results'];
   const isCameraScreen = fullBleed.includes(view) && !needsDisclaimer;
 
   const renderContent = () => {
     switch (view) {
       case 'results':
-        return drugInfo && <ResultsScreen drugInfo={drugInfo} patientInfo={patientInfo} originalDrugName={originalDrugName || drugInfo.drugName} onBack={handleBack} onShowProfessionalView={handleShowProfessionalView} onPatientInfoChange={handlePatientInfoChange} />;
+        return (
+          drugInfo && (
+            <ResultScreen
+              drugInfo={drugInfo}
+              patientInfo={patientInfo}
+              originalDrugName={originalDrugName || drugInfo.drugName}
+              onBack={handleBack}
+              onShowProfessionalView={handleShowProfessionalView}
+              onShowMyMedications={handleShowMyMedications}
+              onPatientInfoChange={handlePatientInfoChange}
+            />
+          )
+        );
       case 'professional':
         // Pass original name to professional view to ensure it fetches data using the non-translated name
         return drugInfo && originalDrugName && <ProfessionalScreen drugName={originalDrugName} onBackToPatientView={handleBackToPatientView} />;

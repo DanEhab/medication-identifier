@@ -67,42 +67,33 @@ const translateArray = async (arr: string[]): Promise<string[]> => {
  */
 export const translateDrugInfo = async (drugInfo: DrugInfo): Promise<DrugInfo> => {
     try {
-        const [
-            drugName,
-            strength,
-            commonUse,
-            dosageAdministration,
-            foodDrinkEffect,
-            missedDose,
-            storage,
-            commonSideEffects,
-            seriousSideEffects,
-            consultDoctorWhen
-        ] = await Promise.all([
-            translateToArabic(drugInfo.drugName),
-            translateToArabic(drugInfo.strength),
-            translateToArabic(drugInfo.commonUse),
-            translateToArabic(drugInfo.dosageAdministration),
-            translateToArabic(drugInfo.foodDrinkEffect),
-            translateToArabic(drugInfo.missedDose),
-            translateToArabic(drugInfo.storage),
-            translateArray(drugInfo.commonSideEffects),
-            translateArray(drugInfo.seriousSideEffects),
-            translateArray(drugInfo.consultDoctorWhen)
+        // Every prose field, named once. The old version rebuilt the object
+        // from a hand-written literal, so a field added anywhere else in the
+        // app silently vanished in Arabic -- which is how the whole result
+        // screen came back empty the first time it was translated.
+        const TEXT: (keyof DrugInfo)[] = [
+            'drugName', 'strength', 'commonUse', 'whatItIsFor', 'howToTake',
+            'dosageAdministration', 'foodDrinkEffect', 'missedDose',
+            'tellYourDoctorIf', 'neverWith',
+            'quickDose', 'quickDoseNote', 'quickTiming', 'quickTimingNote',
+            'quickFood', 'quickFoodNote', 'storage',
+        ];
+        const LISTS: (keyof DrugInfo)[] = [
+            'commonSideEffects', 'seriousSideEffects', 'consultDoctorWhen',
+        ];
+
+        const [texts, lists] = await Promise.all([
+            Promise.all(TEXT.map((field) => translateToArabic((drugInfo[field] as string) || ''))),
+            Promise.all(LISTS.map((field) => translateArray((drugInfo[field] as string[]) || []))),
         ]);
 
-        return {
-            drugName,
-            strength,
-            commonUse,
-            dosageAdministration,
-            foodDrinkEffect,
-            missedDose,
-            commonSideEffects,
-            seriousSideEffects,
-            consultDoctorWhen,
-            storage
-        };
+        // brandName and canonicalName are deliberately left alone: a
+        // transliterated brand is harder to match against the box than the
+        // Latin one printed on it.
+        const out: DrugInfo = { ...drugInfo };
+        TEXT.forEach((field, i) => { (out[field] as unknown as string) = texts[i]; });
+        LISTS.forEach((field, i) => { (out[field] as unknown as string[]) = lists[i]; });
+        return out;
     } catch (error) {
         console.error('Failed to translate drug info:', error);
         return drugInfo; // Return original if translation fails

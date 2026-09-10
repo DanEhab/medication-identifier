@@ -47,18 +47,24 @@ const PHASE1_STEPS: TutorialStep[] = [
 const PHASE2_STEPS: TutorialStep[] = [
   {
     id: 'p2s1',
-    target: 'tab-bar',
+    target: 'quick-facts',
     message:
-      'Swipe and tap through these tabs to quickly find the specific information you need.',
+      'How much, when, and whether food matters — the three things people actually need, right at the top.',
   },
   {
     id: 'p2s2',
-    target: 'report-details',
+    target: 'detail-chips',
     message:
-      'Exporting a report for a doctor or pharmacist? Add a name, age and diagnosis here. Entirely optional, and it stays on your phone.',
+      'Side effects, a missed dose, how to store it. Tap any of these to open it.',
   },
   {
     id: 'p2s3',
+    target: 'save-medicine',
+    message:
+      'Save this to your medicines so it is there without a search — and so the app can warn you about clashes.',
+  },
+  {
+    id: 'p2s4',
     target: 'professional-link',
     message:
       'Are you a student or medical professional? Tap here for advanced clinical data and deep dives.',

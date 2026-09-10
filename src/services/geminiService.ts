@@ -114,8 +114,20 @@ const callBackend = async (prompt: string, language: 'en' | 'ar' = 'en', image?:
 const FIELD_ALIASES: Record<keyof DrugInfo, string[]> = {
     drugName: ['drug_name', 'name', 'medication_name'],
     strength: ['dose', 'dosage_strength'],
-    commonUse: ['common_use', 'common_uses', 'what_it_is_for', 'uses', 'indications'],
-    dosageAdministration: ['dosage_administration', 'how_to_take_it', 'dosage', 'administration'],
+    canonicalName: ['canonical_name', 'generic_name', 'genericName', 'active_ingredient', 'inn'],
+    brandName: ['brand_name', 'brand', 'trade_name'],
+    commonUse: ['common_use', 'common_uses', 'uses', 'indications'],
+    whatItIsFor: ['what_it_is_for', 'purpose', 'summary'],
+    howToTake: ['how_to_take', 'how_to_take_it'],
+    dosageAdministration: ['dosage_administration', 'dosage', 'administration', 'how_much_to_take'],
+    tellYourDoctorIf: ['tell_your_doctor_if', 'warning_signs'],
+    neverWith: ['never_with', 'avoid_with', 'contraindications'],
+    quickDose: ['quick_dose', 'dose_amount'],
+    quickDoseNote: ['quick_dose_note', 'dose_frequency'],
+    quickTiming: ['quick_timing', 'timing'],
+    quickTimingNote: ['quick_timing_note', 'timing_note'],
+    quickFood: ['quick_food', 'food_rule'],
+    quickFoodNote: ['quick_food_note', 'food_note'],
     foodDrinkEffect: ['food_drink_effect', 'food_and_drink', 'food_interactions'],
     missedDose: ['missed_dose', 'if_you_miss_a_dose'],
     commonSideEffects: ['common_side_effects', 'side_effects'],
@@ -235,7 +247,9 @@ export const identifyDrugFromImage = async (
 };
 
 export const fetchDrugInformation = async (drugName: string, language: 'en' | 'ar'): Promise<DrugInfo> => {
-    const prompt = `Provide patient-friendly information for the drug: ${drugName}. Please format the output as a JSON object with these exact keys: "drugName", "strength", "commonUse", "dosageAdministration", "foodDrinkEffect", "missedDose", "commonSideEffects" (array), "seriousSideEffects" (array), "consultDoctorWhen" (array), "storage". The information should be simple, clear, and based on reliable sources like the FDA and MedlinePlus. Return ONLY the JSON object, no additional text.`;
+    // The server pins the exact response schema; this says what the fields are
+    // for, so the two do not drift apart.
+    const prompt = `Provide patient-friendly information for the drug: ${drugName}. Lead with one plain sentence saying what it does for the person taking it ("whatItIsFor"), the usual dose, timing and whether food matters ("quickDose"/"quickTiming"/"quickFood" and their notes), how to take it and what to do about a missed dose ("howToTake"), the one symptom that should send them to a doctor ("tellYourDoctorIf"), and anything it must never be taken with ("neverWith"). The information should be simple, clear, and based on reliable sources like the FDA and MedlinePlus. Return ONLY the JSON object, no additional text.`;
     
     // Always fetch in English (caching is in English)
     const text = await callBackend(prompt, 'en');
