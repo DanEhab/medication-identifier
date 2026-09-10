@@ -255,7 +255,14 @@ const DRUG_INFO_SCHEMA = {
         'list the ingredients joined by "+" in alphabetical order, e.g. ' +
         '"amoxicillin+clavulanic acid". Empty string unless recognition is "medication".',
     },
-    strength: { type: 'STRING', description: 'Available strengths and forms' },
+    strength: {
+      type: 'STRING',
+      description:
+        'The strength and form as printed on the pack, in the fewest words that ' +
+        'are still accurate: "20 mg film-coated tablet", "500 mg / 65 mg tablet", ' +
+        '"100 mcg inhaler". Never a sentence, and never a list of every strength ' +
+        'the medicine is sold in — this sits under the name on a phone screen.',
+    },
     brandName: {
       type: 'STRING',
       description:

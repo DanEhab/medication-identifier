@@ -126,6 +126,10 @@ video::-webkit-media-controls-overlay-play-button {
   /* Deliberately inverted against the ground: the selected pill or tab. */
   --selected-bg: #0B2B2E;
   --selected-fg: #FFFFFF;
+  /* The initial inside a selected pill: teal on ink, per the design. Using
+     the pill's own foreground made it a white disc. */
+  --selected-avatar-bg: #7FBDB4;
+  --selected-avatar-fg: #0B2B2E;
   /* A card that is dark on a light page — "Still unsure?" */
   --invert-surface: #0B2B2E;
   --invert-ink: #FFFFFF;
@@ -174,6 +178,9 @@ video::-webkit-media-controls-overlay-play-button {
 
   --selected-bg: #7FBDB4;
   --selected-fg: #06231F;
+  /* Inverted again in dark: the pill is now the light colour. */
+  --selected-avatar-bg: #06231F;
+  --selected-avatar-fg: #7FBDB4;
   --invert-surface: #0F2E2D;
   --invert-ink: #EDF3F1;
   --invert-soft: rgba(237, 243, 241, 0.75);
