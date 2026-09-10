@@ -140,7 +140,7 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
               <span
                 className="w-7 h-7 rounded-full flex items-center justify-center font-semibold text-[13px]"
                 style={isActive
-                  ? { background: 'var(--selected-fg)', color: 'var(--selected-bg)' }
+                  ? { background: 'var(--selected-avatar-bg)', color: 'var(--selected-avatar-fg)' }
                   : { background: 'var(--paper-deep)', color: 'var(--ink-soft)' }}
               >
                 {initialFor(profile.name)}

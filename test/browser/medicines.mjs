@@ -163,6 +163,24 @@ const profiles = await browser.evaluate(`
   };
 `);
 check('one profile exists by default', profiles.labels.some((l) => /Me/.test(l)), JSON.stringify(profiles.labels));
+
+// The selected pill is ink with a teal initial, and the tokens for the two
+// are separate: pointing the initial at the pill's own foreground once turned
+// it into a white disc, which no assertion here noticed.
+const pillColours = await browser.evaluate(`
+  const pill = document.querySelector('[data-testid="profiles"] button');
+  const avatar = pill.querySelector('span');
+  return {
+    pill: getComputedStyle(pill).backgroundColor,
+    avatarBg: getComputedStyle(avatar).backgroundColor,
+    avatarFg: getComputedStyle(avatar).color,
+  };
+`);
+check('the selected pill is ink with a teal initial',
+  pillColours.pill === 'rgb(11, 43, 46)' &&
+  pillColours.avatarBg === 'rgb(127, 189, 180)' &&
+  pillColours.avatarFg === 'rgb(11, 43, 46)',
+  JSON.stringify(pillColours));
 check("and only that person's medicines are listed",
   profiles.listed.length === 1 && /Lipitor/.test(profiles.listed[0]), JSON.stringify(profiles.listed));
 
