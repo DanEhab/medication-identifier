@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { DrugInfo, PatientInfo } from '../types';
+import React, { useState, useEffect } from 'react';
+import type { DrugInfo, PatientInfo, DetailSection } from '../types';
 import { MarkdownText } from './MarkdownText';
 import { useLocalization } from '../context/LanguageContext';
-import { renderReportHTML, renderReportText } from '../lib/report';
-import { exportAsDocument, exportAsPdf } from '../lib/exportReport';
 import { isMedicationSaved, toggleMedication } from '../lib/medicationStorage';
-import { PatientDetailsDialog, hasPatientDetails, EMPTY_PATIENT_INFO } from './PatientDetailsDialog';
+import { useReportExport } from '../lib/useReportExport';
 
 /**
  * The answer, weighted.
@@ -27,34 +25,13 @@ interface ResultScreenProps {
   onBack: () => void;
   onShowProfessionalView: () => void;
   onShowMyMedications: () => void;
+  /** Opens the side effects screen at the section the chip names. */
+  onShowDetails: (section: DetailSection) => void;
   /** Persists edited patient details. Merged over the stored values. */
   onPatientInfoChange: (info: Partial<PatientInfo>) => void;
 }
 
-/**
- * Remembers that the export prompt has been shown once. After that, exports run
- * straight away — nobody wants a dialog between them and a file they have
- * already asked for twice.
- */
-const PROMPTED_KEY = 'patientDetailsPrompted';
 
-const wasPrompted = (): boolean => {
-  try {
-    return localStorage.getItem(PROMPTED_KEY) === '1';
-  } catch {
-    return false;
-  }
-};
-
-const markPrompted = () => {
-  try {
-    localStorage.setItem(PROMPTED_KEY, '1');
-  } catch {
-    /* Private mode or storage disabled — the prompt simply shows again. */
-  }
-};
-
-type Section = 'sideEffects' | 'missedDose' | 'storage';
 
 // ── Icons, sized and stroked to the design rather than to the shared set ──
 
@@ -137,16 +114,17 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   onBack,
   onShowProfessionalView,
   onShowMyMedications,
+  onShowDetails,
   onPatientInfoChange,
 }) => {
   const [isSaved, setIsSaved] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
-  const [openSection, setOpenSection] = useState<Section | null>(null);
-  /** Which export is waiting on the dialog, if any. */
-  const pendingExport = useRef<'pdf' | 'doc' | null>(null);
-  const sectionsRef = useRef<HTMLDivElement | null>(null);
   const { t, language } = useLocalization();
+  const { requestExport, openDetails, dialog } = useReportExport(
+    drugInfo,
+    patientInfo,
+    onPatientInfoChange,
+  );
 
   useEffect(() => {
     setIsSaved(isMedicationSaved(drugInfo.drugName));
@@ -154,72 +132,6 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
 
   const handleSaveMedication = () => {
     setIsSaved(toggleMedication(drugInfo, language, originalDrugName));
-  };
-
-  // The details are passed in explicitly rather than read from props, because
-  // an export can start in the same tick the dialog saves new ones.
-  const runExport = useCallback(
-    (kind: 'pdf' | 'doc', info: PatientInfo) => {
-      const html = renderReportHTML(drugInfo, info, t, language);
-      if (kind === 'pdf') {
-        return exportAsPdf(drugInfo.drugName, html, renderReportText(drugInfo, info, t));
-      }
-      return exportAsDocument(
-        drugInfo.drugName,
-        html,
-        renderReportText(drugInfo, info, t, { width: 60, numbered: true }),
-      );
-    },
-    [drugInfo, language, t],
-  );
-
-  /**
-   * Offers the details step the first time someone exports, then never again.
-   * Anyone who already filled them in is not asked at all.
-   */
-  const requestExport = (kind: 'pdf' | 'doc') => {
-    setExportOpen(false);
-    if (!wasPrompted() && !hasPatientDetails(patientInfo)) {
-      markPrompted();
-      pendingExport.current = kind;
-      setDetailsOpen(true);
-      return;
-    }
-    void runExport(kind, patientInfo);
-  };
-
-  const handleDetailsSave = (info: PatientInfo) => {
-    onPatientInfoChange(info);
-    setDetailsOpen(false);
-    const kind = pendingExport.current;
-    pendingExport.current = null;
-    if (kind) void runExport(kind, info);
-  };
-
-  const handleDetailsDismiss = () => {
-    setDetailsOpen(false);
-    const kind = pendingExport.current;
-    pendingExport.current = null;
-    // Dismissing with an export waiting means "just give me the file".
-    if (kind) void runExport(kind, patientInfo);
-  };
-
-  const openDetails = () => {
-    pendingExport.current = null;
-    markPrompted();
-    setExportOpen(false);
-    setDetailsOpen(true);
-  };
-
-  /** Chips open their section and bring it into view in one gesture. */
-  const toggleSection = (section: Section) => {
-    const next = openSection === section ? null : section;
-    setOpenSection(next);
-    if (next) {
-      requestAnimationFrame(() => {
-        sectionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    }
   };
 
   // The identity block wants the brand on its own and the ingredient above it.
@@ -234,59 +146,14 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
     { value: drugInfo.quickFood, note: drugInfo.quickFoodNote },
   ].filter((fact) => Boolean(fact.value?.trim()));
 
-  const detailSections: { key: Section; label: string; body: React.ReactNode }[] = [
-    {
-      key: 'sideEffects',
-      label: t('sideEffectsChip'),
-      body: (
-        <div className="flex flex-col gap-4">
-          <div>
-            <Eyebrow className="mb-2">{t('commonSideEffects').toUpperCase()}</Eyebrow>
-            <ul className="list-disc list-outside ps-5 space-y-1.5 m-0">
-              {drugInfo.commonSideEffects.map((effect, i) => (
-                <li key={i} className="text-[16px] leading-[1.55] text-ink-dim">
-                  <MarkdownText text={effect} inline />
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <Eyebrow className="mb-2" color="#B23A2B">{t('seriousSideEffects').toUpperCase()}</Eyebrow>
-            <p className="text-[15px] leading-[1.5] font-medium text-clay-deep m-0 mb-2">
-              {t('seekMedicalAttention')}
-            </p>
-            <ul className="list-disc list-outside ps-5 space-y-1.5 m-0">
-              {drugInfo.seriousSideEffects.map((effect, i) => (
-                <li key={i} className="text-[16px] leading-[1.55] text-ink-dim">
-                  <MarkdownText text={effect} inline />
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'missedDose',
-      label: t('missedDoseChip'),
-      body: (
-        <div className="text-[16px] leading-[1.6] text-ink-dim">
-          <MarkdownText text={drugInfo.missedDose} />
-        </div>
-      ),
-    },
-    {
-      key: 'storage',
-      label: t('storageChip'),
-      body: (
-        <div className="text-[16px] leading-[1.6] text-ink-dim">
-          <MarkdownText text={drugInfo.storage} />
-        </div>
-      ),
-    },
+  // Each chip opens the side effects screen at its own section. They used to
+  // expand in place, which buried the answer under reference material the
+  // moment anyone tapped one.
+  const chips: { key: DetailSection; label: string }[] = [
+    { key: 'sideEffects', label: t('sideEffectsChip') },
+    { key: 'missedDose', label: t('missedDoseChip') },
+    { key: 'storage', label: t('storageChip') },
   ];
-
-  const openBody = detailSections.find((section) => section.key === openSection)?.body ?? null;
 
   return (
     <div className="flex flex-col bg-paper" style={{ minHeight: '100dvh' }}>
@@ -391,30 +258,19 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         </div>
       )}
 
-      {/* ── Reference, folded away ── */}
+      {/* ── Reference, one screen away ── */}
       <div className="px-5 pt-[22px] flex gap-2.5 flex-wrap" data-tutorial="detail-chips">
-        {detailSections.map((section) => (
+        {chips.map((chip) => (
           <button
-            key={section.key}
+            key={chip.key}
             type="button"
-            onClick={() => toggleSection(section.key)}
-            aria-expanded={openSection === section.key}
-            className={`h-10 px-[15px] rounded-full flex items-center font-medium text-[15px]
-              transition-colors active:scale-[0.97] ${
-                openSection === section.key
-                  ? 'bg-teal text-white border border-teal'
-                  : 'bg-white text-ink border border-paper-sand'
-              }`}
+            onClick={() => onShowDetails(chip.key)}
+            className="h-10 px-[15px] rounded-full flex items-center font-medium text-[15px]
+              bg-white text-ink border border-paper-sand active:scale-[0.97] transition-transform"
           >
-            {section.label}
+            {chip.label}
           </button>
         ))}
-      </div>
-
-      <div ref={sectionsRef} className={openBody ? 'px-5 pt-3' : ''}>
-        {openBody && (
-          <div className="bg-white border border-paper-sand rounded-[16px] py-4 px-[18px]">{openBody}</div>
-        )}
       </div>
 
       {/* ── Professional view ── */}
@@ -488,7 +344,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             <div className="w-10 h-1 rounded-full bg-paper-edge mx-auto mb-2" aria-hidden="true" />
             <button
               type="button"
-              onClick={() => requestExport('pdf')}
+              onClick={() => { setExportOpen(false); requestExport('pdf'); }}
               className="h-[54px] rounded-[14px] bg-white border border-paper-sand px-4
                 flex items-center font-medium text-[16px] text-ink active:scale-[0.99] transition-transform"
             >
@@ -496,7 +352,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => requestExport('doc')}
+              onClick={() => { setExportOpen(false); requestExport('doc'); }}
               className="h-[54px] rounded-[14px] bg-white border border-paper-sand px-4
                 flex items-center font-medium text-[16px] text-ink active:scale-[0.99] transition-transform"
             >
@@ -504,7 +360,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             </button>
             <button
               type="button"
-              onClick={openDetails}
+              onClick={() => { setExportOpen(false); openDetails(); }}
               data-tutorial="report-details"
               className="rounded-[14px] bg-white border border-paper-sand px-4 py-3.5
                 text-start active:scale-[0.99] transition-transform"
@@ -518,14 +374,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         </div>
       )}
 
-      <PatientDetailsDialog
-        open={detailsOpen}
-        patientInfo={patientInfo}
-        onSave={handleDetailsSave}
-        onDismiss={handleDetailsDismiss}
-        onClear={() => onPatientInfoChange(EMPTY_PATIENT_INFO)}
-        pendingExport={pendingExport.current !== null}
-      />
+      {dialog}
     </div>
   );
 };
