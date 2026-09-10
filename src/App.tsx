@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { HomeScreen } from './components/HomeScreen';
 import { ResultScreen } from './components/ResultScreen';
+import { SideEffectsScreen } from './components/SideEffectsScreen';
 import { ProfessionalScreen } from './components/ProfessionalScreen';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
-import type { DrugInfo, View, PatientInfo, NotAMedicationResult, PackReading, ReadingStage } from './types';
+import type { DrugInfo, View, PatientInfo, NotAMedicationResult, PackReading, ReadingStage, DetailSection } from './types';
 import { NotAMedicationError } from './types';
 import { identifyDrugFromImage, fetchDrugInformation } from './services/geminiService';
 import { MyMedicationsScreen } from './components/MyMedicationsScreen';
@@ -270,11 +271,19 @@ const App: React.FC = () => {
     setView('myMedications');
   };
 
+  /** Which section the side effects screen should open at. */
+  const [detailSection, setDetailSection] = useState<DetailSection>('sideEffects');
+
+  const handleShowDetails = (section: DetailSection) => {
+    setDetailSection(section);
+    setView('sideEffects');
+  };
+
   const handleShowProfessionalView = () => setView('professional');
   const handleBackToPatientView = () => setView('results');
 
   /** These screens are full-bleed and supply their own bar. */
-  const fullBleed: View[] = ['home', 'reading', 'confirm', 'results'];
+  const fullBleed: View[] = ['home', 'reading', 'confirm', 'results', 'sideEffects'];
   const isCameraScreen = fullBleed.includes(view) && !needsDisclaimer;
 
   const renderContent = () => {
@@ -289,6 +298,20 @@ const App: React.FC = () => {
               onBack={handleBack}
               onShowProfessionalView={handleShowProfessionalView}
               onShowMyMedications={handleShowMyMedications}
+              onShowDetails={handleShowDetails}
+              onPatientInfoChange={handlePatientInfoChange}
+            />
+          )
+        );
+      case 'sideEffects':
+        return (
+          drugInfo && (
+            <SideEffectsScreen
+              drugInfo={drugInfo}
+              patientInfo={patientInfo}
+              originalDrugName={originalDrugName || drugInfo.drugName}
+              anchor={detailSection}
+              onBack={() => setView('results')}
               onPatientInfoChange={handlePatientInfoChange}
             />
           )

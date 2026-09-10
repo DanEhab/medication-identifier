@@ -94,7 +94,15 @@ export interface PatientInfo {
   diagnosis: string;
 }
 
-export type View = 'home' | 'search' | 'reading' | 'confirm' | 'results' | 'myMedications' | 'professional' | 'notFound';
+export type View =
+  | 'home' | 'search' | 'reading' | 'confirm' | 'results'
+  | 'sideEffects' | 'myMedications' | 'professional' | 'notFound';
+
+/**
+ * Which part of the side effects screen to open at. The result screen's three
+ * chips each pick one; they all land on the same screen.
+ */
+export type DetailSection = 'sideEffects' | 'missedDose' | 'storage';
 
 /** How sure the reader is that it read the right pack. */
 export type ReadingConfidence = 'high' | 'medium' | 'low';
