@@ -155,7 +155,10 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, 
           <ChevronBack />
         </button>
         <form
-          className="flex-1"
+          // min-w-0 as well as flex-1: a flex item will not shrink below its
+          // content without it, so a placeholder longer than the English one
+          // pushed the whole row off the edge. Arabic showed it first.
+          className="flex-1 min-w-0"
           onSubmit={(event) => {
             event.preventDefault();
             search(query);
