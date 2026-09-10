@@ -7,6 +7,7 @@ const { applyCors } = require('./_cors');
 const { normalizeDrugInfo, isCacheableDrugInfo, DRUG_INFO_SCHEMA } = require('./_drugInfo');
 const { checkRequestLimit, checkDailyBudget, rejectRateLimited } = require('./_rateLimit');
 const { findCachedAnswer, findByCanonicalKey, saveCachedAnswer, saveAlias } = require('./_cache');
+const { IDENTIFY_SCHEMA, isIdentifyPrompt, normalizeIdentification } = require('./_identify');
 const { queryKeyFor } = require('./_cacheKey');
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
@@ -195,7 +196,7 @@ module.exports = async (req, res) => {
 
     // Image identification results are never cached — only named drug lookups.
     const isCacheable =
-      Boolean(searchTerm) && !promptText.toLowerCase().includes('identify the drug name');
+      Boolean(searchTerm) && !isIdentifyPrompt(promptText);
 
     // Set by the cache read so the write can reuse it. When a search term is a
     // known typo, its canonical key is already known before Gemini is called,
@@ -272,10 +273,15 @@ module.exports = async (req, res) => {
     }
 
     // Always generated in English; the client translates for display.
+    const identifying = isIdentifyPrompt(promptText);
     const rawText = await callGeminiAPI(
       formattedContents,
       config,
-      collectionName === 'medications' && isCacheable ? DRUG_INFO_SCHEMA : undefined,
+      identifying
+        ? IDENTIFY_SCHEMA
+        : collectionName === 'medications' && isCacheable
+          ? DRUG_INFO_SCHEMA
+          : undefined,
     );
 
     // Normalise the patient view before anyone sees it. The model does not
@@ -286,6 +292,16 @@ module.exports = async (req, res) => {
     let text = rawText;
     let cacheableData = null;
     let drugInfo = null;
+
+    if (identifying) {
+      try {
+        const reading = normalizeIdentification(JSON.parse(extractJSON(rawText)));
+        if (reading) text = JSON.stringify(reading);
+      } catch (parseError) {
+        console.error('[generate] could not parse the reading:', parseError.message);
+      }
+      return res.status(200).json({ text, cached: false });
+    }
 
     if (collectionName === 'medications') {
       try {
