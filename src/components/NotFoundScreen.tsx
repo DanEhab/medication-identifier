@@ -82,7 +82,7 @@ export const NotFoundScreen: React.FC<NotFoundScreenProps> = ({
   const title = identified ? t('notAMedicineTitle') : t('notRecognisedTitle');
 
   return (
-    <div className="flex flex-col bg-paper" style={{ minHeight: '100dvh' }}>
+    <div className="flex flex-col bg-paper" data-testid="not-a-medicine" style={{ minHeight: '100dvh' }}>
       <div className="px-4 py-3.5">
         <button type="button" onClick={onSearchAgain} aria-label={t('backToSearch')} className="active:scale-90 transition-transform">
           <ChevronBack />
