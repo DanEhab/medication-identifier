@@ -153,6 +153,21 @@ const flatten = (value: any): string[] => {
 
 const loose = (key: string) => key.toLowerCase().replace(/[^a-z0-9]/g, '');
 
+/**
+ * "Never with" is asked for as a "·"-separated line, and the model often
+ * answers with newlines or bullets instead. Left alone those collapse into an
+ * unpunctuated run-on when rendered.
+ */
+const separatedLine = (text: string): string => {
+    if (!text) return '';
+    return text
+        .replace(/\s*[\r\n]+\s*/g, ' · ')
+        .replace(/\s*[·•‣⁃-]\s+/g, ' · ')
+        .replace(/(\s*·\s*)+/g, ' · ')
+        .replace(/^\s*·\s*|\s*·\s*$/g, '')
+        .trim();
+};
+
 const pickField = (source: Record<string, any>, field: keyof DrugInfo): any => {
     const wanted = [field as string, ...FIELD_ALIASES[field]].map(loose);
     for (const [key, value] of Object.entries(source)) {
@@ -175,8 +190,10 @@ const normalizeDrugInfo = (raw: any): DrugInfo => {
         if (LIST_FIELDS.includes(field)) {
             (out[field] as unknown as string[]) = flatten(value).map((s) => s.trim()).filter(Boolean);
         } else {
-            (out[field] as unknown as string) =
-                typeof value === 'string' ? value : flatten(value).join(' ');
+            const text = typeof value === 'string' ? value : flatten(value).join(' ');
+            // The server does this too; repeated here because the client
+            // refuses to trust the payload with the shape the UI renders.
+            (out[field] as unknown as string) = field === 'neverWith' ? separatedLine(text) : text;
         }
     });
 

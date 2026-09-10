@@ -21,12 +21,14 @@ import { useLocalization } from '../context/LanguageContext';
 interface CameraHomeProps {
   onIdentify: (image: File | null, drugName: string) => void;
   onTypeInstead: () => void;
+  /** The saved list. The camera runs edge to edge, so it has no tab bar. */
+  onShowMyMedicines: () => void;
   error: string | null;
 }
 
 type CameraState = 'starting' | 'live' | 'denied' | 'unavailable';
 
-export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstead, error }) => {
+export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstead, onShowMyMedicines, error }) => {
   const { t, language, setLanguage } = useLocalization();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -171,16 +173,34 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
-          aria-label={t('switchLanguage')}
-          className={`h-[34px] px-[13px] rounded-full border border-paper-sand bg-white
-            flex items-center shrink-0 font-semibold text-[15px] text-ink active:scale-95 transition-transform
-            ${language === 'en' ? 'font-arabic' : ''}`}
-        >
-          {language === 'en' ? 'ع' : 'EN'}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* The other screens carry a tab bar; this one cannot without eating
+              a fifth of the viewfinder, so the way to the saved list is here. */}
+          <button
+            type="button"
+            onClick={onShowMyMedicines}
+            aria-label={t('tabMedicines')}
+            data-tutorial="my-medicines"
+            className="w-[34px] h-[34px] rounded-full border border-paper-sand bg-white
+              flex items-center justify-center active:scale-95 transition-transform"
+          >
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#0B2B2E"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
+            aria-label={t('switchLanguage')}
+            className={`h-[34px] px-[13px] rounded-full border border-paper-sand bg-white
+              flex items-center font-semibold text-[15px] text-ink active:scale-95 transition-transform
+              ${language === 'en' ? 'font-arabic' : ''}`}
+          >
+            {language === 'en' ? 'ع' : 'EN'}
+          </button>
+        </div>
       </header>
 
       {/* ── The viewfinder ── */}

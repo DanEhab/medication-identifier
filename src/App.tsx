@@ -9,7 +9,8 @@ import { Footer } from './components/Footer';
 import type { DrugInfo, View, PatientInfo, NotAMedicationResult, PackReading, ReadingStage, DetailSection } from './types';
 import { NotAMedicationError } from './types';
 import { identifyDrugFromImage, fetchDrugInformation } from './services/geminiService';
-import { MyMedicationsScreen } from './components/MyMedicationsScreen';
+import { MyMedicinesScreen } from './components/MyMedicinesScreen';
+import type { Tab } from './components/TabBar';
 import { NotFoundScreen } from './components/NotFoundScreen';
 import { findSavedMedication, isStale, saveMedication } from './lib/medicationStorage';
 import { useLocalization } from './context/LanguageContext';
@@ -283,6 +284,12 @@ const App: React.FC = () => {
     setView('myMedications');
   };
 
+  /** The three places the tab bar names. */
+  const handleSelectTab = (tab: Tab) => {
+    setError(null);
+    setView(tab === 'scan' ? 'home' : tab === 'search' ? 'search' : 'myMedications');
+  };
+
   /** Which section the side effects screen should open at. */
   const [detailSection, setDetailSection] = useState<DetailSection>('sideEffects');
 
@@ -295,7 +302,7 @@ const App: React.FC = () => {
   const handleBackToPatientView = () => setView('results');
 
   /** These screens are full-bleed and supply their own bar. */
-  const fullBleed: View[] = ['home', 'search', 'reading', 'confirm', 'results', 'sideEffects'];
+  const fullBleed: View[] = ['home', 'search', 'reading', 'confirm', 'results', 'sideEffects', 'myMedications'];
   const isCameraScreen = fullBleed.includes(view) && !needsDisclaimer;
 
   const renderContent = () => {
@@ -340,7 +347,7 @@ const App: React.FC = () => {
           />
         );
       case 'myMedications':
-        return <MyMedicationsScreen onBack={handleBack} onSelectMed={handleSelectMed}/>;
+        return <MyMedicinesScreen onSelectMed={handleSelectMed} onSelectTab={handleSelectTab} />;
       case 'reading':
         return (
           <ReadingScreen photoUrl={photoUrl} stage={readingStage} onCancel={handleCancelReading} />
@@ -370,6 +377,7 @@ const App: React.FC = () => {
           <CameraHome
             onIdentify={handleIdentify}
             onTypeInstead={() => setView('search')}
+            onShowMyMedicines={handleShowMyMedications}
             error={error}
           />
         );
