@@ -42,9 +42,9 @@ export const translations = {
     // First run — the disclaimer, accepted once
     appNameArabic: 'دوائك',
     tagline: 'اعرف دوائك',
-    disclaimerLeadIn: 'This app explains medicines in plain language. It is ',
+    disclaimerLeadIn: 'This app explains medicines in plain language. It provides ',
     disclaimerEmphasis: 'information, not medical advice',
-    disclaimerRest: ', it can be wrong, and it never replaces your pharmacist or doctor.',
+    disclaimerRest: '. While we strive for accuracy, it never replaces your pharmacist or doctor.',
     iUnderstandContinue: 'I understand — continue',
     shownOnce: 'Shown once. Never again.',
 
@@ -300,9 +300,9 @@ export const translations = {
     // التشغيل الأول — إخلاء المسؤولية
     appNameArabic: 'دوائك',
     tagline: 'اعرف دوائك',
-    disclaimerLeadIn: 'يشرح هذا التطبيق الأدوية بلغة بسيطة. هو ',
+    disclaimerLeadIn: 'يشرح هذا التطبيق الأدوية بلغة مبسطة. يقدم التطبيق ',
     disclaimerEmphasis: 'معلومات وليس نصيحة طبية',
-    disclaimerRest: '، وقد يكون غير دقيق، ولا يغني أبداً عن الصيدلي أو الطبيب.',
+    disclaimerRest: '. رغم سعينا للدقة، فإنه لا يغني أبداً عن استشارة الصيدلي أو الطبيب.',
     iUnderstandContinue: 'فهمت — متابعة',
     shownOnce: 'يظهر مرة واحدة فقط.',
 

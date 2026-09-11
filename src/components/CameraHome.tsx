@@ -70,6 +70,7 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
         }
         const track = stream.getVideoTracks()[0];
         setTorchSupported(Boolean(track?.getCapabilities?.().torch));
+        window.clearTimeout(giveUp);
         setCameraState('live');
       } catch (err) {
         const name = (err as DOMException)?.name;
@@ -77,9 +78,26 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
       }
     };
 
+    /*
+      getUserMedia does not always settle. Android asks for the camera
+      permission on the app's behalf, and if that prompt is dismissed rather
+      than answered — the app is backgrounded at the wrong moment, say — the
+      promise never resolves or rejects, and the screen sits in `starting`
+      for ever: an empty box, the usual hint underneath it, and no way to
+      tell that anything is wrong.
+
+      Long enough that a slow camera is never mislabelled; this only changes
+      what is said, never what works, and typing a name is unaffected either
+      way.
+    */
+    const giveUp = window.setTimeout(() => {
+      if (!cancelled && !streamRef.current) setCameraState('unavailable');
+    }, 12000);
+
     void start();
     return () => {
       cancelled = true;
+      window.clearTimeout(giveUp);
       stop();
     };
   }, []);

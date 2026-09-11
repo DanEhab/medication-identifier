@@ -239,8 +239,9 @@ await browser.evaluate(`window.__patient = ${JSON.stringify(NOT_A_MEDICINE)};`);
 await search('vitamin water');
 await audit('not a medicine');
 
-await browser.evaluate(`localStorage.removeItem('disclaimerAccepted');`);
-await browser.goto(BASE);
+// The first-run screen has a suite of its own: clearing the flag here and
+// navigating put it straight back, so this was auditing the camera again.
+// See test/browser/firstrun.mjs.
 await browser.evaluate(`
   await new Promise(r => setTimeout(r, 2500));
   const v = document.querySelector('video'); if (v) v.dispatchEvent(new Event('ended'));
