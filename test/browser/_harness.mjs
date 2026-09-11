@@ -97,6 +97,15 @@ export async function openApp({
   patient = PATIENT,
   clinical = CLINICAL,
   suggestions = [],
+  /**
+   * Show the disclaimer, as a new install would.
+   *
+   * Worth an option rather than a removeItem in the suite: this script runs on
+   * every navigation, so clearing the flag from a test and then navigating put
+   * it straight back. A dark-mode audit "of the first-run screen" was in fact
+   * auditing the camera, and missed that the screen was white-on-white.
+   */
+  firstRun = false,
 } = {}) {
   const browser = await launch({ width: 428, height: 908 });
 
@@ -112,7 +121,7 @@ export async function openApp({
 
   await browser.page.send('Page.addScriptToEvaluateOnNewDocument', {
     source: `
-      localStorage.setItem('disclaimerAccepted', 'true');
+      ${firstRun ? '' : "localStorage.setItem('disclaimerAccepted', 'true');"}
       // The tour clears its own done-flags whenever the stored version differs,
       // so the version has to be seeded too or it reappears over every screen.
       localStorage.setItem('tutorial_version', '1.4.0');
@@ -160,6 +169,14 @@ export async function openApp({
 //
 // Written to work in either language: an English-only selector is the single
 // commonest way one of these suites breaks.
+
+/** Past the intro clip and onto the disclaimer. */
+export const reachFirstRun = (browser) => browser.evaluate(`
+  await new Promise(r => setTimeout(r, 2400));
+  const v = document.querySelector('video'); if (v) v.dispatchEvent(new Event('ended'));
+  await new Promise(r => setTimeout(r, 1200));
+  return document.querySelector('#firstrun-title') ? 'ok' : document.body.innerText.slice(0, 140);
+`);
 
 /** Past the intro clip and onto the camera. */
 export const reachCamera = (browser) => browser.evaluate(`
