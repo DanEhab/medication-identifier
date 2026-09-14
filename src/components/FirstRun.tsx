@@ -10,11 +10,28 @@ import { useLocalization } from '../context/LanguageContext';
  * sits beside it, so an Arabic speaker is not made to start in English.
  */
 
-const ACCEPTED_KEY = 'disclaimerAccepted';
+/** Injected at build time from package.json by vite.config.ts. */
+declare const __APP_VERSION__: string;
+
+const VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
+
+/**
+ * Which version of the app the disclaimer was accepted for.
+ *
+ * Once per install, and once more after an update. The wording of what this
+ * app is and is not can change between releases, and an acceptance recorded
+ * against the old wording is not an acceptance of the new one. Storing the
+ * version in the value rather than beside it means the two cannot disagree.
+ *
+ * The key is new, so somebody who accepted the old `disclaimerAccepted: true`
+ * sees it once on this update. That is the intended behaviour, not a
+ * migration that was missed.
+ */
+const ACCEPTED_KEY = 'disclaimerAcceptedVersion';
 
 export const hasAcceptedDisclaimer = (): boolean => {
   try {
-    return localStorage.getItem(ACCEPTED_KEY) === 'true';
+    return localStorage.getItem(ACCEPTED_KEY) === VERSION;
   } catch {
     // Private mode or storage disabled. Showing it again is the safe failure.
     return false;
@@ -23,7 +40,7 @@ export const hasAcceptedDisclaimer = (): boolean => {
 
 const recordAcceptance = () => {
   try {
-    localStorage.setItem(ACCEPTED_KEY, 'true');
+    localStorage.setItem(ACCEPTED_KEY, VERSION);
   } catch {
     /* Nothing to do — it will be shown again, which is the safe direction. */
   }

@@ -1,674 +1,414 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-
-// ─────────────────────────────────────────────
-//  Types & Config
-// ─────────────────────────────────────────────
-
-interface TutorialStep {
-  id: string;
-  target: string | null;          // data-tutorial attribute value; null = welcome card only
-  title?: string;
-  message: string;
-  action?: string;                // button label override
-  isWelcome?: boolean;
-  isLastStep?: boolean;
-  pinToBottom?: boolean;          // dock tooltip card to screen bottom instead of near spotlight
-}
-
-const PHASE1_STEPS: TutorialStep[] = [
-  {
-    id: 'p1s1',
-    target: null,
-    title: 'Welcome to Medication Identifier!',
-    message: "Let's take a quick tour to show you how to safely and easily identify your medications.",
-    action: 'Start Tour',
-    isWelcome: true,
-  },
-  {
-    id: 'p1s2',
-    target: 'search-container',
-    message:
-      'Find medications in three easy ways: snap a fresh photo of the pill, upload an image from your gallery, or just type the name directly.',
-    pinToBottom: true,
-  },
-  {
-    id: 'p1s3',
-    target: 'globe-icon',
-    message: 'Prefer to read in Arabic? Tap this globe at any time to instantly translate the app.',
-  },
-  {
-    id: 'p1s4',
-    target: 'hamburger-menu',
-    message: 'Tap here to access your Saved Medications and to toggle between Light and Dark Mode.',
-    isLastStep: true,
-  },
-];
-
-const PHASE2_STEPS: TutorialStep[] = [
-  {
-    id: 'p2s1',
-    target: 'quick-facts',
-    message:
-      'How much, when, and whether food matters — the three things people actually need, right at the top.',
-  },
-  {
-    id: 'p2s2',
-    target: 'detail-chips',
-    message:
-      'Side effects, a missed dose, how to store it. Tap any of these to open it.',
-  },
-  {
-    id: 'p2s3',
-    target: 'save-medicine',
-    message:
-      'Save this to your medicines so it is there without a search — and so the app can warn you about clashes.',
-  },
-  {
-    id: 'p2s4',
-    target: 'professional-link',
-    message:
-      'Are you a student or medical professional? Tap here for advanced clinical data and deep dives.',
-    isLastStep: true,
-  },
-];
-
-const TEAL = 'var(--teal)';
-const STORAGE_KEY_P1 = 'tutorial_phase1_done';
-const STORAGE_KEY_P2 = 'tutorial_phase2_done';
-
-// ── Version-based tutorial reset ──────────────────────────────────────────────
-// The version is injected at build time from package.json via vite.config.ts.
-// Bumping the version in package.json automatically re-triggers the tutorial
-// for all users (new or returning) on next app launch.
-declare const __APP_VERSION__: string;
-const TUTORIAL_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0';
-const STORAGE_KEY_VERSION = 'tutorial_version';
-
-(() => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY_VERSION);
-    if (stored !== TUTORIAL_VERSION) {
-      localStorage.removeItem(STORAGE_KEY_P1);
-      localStorage.removeItem(STORAGE_KEY_P2);
-      localStorage.setItem(STORAGE_KEY_VERSION, TUTORIAL_VERSION);
-    }
-  } catch (_) {
-    // localStorage unavailable – silently skip
-  }
-})();
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────
-//  Hook – spotlight rect tracker
-// ─────────────────────────────────────────────
-
-interface SpotlightRect {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-}
-
-function useSpotlight(target: string | null) {
-  const [rect, setRect] = useState<SpotlightRect | null>(null);
-  const rafRef = useRef<number>(0);
-
-  const measure = useCallback(() => {
-    if (!target) { setRect(null); return; }
-    const el = document.querySelector(`[data-tutorial="${target}"]`) as HTMLElement | null;
-    if (!el) { setRect(null); return; }
-    const r = el.getBoundingClientRect();
-    setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
-  }, [target]);
-
-  // Scroll target into view (centred) then measure
-  const focusTarget = useCallback(() => {
-    if (!target) { setRect(null); return; }
-    const el = document.querySelector(`[data-tutorial="${target}"]`) as HTMLElement | null;
-    if (!el) { setRect(null); return; }
-
-    el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-
-    // After scroll settles, measure
-    const settle = setTimeout(() => {
-      measure();
-    }, 450);
-    return () => clearTimeout(settle);
-  }, [target, measure]);
-
-  // Re-measure on resize / scroll
-  useEffect(() => {
-    const onUpdate = () => {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = requestAnimationFrame(measure);
-    };
-    window.addEventListener('resize', onUpdate, { passive: true });
-    window.addEventListener('scroll', onUpdate, { passive: true, capture: true });
-    return () => {
-      window.removeEventListener('resize', onUpdate);
-      window.removeEventListener('scroll', onUpdate, true);
-      cancelAnimationFrame(rafRef.current);
-    };
-  }, [measure]);
-
-  return { rect, focusTarget };
-}
-
-// ─────────────────────────────────────────────
-//  Toast Component
-// ─────────────────────────────────────────────
-
-const SuccessToast: React.FC<{ visible: boolean; phase: 1 | 2 }> = ({ visible, phase }) => (
-  <div
-    role="status"
-    aria-live="polite"
-    style={{
-      position: 'fixed',
-      bottom: 32,
-      left: '50%',
-      transform: `translateX(-50%) translateY(${visible ? 0 : 80}px)`,
-      opacity: visible ? 1 : 0,
-      transition: 'all 0.4s cubic-bezier(0.34,1.1,0.64,1)',
-      background: 'var(--teal)',
-      color: 'var(--on-teal)',
-      borderRadius: 999,
-      padding: '12px 28px',
-      fontWeight: 700,
-      fontSize: 15,
-      boxShadow: '0 8px 30px rgba(0,0,0,0.25)',
-      zIndex: 99999,
-      pointerEvents: 'none',
-      whiteSpace: 'nowrap',
-    }}
-  >
-    {phase === 1 ? '🎉 Tour complete! You\'re all set.' : '✓ Results guide done!'}
-  </div>
-);
-
-// ─────────────────────────────────────────────
-//  PointingFinger – animated indicator
-// ─────────────────────────────────────────────
-
-const PointingFinger: React.FC<{ rect: SpotlightRect }> = ({ rect }) => {
-  const fingerSize = 32;
-  // An emoji glyph renders wider than its font-size, so clamping against
-  // fingerSize alone still let the pointer hang off a 320px screen.
-  const fingerBox = Math.round(fingerSize * 1.4);
-  const top = rect.top + rect.height / 2 - fingerSize / 2;
-  const left = rect.left + rect.width + 8;
-
-  return (
-    <div
-      aria-hidden="true"
-      style={{
-        position: 'fixed',
-        top,
-        // Clamp both edges so the pointer never sits off-screen on narrow phones.
-        left: Math.max(8, Math.min(left, window.innerWidth - fingerBox - 8)),
-        width: fingerBox,
-        fontSize: fingerSize,
-        lineHeight: 1,
-        zIndex: 9995,
-        pointerEvents: 'none',
-        animation: 'coachFingerBounce 1s ease-in-out infinite',
-        filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.3))',
-      }}
-    >
-      👆
-    </div>
-  );
-};
-
-// ─────────────────────────────────────────────
-//  Tooltip Card
-// ─────────────────────────────────────────────
-
-interface TooltipProps {
-  step: TutorialStep;
-  totalSteps: number;
-  currentIndex: number;
-  rect: SpotlightRect | null;
-  onNext: () => void;
-  onSkip: () => void;
-  isWelcome?: boolean;
-  pinToBottom?: boolean;
-}
-
-const CARD_WIDTH = 355;
-const CARD_PADDING = 16;
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useLocalization } from '../context/LanguageContext';
 
 /**
- * The card is 355px by design, but that is wider than a 320px phone. Shrink it
- * to fit so the text, the Skip button and the pointer all stay on screen.
+ * The tour.
+ *
+ * It points at things rather than describing them. A highlighted rectangle and
+ * a paragraph leave the reader to work out which of the two they are meant to
+ * look at; a hand resting on the control, tapping it, answers that before the
+ * sentence is read — and the tap it performs is the gesture the sentence is
+ * asking for.
+ *
+ * The spotlight is a single SVG mask rather than four dimming panels, so it can
+ * move and resize between steps in one transition instead of four that have to
+ * agree with each other.
+ *
+ * Shown once per installed version. Anybody who has seen it does not see it
+ * again until there is something new to see.
  */
-function cardWidthFor(vw: number) {
-  return Math.min(CARD_WIDTH, vw - CARD_PADDING * 2);
-}
 
-function calcTooltipPos(rect: SpotlightRect, vh: number, vw: number, cardH: number) {
-  const MARGIN = 16;
-  const spotMidY = rect.top + rect.height / 2;
-  let top: number;
+// ── When it runs ───────────────────────────────────────────────────────────
 
-  if (spotMidY > vh / 2) {
-    // place above
-    top = rect.top - cardH - MARGIN;
-  } else {
-    // place below
-    top = rect.top + rect.height + MARGIN;
+/** Injected at build time from package.json by vite.config.ts. */
+declare const __APP_VERSION__: string;
+
+const VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
+
+/**
+ * One key per phase, holding the version that was last finished.
+ *
+ * The version lives in the value rather than in a separate marker: a stored
+ * value that does not match this build means the tour has not been seen *for
+ * this build*, which is the whole rule, and it cannot fall out of step with a
+ * second key the way a separate version marker could.
+ */
+const SEEN_KEY = { 1: 'tourSeenVersion1', 2: 'tourSeenVersion2' } as const;
+
+type Phase = 1 | 2;
+
+const seenThisVersion = (phase: Phase): boolean => {
+  try {
+    return localStorage.getItem(SEEN_KEY[phase]) === VERSION;
+  } catch {
+    // Storage unavailable: showing the tour again is the harmless direction.
+    return false;
   }
+};
 
-  // clamp vertically
-  top = Math.max(CARD_PADDING, Math.min(top, vh - cardH - CARD_PADDING));
+const markSeen = (phase: Phase) => {
+  try {
+    localStorage.setItem(SEEN_KEY[phase], VERSION);
+  } catch {
+    /* It will be offered again next launch, which is no worse than this one. */
+  }
+};
 
-  // centre horizontally over spotlight, clamp horizontally
-  const cardW = cardWidthFor(vw);
-  let left = rect.left + rect.width / 2 - cardW / 2;
-  left = Math.max(CARD_PADDING, Math.min(left, vw - cardW - CARD_PADDING));
+export const shouldShowPhase1 = (): boolean => !seenThisVersion(1);
+export const shouldShowPhase2 = (): boolean => !seenThisVersion(2);
 
-  return { top, left };
+export const resetTour = () => {
+  try {
+    localStorage.removeItem(SEEN_KEY[1]);
+    localStorage.removeItem(SEEN_KEY[2]);
+  } catch {
+    /* Nothing stored to clear. */
+  }
+};
+
+// ── What it points at ──────────────────────────────────────────────────────
+
+interface Step {
+  /** The data-tutorial value to spotlight. */
+  target: string;
+  title: string;
+  body: string;
+  /** Corner radius of the cutout, matching the control underneath. */
+  radius?: number;
+  /** Extra room around the control, for something that sits tight in its box. */
+  pad?: number;
 }
 
-const TooltipCard: React.FC<TooltipProps> = ({ step, totalSteps, currentIndex, rect, onNext, onSkip, isWelcome, pinToBottom }) => {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const [viewportW, setViewportW] = useState(() =>
-    typeof window === 'undefined' ? CARD_WIDTH : window.innerWidth,
-  );
+const stepsFor = (phase: Phase, t: (key: any) => string): Step[] =>
+  phase === 1
+    ? [
+        { target: 'viewfinder', title: t('tourScanTitle'), body: t('tourScanBody'), radius: 22 },
+        { target: 'shutter', title: t('tourShutterTitle'), body: t('tourShutterBody'), radius: 999, pad: 6 },
+        { target: 'type-instead', title: t('tourTypeTitle'), body: t('tourTypeBody'), radius: 999 },
+        { target: 'my-medicines', title: t('tourSavedTitle'), body: t('tourSavedBody'), radius: 999, pad: 8 },
+        { target: 'language', title: t('tourLanguageTitle'), body: t('tourLanguageBody'), radius: 999, pad: 8 },
+      ]
+    : [
+        { target: 'quick-facts', title: t('tourFactsTitle'), body: t('tourFactsBody'), radius: 14 },
+        { target: 'detail-chips', title: t('tourChipsTitle'), body: t('tourChipsBody'), radius: 999, pad: 6 },
+        { target: 'professional-link', title: t('tourClinicalTitle'), body: t('tourClinicalBody'), radius: 16 },
+        { target: 'save-medicine', title: t('tourSaveTitle'), body: t('tourSaveBody'), radius: 999, pad: 6 },
+      ];
+
+// ── Measuring ──────────────────────────────────────────────────────────────
+
+interface Rect { top: number; left: number; width: number; height: number; }
+
+/**
+ * Follows the target's position for as long as it is on screen.
+ *
+ * Polled on a frame rather than measured once: the camera preview resizes as it
+ * starts, a sticky bar moves when the page scrolls, and the keyboard changes
+ * the viewport. A spotlight that measured once ends up beside the thing it is
+ * meant to be on.
+ */
+function useTargetRect(target: string | null): Rect | null {
+  const [rect, setRect] = useState<Rect | null>(null);
+  const frame = useRef(0);
 
   useEffect(() => {
-    const onResize = () => setViewportW(window.innerWidth);
-    window.addEventListener('resize', onResize);
-    window.addEventListener('orientationchange', onResize);
-    return () => {
-      window.removeEventListener('resize', onResize);
-      window.removeEventListener('orientationchange', onResize);
+    if (!target) { setRect(null); return; }
+
+    let last = '';
+    const measure = () => {
+      const el = document.querySelector(`[data-tutorial="${target}"]`) as HTMLElement | null;
+      if (el) {
+        const box = el.getBoundingClientRect();
+        if (box.width > 0 && box.height > 0) {
+          const next = { top: box.top, left: box.left, width: box.width, height: box.height };
+          const key = `${box.top}|${box.left}|${box.width}|${box.height}`;
+          if (key !== last) { last = key; setRect(next); }
+        }
+      } else if (last !== 'gone') {
+        last = 'gone';
+        setRect(null);
+      }
+      frame.current = requestAnimationFrame(measure);
     };
-  }, []);
 
+    frame.current = requestAnimationFrame(measure);
+    return () => cancelAnimationFrame(frame.current);
+  }, [target]);
+
+  return rect;
+}
+
+// ── The hand ───────────────────────────────────────────────────────────────
+
+/** A pointing hand, drawn rather than an emoji so it looks the same anywhere. */
+const Hand: React.FC = () => (
+  <svg viewBox="0 0 44 52" width="44" height="52" aria-hidden="true" style={{ filter: 'drop-shadow(0 4px 10px rgba(0,0,0,.35))' }}>
+    <path
+      d="M17.5 21.5V8.2a3.7 3.7 0 0 1 7.4 0v12.1m0-1.4a3.2 3.2 0 0 1 6.4 0v2.4m0-1.1a3.1 3.1 0 0 1 6.2 0v3.1
+         m0-1.6a3 3 0 0 1 6 0v10.8c0 8.3-5.2 14.4-13.6 14.4-6.8 0-10.1-2.6-13.4-7.6L6.9 30
+         a3.4 3.4 0 0 1 1.2-4.7 3.4 3.4 0 0 1 4.6 1.2l4.8 7.4"
+      fill="var(--tour-hand-fill)"
+      stroke="var(--tour-hand-stroke)"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+// ── The tour ───────────────────────────────────────────────────────────────
+
+interface CoachMarksProps {
+  phase: Phase;
+  onPhaseComplete: () => void;
+}
+
+/** Kept clear of the phone's rounded corners and any system bar. */
+const EDGE = 16;
+const CARD_GAP = 18;
+
+export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }) => {
+  const { t, language } = useLocalization();
+  const [index, setIndex] = useState(0);
+  const [cardHeight, setCardHeight] = useState(220);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
+  const steps = stepsFor(phase, t);
+  const step = steps[index];
+  const rect = useTargetRect(step?.target ?? null);
+
+  const finish = useCallback(() => {
+    markSeen(phase);
+    onPhaseComplete();
+  }, [phase, onPhaseComplete]);
+
+  const next = useCallback(() => {
+    setIndex((current) => {
+      if (current + 1 >= steps.length) { finish(); return current; }
+      return current + 1;
+    });
+  }, [steps.length, finish]);
+
+  // Escape leaves, as it does from any other overlay in the app.
   useEffect(() => {
-    if (!rect || pinToBottom) { setPos(null); return; }
-    const cardH = cardRef.current?.offsetHeight ?? 180;
-    setPos(calcTooltipPos(rect, window.innerHeight, window.innerWidth, cardH));
-  }, [rect, pinToBottom, viewportW]);
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') finish(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [finish]);
 
-  const cardW = cardWidthFor(viewportW);
+  /*
+    Bring the step's target into view before pointing at it.
 
-  const isLast = step.isLastStep;
-  const buttonLabel = step.action ?? (isLast ? 'Got it!' : 'Next');
+    Three of the four result-screen steps start below the fold on a phone, and a
+    spotlight on something off-screen is a dark screen with a card on it. The
+    scrim itself is what stops the reader scrolling underneath — it covers the
+    page and swallows the gesture — so the page is left scrollable and moved
+    deliberately here instead of being locked.
+  */
+  useEffect(() => {
+    if (!step) return;
+    const el = document.querySelector(`[data-tutorial="${step.target}"]`);
+    if (!el) return;
+    const box = el.getBoundingClientRect();
+    const comfortable = box.top > 72 && box.bottom < window.innerHeight - 200;
+    if (!comfortable) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [step]);
 
-  // pinToBottom: dock card to screen bottom like a bottom sheet
-  const style: React.CSSProperties = pinToBottom
+  useLayoutEffect(() => {
+    if (cardRef.current) setCardHeight(cardRef.current.getBoundingClientRect().height);
+  }, [index, step?.title, step?.body]);
+
+  /*
+    A step whose target is not on screen is skipped rather than shown against
+    an empty spotlight. That happens legitimately — the torch button is absent
+    on a device without one — and the alternative is a card pointing at nothing.
+  */
+  useEffect(() => {
+    if (!step) return;
+    const timer = window.setTimeout(() => {
+      const el = document.querySelector(`[data-tutorial="${step.target}"]`);
+      if (!el) next();
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [step, next]);
+
+  if (!step) return null;
+
+  const viewportH = window.innerHeight;
+  const viewportW = window.innerWidth;
+
+  const pad = step.pad ?? 10;
+  const hole = rect
     ? {
-        position: 'fixed',
-        bottom: 20,
-        left: CARD_PADDING,
-        right: CARD_PADDING,
-        zIndex: 9998,
+        top: Math.max(0, rect.top - pad),
+        left: Math.max(0, rect.left - pad),
+        width: Math.min(viewportW, rect.width + pad * 2),
+        height: Math.min(viewportH, rect.height + pad * 2),
       }
-    // centered position for welcome card
-    : isWelcome || !rect || !pos
-    ? {
-        position: 'fixed',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: cardW,
-        zIndex: 9998,
-      }
-    : {
-        position: 'fixed',
-        top: pos.top,
-        left: pos.left,
-        width: cardW,
-        zIndex: 9998,
-        transform: 'none',
-      };
+    : null;
+
+  // The card goes wherever there is more room, and the hand points from the
+  // same side, so the two never argue about which way the eye should travel.
+  const spaceBelow = hole ? viewportH - (hole.top + hole.height) : viewportH;
+  const below = !hole || spaceBelow > cardHeight + CARD_GAP + 40;
+  const cardTop = hole
+    ? below
+      ? Math.min(hole.top + hole.height + CARD_GAP, viewportH - cardHeight - EDGE)
+      : Math.max(EDGE, hole.top - CARD_GAP - cardHeight)
+    : Math.max(EDGE, (viewportH - cardHeight) / 2);
+
+  /*
+    The hand sits on the control, a little inside its lower corner, pointing up
+    at it — the way a finger actually approaches a button. Which corner depends
+    on the language: a right hand comes in from the right of a left-to-right
+    screen and from the left of a right-to-left one, and coming in from the
+    wrong side means the arm crosses the thing it is pointing at.
+  */
+  const rtl = language === 'ar';
+  const handTop = hole ? hole.top + hole.height - 10 : 0;
+  const handLeft = hole
+    ? rtl
+      ? Math.max(EDGE - 24, hole.left - 30)
+      : Math.min(hole.left + hole.width - 14, viewportW - 54)
+    : 0;
+
+  const isLast = index === steps.length - 1;
 
   return (
     <div
-      ref={cardRef}
-      style={style}
+      className="fixed inset-0 z-[9997]"
       role="dialog"
       aria-modal="true"
-      aria-label={step.title ?? step.message}
+      aria-label={t('tourLabel')}
+      data-testid="tour"
+      /*
+        A hand tapping the screen is an instruction to tap the screen, so the
+        whole scrim advances. The card is excluded: its own two buttons say
+        what they do, and a stray tap on the paragraph should not move on.
+      */
+      onClick={(event) => {
+        if (cardRef.current?.contains(event.target as Node)) return;
+        next();
+      }}
     >
+      {/* ── The spotlight ── */}
+      <svg
+        className="absolute inset-0 w-full h-full"
+        aria-hidden="true"
+        style={{ pointerEvents: 'none' }}
+      >
+        <defs>
+          <mask id="tour-mask">
+            <rect x="0" y="0" width="100%" height="100%" fill="white" />
+            {hole && (
+              <rect
+                x={hole.left}
+                y={hole.top}
+                width={hole.width}
+                height={hole.height}
+                rx={Math.min(step.radius ?? 16, hole.height / 2)}
+                fill="black"
+                style={{ transition: 'x .34s cubic-bezier(.32,.72,0,1), y .34s cubic-bezier(.32,.72,0,1), width .34s, height .34s' }}
+              />
+            )}
+          </mask>
+        </defs>
+        <rect x="0" y="0" width="100%" height="100%" fill="var(--tour-scrim)" mask="url(#tour-mask)" />
+      </svg>
+
+      {/* The ring around the cutout, so the edge reads on a busy photograph. */}
+      {hole && (
+        <div
+          className="absolute tour-halo"
+          aria-hidden="true"
+          style={{
+            top: hole.top, left: hole.left, width: hole.width, height: hole.height,
+            borderRadius: Math.min(step.radius ?? 16, hole.height / 2),
+            border: '2px solid var(--teal-light)',
+            boxShadow: '0 0 0 4px rgba(127,189,180,.18)',
+            pointerEvents: 'none',
+            transition: 'all .34s cubic-bezier(.32,.72,0,1)',
+          }}
+        />
+      )}
+
+      {/* ── The hand ── */}
+      {hole && (
+        <div
+          className="absolute"
+          aria-hidden="true"
+          style={{
+            top: handTop, left: handLeft, pointerEvents: 'none',
+            transition: 'top .34s cubic-bezier(.32,.72,0,1), left .34s cubic-bezier(.32,.72,0,1)',
+          }}
+        >
+          <div className="relative" style={rtl ? { transform: 'scaleX(-1)' } : undefined}>
+            <span
+              className="tour-ripple absolute rounded-full"
+              style={{
+                width: 46, height: 46, top: -16, left: -12,
+                border: '2px solid var(--teal-light)',
+              }}
+            />
+            <div className="tour-hand"><Hand /></div>
+          </div>
+        </div>
+      )}
+
+      {/* ── What it says ── */}
       <div
+        ref={cardRef}
+        key={index}
+        className="tour-card absolute bg-surface rounded-[20px] p-5"
         style={{
-          background: 'var(--surface)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          borderRadius: 28,
-          padding: '16px 24px 24px',
-          boxShadow: '0 20px 40px -8px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.4) inset',
-          position: 'relative',
-          animation: 'coachCardIn 0.4s cubic-bezier(0.34,1.5,0.64,1)',
+          top: cardTop,
+          left: EDGE,
+          right: EDGE,
+          boxShadow: '0 12px 40px rgba(0,0,0,.28)',
+          border: '1px solid var(--paper-sand)',
         }}
       >
-        {/* Skip row – always top-right, not absolute so it doesn't affect title centering */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="font-mono font-semibold text-[11px] tracking-[0.06em] text-ink-soft">
+            {t('tourStep').replace('{n}', String(index + 1)).replace('{total}', String(steps.length))}
+          </span>
           <button
-            onClick={onSkip}
-            aria-label="Skip tutorial"
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: TEAL,
-              fontWeight: 600,
-              fontSize: 16,
-              textDecoration: 'underline',
-              padding: '2px 4px',
-            }}
+            type="button"
+            onClick={finish}
+            data-testid="tour-skip"
+            className="font-medium text-[14px] text-ink-soft underline underline-offset-2 px-1 active:scale-95 transition-transform"
           >
-            Skip
+            {t('tourSkip')}
           </button>
         </div>
 
-        {/* Step counter */}
-        {!isWelcome && (
-          <p
-            style={{ color: 'var(--ink-soft)', fontSize: 13, fontWeight: 500, marginBottom: 8 }}
-            aria-label={`Step ${currentIndex + 1} of ${totalSteps}`}
-          >
-            Step {currentIndex + 1} / {totalSteps}
-          </p>
-        )}
+        <h2 className="font-semibold text-[21px] leading-[1.3] text-ink m-0 mb-1.5">{step.title}</h2>
+        <p className="text-[15.5px] leading-[1.6] text-ink-dim m-0">{step.body}</p>
 
-        {/* Title */}
-        {step.title && (
-          <h2
-            style={{
-              color: 'var(--ink)', fontWeight: 800, fontSize: 22, marginBottom: 10,
-              textAlign: 'center', lineHeight: 1.35,
-            }}
-            accessKey={step.title}
-          >
-            {step.title}
-          </h2>
-        )}
-
-        {/* Body */}
-        <p
-          style={{ color: 'var(--ink-dim)', fontSize: 16, lineHeight: 1.7, textAlign: 'center', marginBottom: 22 }}
-          aria-label={step.message}
-        >
-          {step.message}
-        </p>
-
-        {/* Progress dots */}
-        {!isWelcome && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 18 }}>
-            {Array.from({ length: totalSteps }).map((_, i) => (
-              <div
-                key={i}
+        <div className="flex items-center gap-3 mt-4">
+          <div className="flex gap-1.5 flex-1" aria-hidden="true">
+            {steps.map((one, i) => (
+              <span
+                key={one.target}
+                className="h-1.5 rounded-full transition-all duration-300"
                 style={{
-                  width: i === currentIndex ? 20 : 7,
-                  height: 7,
-                  borderRadius: 999,
-                  background: i === currentIndex ? 'var(--teal)' : 'var(--paper-edge)',
-                  transition: 'all 0.3s ease',
+                  width: i === index ? 20 : 6,
+                  background: i === index ? 'var(--teal)' : 'var(--paper-edge)',
                 }}
               />
             ))}
           </div>
-        )}
-
-        {/* Action button */}
-        <button
-          onClick={onNext}
-          aria-label={buttonLabel}
-          style={{
-            display: 'block',
-            width: '100%',
-            background: 'var(--teal)',
-            color: 'var(--on-teal)',
-            fontWeight: 700,
-            fontSize: 18,
-            border: 'none',
-            borderRadius: 999,
-            padding: '15px 20px',
-            cursor: 'pointer',
-            boxShadow: `0 4px 20px rgba(0,123,138,0.4)`,
-            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.02)';
-            (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 6px 24px rgba(0,123,138,0.55)`;
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
-            (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 4px 20px rgba(0,123,138,0.4)`;
-          }}
-        >
-          {buttonLabel}
-        </button>
+          <button
+            type="button"
+            onClick={next}
+            data-testid="tour-next"
+            className="h-[46px] px-6 rounded-full bg-teal font-semibold text-[16px] text-teal-on
+              active:scale-[0.97] transition-transform"
+          >
+            {isLast ? t('tourDone') : t('tourNext')}
+          </button>
+        </div>
       </div>
     </div>
   );
 };
-
-// ─────────────────────────────────────────────
-//  Spotlight Overlay
-// ─────────────────────────────────────────────
-
-const SpotlightOverlay: React.FC<{ rect: SpotlightRect | null; isWelcome?: boolean }> = ({ rect, isWelcome }) => {
-  const PADDING = 8;
-
-  return (
-    <>
-      {/* Full-screen interaction blocker – sits above the app, below the tutorial UI.
-          Catches ALL touches so the user can't interact with the app during the tour. */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 9988,
-          background: 'transparent',
-          pointerEvents: 'all',
-        }}
-      />
-
-      {/* Full-screen dim layer */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 9989,
-          background: 'rgba(0,0,0,0)',
-          pointerEvents: 'none',
-        }}
-      />
-
-      {/* Spotlight window – box-shadow punches a "hole" in the darkness */}
-      {rect && !isWelcome && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'fixed',
-            top: rect.top - PADDING,
-            left: rect.left - PADDING,
-            width: rect.width + PADDING * 2,
-            height: rect.height + PADDING * 2,
-            borderRadius: 14,
-            zIndex: 9990,
-            pointerEvents: 'none',
-            boxShadow: `
-              0 0 0 9999px rgba(0, 0, 0, 0.68),
-              0 0 0 3px rgba(255,255,255,0.25),
-              0 0 20px 8px rgba(0,183,169,0.35)
-            `,
-            transition: 'top 0.35s ease, left 0.35s ease, width 0.35s ease, height 0.35s ease',
-          }}
-        />
-      )}
-
-      {/* Welcome dimming (no hole) */}
-      {isWelcome && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            zIndex: 9991,
-            pointerEvents: 'none',
-          }}
-        />
-      )}
-    </>
-  );
-};
-
-// ─────────────────────────────────────────────
-//  Main CoachMarks Component
-// ─────────────────────────────────────────────
-
-export interface CoachMarksProps {
-  phase: 1 | 2;
-  onPhaseComplete: () => void;
-}
-
-export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }) => {
-  const steps = phase === 1 ? PHASE1_STEPS : PHASE2_STEPS;
-
-  const [stepIndex, setStepIndex] = useState(0);
-  const [visible, setVisible] = useState(true);   // true = tutorial UI + blocking overlay active
-  const [toastOnly, setToastOnly] = useState(false); // true = only toast remains, app fully usable
-  const [toastVisible, setToastVisible] = useState(false);
-
-  // Recorded the moment the tour is shown, not when it is finished. Leaving the
-  // screen part-way through used to leave the flag unwritten, so the tour came
-  // back on every later visit — most visibly the results tour, which returned
-  // after every single search.
-  useEffect(() => {
-    try {
-      localStorage.setItem(phase === 1 ? STORAGE_KEY_P1 : STORAGE_KEY_P2, 'true');
-    } catch (_) {
-      // Private mode or storage disabled — the tour simply shows again.
-    }
-  }, [phase]);
-
-  // Lock body scroll ONLY while tutorial overlay is active (visible=true)
-  useEffect(() => {
-    if (!visible) return; // already unlocked when tutorial steps end
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [visible]);
-
-  const currentStep = steps[stepIndex];
-  const { rect, focusTarget } = useSpotlight(currentStep?.target ?? null);
-
-  // Focus & auto-scroll when step changes
-  useEffect(() => {
-    if (!currentStep?.target) return;
-    const cleanup = focusTarget();
-    return cleanup;
-  }, [stepIndex, focusTarget, currentStep?.target]);
-
-  // Dismiss permanently
-  const dismiss = useCallback((completed = false) => {
-    // Immediately remove the overlay + unblock the app
-    setVisible(false);
-    const key = phase === 1 ? STORAGE_KEY_P1 : STORAGE_KEY_P2;
-    localStorage.setItem(key, 'true');
-
-    const TOAST_DURATION = 6000;
-    if (completed) {
-      // Show toast while app is already fully interactive
-      setToastOnly(true);
-      setToastVisible(true);
-      setTimeout(() => {
-        setToastVisible(false);
-        // Small extra delay for fade-out animation, then unmount
-        setTimeout(() => {
-          setToastOnly(false);
-          onPhaseComplete();
-        }, 500);
-      }, TOAST_DURATION);
-    } else {
-      // Skip – no toast, just notify parent immediately
-      onPhaseComplete();
-    }
-  }, [phase, onPhaseComplete]);
-
-  const handleNext = useCallback(() => {
-    if (stepIndex >= steps.length - 1) {
-      dismiss(true);
-    } else {
-      setStepIndex(i => i + 1);
-    }
-  }, [stepIndex, steps.length, dismiss]);
-
-  const handleSkip = useCallback(() => {
-    dismiss(false);
-  }, [dismiss]);
-
-  if (!visible || !currentStep) {
-    // Once steps are done, only show the toast – everything else is gone
-    if (!toastOnly) return null;
-    return <SuccessToast visible={toastVisible} phase={phase} />;
-  }
-
-  const isWelcome = currentStep.isWelcome === true;
-
-  return (
-    <>
-      {/* Inject keyframe animations once */}
-      <style>{`
-        @keyframes coachCardIn {
-          from { opacity: 0; transform: scale(0.88) translateY(10px); }
-          to   { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        @keyframes coachFingerBounce {
-          0%, 100% { transform: translateX(0); }
-          50%       { transform: translateX(-6px); }
-        }
-      `}</style>
-
-      <SpotlightOverlay rect={rect} isWelcome={isWelcome} />
-
-      {rect && !isWelcome && <PointingFinger rect={rect} />}
-
-      <TooltipCard
-        step={currentStep}
-        totalSteps={steps.length}
-        currentIndex={stepIndex}
-        rect={isWelcome ? null : rect}
-        onNext={handleNext}
-        onSkip={handleSkip}
-        isWelcome={isWelcome}
-        pinToBottom={currentStep.pinToBottom}
-      />
-
-      <SuccessToast visible={toastVisible} phase={phase} />
-    </>
-  );
-};
-
-// ─────────────────────────────────────────────
-//  Utility exports for App.tsx
-// ─────────────────────────────────────────────
-
-export function shouldShowPhase1(): boolean {
-  return localStorage.getItem(STORAGE_KEY_P1) !== 'true';
-}
-
-export function shouldShowPhase2(): boolean {
-  return localStorage.getItem(STORAGE_KEY_P2) !== 'true';
-}
-
-export function resetPhase1Tutorial(): void {
-  localStorage.removeItem(STORAGE_KEY_P1);
-}
-
-export function resetPhase2Tutorial(): void {
-  localStorage.removeItem(STORAGE_KEY_P2);
-}

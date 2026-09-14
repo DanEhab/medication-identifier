@@ -212,6 +212,7 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
             type="button"
             onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
             aria-label={t('switchLanguage')}
+            data-tutorial="language"
             className={`h-[34px] px-[13px] rounded-full border border-paper-sand bg-surface
               flex items-center font-semibold text-[15px] text-ink active:scale-95 transition-transform
               ${language === 'en' ? 'font-arabic' : ''}`}
@@ -222,7 +223,7 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
       </header>
 
       {/* ── The viewfinder ── */}
-      <div className="relative flex-1 mx-3.5 mt-1 rounded-[22px] bg-night-lens overflow-hidden flex items-center justify-center">
+      <div data-tutorial="viewfinder" className="relative flex-1 mx-3.5 mt-1 rounded-[22px] bg-night-lens overflow-hidden flex items-center justify-center">
         <video
           ref={videoRef}
           autoPlay
@@ -298,6 +299,7 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
           onClick={capture}
           disabled={cameraState !== 'live'}
           aria-label={t('takeAPhoto')}
+          data-tutorial="shutter"
           className="w-[84px] h-[84px] rounded-full flex items-center justify-center
             active:scale-95 transition-transform disabled:opacity-40"
           style={{ border: '5px solid rgba(10,90,86,.3)' }}
@@ -326,6 +328,7 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
         <button
           type="button"
           onClick={onTypeInstead}
+          data-tutorial="type-instead"
           className="w-full h-14 rounded-full bg-surface border border-paper-sand
             flex items-center gap-3 px-5 active:scale-[0.99] transition-transform"
         >
