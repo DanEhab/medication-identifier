@@ -47,11 +47,11 @@ export const FirstRun: React.FC<FirstRunProps> = ({ onAccept }) => {
 
   return (
     <div
-      // bg-night, not bg-ink: this screen is deliberately dark in both themes,
-      // and ink is the *text* colour, which inverts. On a phone in dark mode
-      // that turned the first screen anybody sees into a near-white panel with
-      // white text on it. The night tokens are fixed in both themes.
-      className="fixed inset-0 z-[9998] flex flex-col bg-night px-6 overflow-y-auto"
+      // bg-brand-ground, not bg-ink: the same colour, but as a surface token
+      // that does not follow --ink when it inverts for dark mode. Using the
+      // text colour as a background turned the first screen anybody sees into
+      // a near-white panel with white text on it.
+      className="fixed inset-0 z-[9998] flex flex-col bg-brand-ground px-6 overflow-y-auto"
       style={{ minHeight: '100dvh' }}
       role="dialog"
       aria-modal="true"
@@ -104,7 +104,7 @@ export const FirstRun: React.FC<FirstRunProps> = ({ onAccept }) => {
           onClick={accept}
           className="h-[58px] rounded-full bg-white flex items-center justify-center
             font-semibold text-[17px] active:scale-[0.98] transition-transform"
-          style={{ color: 'var(--night)' }}
+          style={{ color: 'var(--brand-ground)' }}
         >
           {t('iUnderstandContinue')}
         </button>

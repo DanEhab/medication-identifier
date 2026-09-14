@@ -79,6 +79,9 @@ export default {
           ink: 'var(--night-ink)',
           soft: 'var(--night-soft)',
         },
+        /* The first-run ground: --ink's colour, but fixed in both themes. */
+        'brand-ground': 'var(--brand-ground)',
+
         /* Deliberately inverted against the ground. */
         selected: {
           DEFAULT: 'var(--selected-bg)',
