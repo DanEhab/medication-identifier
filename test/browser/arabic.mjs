@@ -247,7 +247,7 @@ await audit('not a medicine');
 await screenshot(browser, 'ar-notamedicine', import.meta.url);
 
 // ── First run, the very first thing anybody sees ──────────────────────────
-await browser.evaluate(`localStorage.removeItem('disclaimerAccepted');`);
+await browser.evaluate(`localStorage.removeItem('disclaimerAcceptedVersion');`);
 await browser.goto(BASE);
 check('the first-run screen shows', await browser.evaluate(`
   await new Promise(r => setTimeout(r, 2500));
