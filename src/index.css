@@ -116,6 +116,14 @@ video::-webkit-media-controls-overlay-play-button {
   /* The warning card's body copy, one step softer than its heading. */
   --saffron-body: #7A4E0B;
 
+  /*
+    The first-run ground. It is the same colour as --ink, but it is a surface
+    rather than a text colour, so it must not follow --ink when that inverts
+    for dark mode. Deliberately not redefined below: this screen looks the
+    same whatever the phone is set to.
+  */
+  --brand-ground: #0B2B2E;
+
   --night: #06231F;
   --night-surface: #0F2E2D;
   --night-sunk: #08201F;

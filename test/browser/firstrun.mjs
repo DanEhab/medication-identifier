@@ -82,8 +82,8 @@ const legibility = (target) => target.evaluate(`
 `);
 
 const light = await legibility(browser);
-check('the ground is the fixed dark one, not the inverting ink',
-  light.ground === 'rgb(6, 35, 31)', light.ground);
+check('the ground is the brand colour, not the inverting ink',
+  light.ground === 'rgb(11, 43, 46)', light.ground);
 check('every word on it is legible in light mode', light.bad.length === 0, JSON.stringify(light.bad));
 check('nothing overflows', !light.overflows);
 
@@ -180,8 +180,8 @@ const night = await openApp({ firstRun: true, dark: true });
 check('the disclaimer is shown in dark mode too', (await reachFirstRun(night)) === 'ok');
 
 const dark = await legibility(night);
-check('its ground is the same fixed dark in both themes',
-  dark.ground === 'rgb(6, 35, 31)', dark.ground);
+check('its ground is the same brand colour in both themes',
+  dark.ground === 'rgb(11, 43, 46)', dark.ground);
 check('and every word on it is still legible', dark.bad.length === 0, JSON.stringify(dark.bad));
 
 const darkAccept = await night.evaluate(`
@@ -189,7 +189,7 @@ const darkAccept = await night.evaluate(`
   return { bg: getComputedStyle(accept).backgroundColor, fg: getComputedStyle(accept).color };
 `);
 check('the continue button is not white on white',
-  darkAccept.bg === 'rgb(255, 255, 255)' && darkAccept.fg === 'rgb(6, 35, 31)',
+  darkAccept.bg === 'rgb(255, 255, 255)' && darkAccept.fg === 'rgb(11, 43, 46)',
   JSON.stringify(darkAccept));
 
 await screenshot(night, 'firstrun-dark', import.meta.url);
