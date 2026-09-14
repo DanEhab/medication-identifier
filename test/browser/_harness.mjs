@@ -106,6 +106,13 @@ export async function openApp({
    * auditing the camera, and missed that the screen was white-on-white.
    */
   firstRun = false,
+  /**
+   * Show the tour, as a new install or a fresh update would.
+   *
+   * Same reason as firstRun: the seeds below re-run on every navigation, so a
+   * suite that clears the flags itself has them written straight back.
+   */
+  tour = false,
 } = {}) {
   const browser = await launch({ width: 428, height: 908 });
 
@@ -121,12 +128,13 @@ export async function openApp({
 
   await browser.page.send('Page.addScriptToEvaluateOnNewDocument', {
     source: `
-      ${firstRun ? '' : "localStorage.setItem('disclaimerAccepted', 'true');"}
-      // The tour clears its own done-flags whenever the stored version differs,
-      // so the version has to be seeded too or it reappears over every screen.
-      localStorage.setItem('tutorial_version', '1.4.0');
-      localStorage.setItem('tutorial_phase1_done', 'true');
-      localStorage.setItem('tutorial_phase2_done', 'true');
+      ${firstRun ? '' : "localStorage.setItem('disclaimerAcceptedVersion', '1.4.0');"}
+      // Both the disclaimer and the tour are stamped with the version that
+      // last dismissed them, so seeding them means writing this build's
+      // version. A bare 'true' reads as an older build and they come back.
+      ${tour ? '' : `
+      localStorage.setItem('tourSeenVersion1', '1.4.0');
+      localStorage.setItem('tourSeenVersion2', '1.4.0');`}
       if (!localStorage.getItem('app-language')) localStorage.setItem('app-language', ${JSON.stringify(language)});
       ${seeds}
 

@@ -16,10 +16,9 @@ await wv.evaluate(`location.reload();`).catch(() => {});
 await new Promise((r) => setTimeout(r, 6000));
 
 const seeded = await wv.evaluate(`
-  localStorage.setItem('disclaimerAccepted', 'true');
-  localStorage.setItem('tutorial_version', '1.3.0');
-  localStorage.setItem('tutorial_phase1_done', 'true');
-  localStorage.setItem('tutorial_phase2_done', 'true');
+  localStorage.setItem('disclaimerAcceptedVersion', '1.4.0');
+    localStorage.setItem('tourSeenVersion1', '1.4.0');
+  localStorage.setItem('tourSeenVersion2', '1.4.0');
   localStorage.setItem('app-language', 'en');
   localStorage.removeItem('myMedications');
   localStorage.removeItem('profiles');
