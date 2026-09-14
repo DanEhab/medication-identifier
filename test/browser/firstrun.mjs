@@ -155,12 +155,12 @@ const accepted = await browser.evaluate(`
   return {
     gone: !document.querySelector('[role="dialog"]'),
     onCamera: !!document.querySelector('[data-tutorial="my-medicines"]'),
-    remembered: localStorage.getItem('disclaimerAccepted'),
+    remembered: localStorage.getItem('disclaimerAcceptedVersion'),
     language: localStorage.getItem('app-language'),
   };
 `);
 check('accepting takes you into the app', accepted.gone && accepted.onCamera, JSON.stringify(accepted));
-check('and it is remembered', accepted.remembered === 'true');
+check('and it is remembered against this version', accepted.remembered === '1.4.0', String(accepted.remembered));
 check('with the language that was chosen', accepted.language === 'ar', String(accepted.language));
 
 const second = await browser.evaluate(`location.reload();`).catch(() => {});
