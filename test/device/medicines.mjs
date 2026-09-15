@@ -137,22 +137,27 @@ check("a second person starts with an empty list", profiles.emptyForMum);
 check('and switching back shows the first list', profiles.backToMine === 1, String(profiles.backToMine));
 
 // ── The tab bar ────────────────────────────────────────────────────────────
+// The bar is on all three screens now, so every hop is the bar. It used to
+// need the search screen's back arrow to get out of search; that arrow is
+// gone, because a back arrow beside a tab bar answers "how do I leave" twice.
 const tabs = await wv.evaluate(`
-  document.querySelector('[data-tab="search"]').click();
-  await new Promise(r => setTimeout(r, 800));
+  const go = async (tab) => {
+    document.querySelector('[data-tab="' + tab + '"]').click();
+    await new Promise(r => setTimeout(r, 850));
+  };
+  await go('search');
   const onSearch = !!document.querySelector('input[type="search"]');
-  const backBtn = [...document.querySelectorAll('button')].find(b => /back/i.test(b.getAttribute('aria-label') || ''));
-  backBtn.click();
-  await new Promise(r => setTimeout(r, 800));
-  const onCamera = !!document.querySelector('[data-tutorial="my-medicines"]');
-  document.querySelector('[data-tutorial="my-medicines"]').click();
-  await new Promise(r => setTimeout(r, 800));
-  document.querySelector('[data-tab="scan"]').click();
-  await new Promise(r => setTimeout(r, 900));
-  return { onSearch, onCamera, backOnCamera: !!document.querySelector('[data-tutorial="my-medicines"]') };
+  await go('scan');
+  const onCamera = !!document.querySelector('[data-tutorial="shutter"]');
+  await go('medicines');
+  const onList = !!document.querySelector('[data-testid="profiles"]');
+  await go('scan');
+  return { onSearch, onCamera, onList, backOnCamera: !!document.querySelector('[data-tutorial="shutter"]') };
 `);
 check('the search tab works on device', tabs.onSearch);
-check('the scan tab returns to the camera', tabs.backOnCamera);
+check('the scan tab returns to the camera', tabs.onCamera);
+check('the medicines tab reaches the list', tabs.onList);
+check('and the bar gets back to the camera from there too', tabs.backOnCamera);
 
 // ── The camera still works after all that navigation ───────────────────────
 const camera = await wv.evaluate(`

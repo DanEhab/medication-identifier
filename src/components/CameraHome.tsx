@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
 import { useLocalization } from '../context/LanguageContext';
+import { TabBar, type Tab } from './TabBar';
+import { SettingsButton } from './SettingsScreen';
 
 /**
  * The home screen: a live viewfinder rather than a menu.
@@ -21,14 +23,15 @@ import { useLocalization } from '../context/LanguageContext';
 interface CameraHomeProps {
   onIdentify: (image: File | null, drugName: string) => void;
   onTypeInstead: () => void;
-  /** The saved list. The camera runs edge to edge, so it has no tab bar. */
-  onShowMyMedicines: () => void;
+  /** The tab bar at the foot of the screen, shared with the other two tabs. */
+  onSelectTab: (tab: Tab) => void;
+  onOpenSettings: () => void;
   error: string | null;
 }
 
 type CameraState = 'starting' | 'live' | 'denied' | 'unavailable';
 
-export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstead, onShowMyMedicines, error }) => {
+export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstead, onSelectTab, onOpenSettings, error }) => {
   const { t, language, setLanguage } = useLocalization();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -192,22 +195,14 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {/* The other screens carry a tab bar; this one cannot without eating
-              a fifth of the viewfinder, so the way to the saved list is here. */}
-          <button
-            type="button"
-            onClick={onShowMyMedicines}
-            aria-label={t('tabMedicines')}
-            data-tutorial="my-medicines"
-            className="w-[34px] h-[34px] rounded-full border border-paper-sand bg-surface
-              flex items-center justify-center active:scale-95 transition-transform"
-          >
-            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
+          <SettingsButton onClick={onOpenSettings} />
 
+          {/*
+            Language stays in the bar as well as in settings. It is the one
+            setting a bilingual household changes several times a day, and
+            burying it two taps deep to keep the header tidy would be tidying
+            the wrong thing.
+          */}
           <button
             type="button"
             onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
@@ -223,7 +218,13 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
       </header>
 
       {/* ── The viewfinder ── */}
-      <div data-tutorial="viewfinder" className="relative flex-1 mx-3.5 mt-1 rounded-[22px] bg-night-lens overflow-hidden flex items-center justify-center">
+      {/*
+        The frame and the instruction under it share the preview by stacking
+        rather than by both being centred in it. Absolutely positioning the
+        instruction over a fixed-size frame worked at 428x908 and ran the
+        caption straight through the brackets at 360x640.
+      */}
+      <div data-tutorial="viewfinder" className="relative flex-1 mx-3.5 mt-1 rounded-[22px] bg-night-lens overflow-hidden flex flex-col">
         <video
           ref={videoRef}
           autoPlay
@@ -243,22 +244,46 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
           }}
         />
 
-        <div className="relative w-[238px] h-[238px] max-w-[76%] pointer-events-none">
+        {/*
+          As close to 238px square as the preview allows, and never larger than
+          it. aspect-ratio was tried first and collapsed: the corner pieces are
+          absolutely positioned, so the box has no content to size from and a
+          flex row sized it to nothing.
+        */}
+        <div className="relative flex-1 min-h-0 flex items-center justify-center">
+        <div
+          className="relative pointer-events-none shrink-0"
+          style={{ width: 'min(238px, 76%)', height: 'min(238px, 100%)' }}
+        >
           <span className="absolute top-0 left-0 w-[54px] h-[54px] border-t-4 border-l-4 border-white rounded-tl-[18px]" />
           <span className="absolute top-0 right-0 w-[54px] h-[54px] border-t-4 border-r-4 border-white rounded-tr-[18px]" />
           <span className="absolute bottom-0 right-0 w-[54px] h-[54px] border-b-4 border-r-4 border-white rounded-br-[18px]" />
           <span className="absolute bottom-0 left-0 w-[54px] h-[54px] border-b-4 border-l-4 border-white rounded-bl-[18px]" />
 
           <div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[158px] h-[100px]
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
               rounded-lg border border-dashed flex items-center justify-center text-center px-2.5 text-[12px]"
-            style={{ borderColor: 'rgba(255,255,255,.34)', color: 'rgba(255,255,255,.6)' }}
+            /*
+              Fixed, not a percentage of the frame. The frame's own height is a
+              min() containing a percentage, which leaves it indefinite as far
+              as a child's percentage height is concerned, so `height: 42%`
+              silently became auto and the hint collapsed onto its one line.
+            */
+            style={{
+              width: '158px',
+              maxWidth: '66%',
+              height: '100px',
+              borderColor: 'rgba(255,255,255,.34)',
+              color: 'rgba(255,255,255,.6)',
+            }}
           >
             {t('nameOnPack')}
           </div>
         </div>
 
-        <div className="absolute bottom-[18px] inset-x-0 text-center px-[26px] pointer-events-none">
+        </div>
+
+        <div className="relative shrink-0 pb-[18px] text-center px-[26px] pointer-events-none">
           {cameraState === 'live' || cameraState === 'starting' ? (
             <p className="text-white text-[16px] leading-[1.5] m-0" style={{ textWrap: 'pretty' }}>
               {t('pointAtBox')}
@@ -324,7 +349,7 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
       </div>
 
       {/* ── Typing is one tap, not a fork ── */}
-      <div className="px-4 pt-2 pb-3.5 shrink-0" style={{ paddingBottom: 'max(0.875rem, env(safe-area-inset-bottom))' }}>
+      <div className="px-4 pt-2 pb-3 shrink-0">
         <button
           type="button"
           onClick={onTypeInstead}
@@ -343,6 +368,8 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
       </div>
 
       <input type="file" accept="image/*" ref={fileInputRef} onChange={onFilePicked} className="hidden" />
+
+      <TabBar active="scan" onSelect={onSelectTab} />
     </div>
   );
 };
