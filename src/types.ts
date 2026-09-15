@@ -105,7 +105,8 @@ export interface PatientInfo {
 
 export type View =
   | 'home' | 'search' | 'reading' | 'confirm' | 'results'
-  | 'sideEffects' | 'myMedications' | 'professional' | 'notFound';
+  | 'sideEffects' | 'myMedications' | 'professional' | 'notFound'
+  | 'settings';
 
 /**
  * Which part of the side effects screen to open at. The result screen's three
