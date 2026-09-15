@@ -42,6 +42,38 @@ export async function connectWebView() {
     });
   };
 
+  /*
+    Wait for the app to be on screen before handing the handle back.
+
+    The devtools socket exists well before the page does, so a suite could
+    connect, write its localStorage and call location.reload() while the
+    *initial* navigation was still in flight — and that navigation then
+    replaced the page, throwing the reload away. The app came up with whatever
+    the previous suite had left in storage.
+
+    That failed silently and only in the runner, because running a suite by
+    hand leaves seconds of slack before it connects. It looked like a bug in
+    whatever the suite was measuring: the tour reporting no tour on a fresh
+    install, and the English suites finding no English button because the app
+    was still in Arabic.
+
+    Three readings in a row, because `complete` can be reported for the empty
+    document a moment before the bundle runs.
+  */
+  let settled = 0;
+  for (let attempt = 0; attempt < 160 && settled < 3; attempt++) {
+    try {
+      const r = await send('Runtime.evaluate', {
+        expression: "document.readyState === 'complete' && !!document.querySelector('#root > *')",
+        returnByValue: true,
+      });
+      settled = r.result?.value === true ? settled + 1 : 0;
+    } catch {
+      settled = 0;
+    }
+    if (settled < 3) await new Promise((r) => setTimeout(r, 250));
+  }
+
   return {
     send,
     on: (event, fn) => listeners.push({ event, fn }),

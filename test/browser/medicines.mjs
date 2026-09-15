@@ -60,18 +60,33 @@ const toSearch = await browser.evaluate(`
 `);
 check('the search tab reaches search', toSearch);
 
-const backToMeds = await browser.evaluate(`
-  const backBtn = [...document.querySelectorAll('button')].find(b => /back/i.test(b.getAttribute('aria-label') || ''));
-  backBtn.click();
-  await new Promise(r => setTimeout(r, 700));
-  const btn = document.querySelector('[data-tutorial="my-medicines"]');
-  btn.click();
-  await new Promise(r => setTimeout(r, 700));
-  document.querySelector('[data-tab="scan"]').click();
-  await new Promise(r => setTimeout(r, 800));
-  return !!document.querySelector('[data-tutorial="my-medicines"]');
+/*
+  Round the three tabs and back, using nothing but the bar.
+
+  It used to need the search screen's back arrow to get out of search. That
+  arrow is gone: the bar is on all three screens now, so every one of them can
+  be left the same way, and this walk is the check that says so.
+*/
+const roundTrip = await browser.evaluate(`
+  const go = async (tab) => {
+    document.querySelector('[data-tab="' + tab + '"]').click();
+    await new Promise(r => setTimeout(r, 750));
+  };
+  const where = () => {
+    const current = document.querySelector('[data-tab][aria-current="page"]');
+    return current ? current.getAttribute('data-tab') : 'none';
+  };
+  const visited = [];
+  await go('medicines'); visited.push(where());
+  await go('scan'); visited.push(where());
+  await go('search'); visited.push(where());
+  await go('scan'); visited.push(where());
+  return { visited, onCamera: !!document.querySelector('[data-tutorial="shutter"]') };
 `);
-check('the scan tab reaches the camera', backToMeds);
+check('every tab is reachable from every other one',
+  JSON.stringify(roundTrip.visited) === JSON.stringify(['medicines', 'scan', 'search', 'scan']),
+  JSON.stringify(roundTrip.visited));
+check('the scan tab reaches the camera', roundTrip.onCamera);
 
 // ── The list ───────────────────────────────────────────────────────────────
 await seed([
