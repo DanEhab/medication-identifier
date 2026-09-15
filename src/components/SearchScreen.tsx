@@ -8,6 +8,8 @@ import {
   MIN_QUERY_LENGTH,
   type Suggestion,
 } from '../services/suggestService';
+import { TabBar, type Tab } from './TabBar';
+import { SettingsButton } from './SettingsScreen';
 
 /**
  * The typed path, first-class.
@@ -25,19 +27,14 @@ import {
 interface SearchScreenProps {
   /** Runs the lookup. The image argument is always null on this path. */
   onIdentify: (image: File | null, drugName: string) => void;
-  /** Back to the camera. */
+  /** Back to the camera, for the hint card that offers it by name. */
   onBack: () => void;
+  onSelectTab: (tab: Tab) => void;
+  onOpenSettings: () => void;
   error: string | null;
 }
 
 const DEBOUNCE_MS = 250;
-
-const ChevronBack: React.FC = () => (
-  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
-    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink rtl:rotate-180">
-    <path d="m15 5-7 7 7 7" />
-  </svg>
-);
 
 const SearchIcon: React.FC<{ color?: string }> = ({ color = 'var(--ink-soft)' }) => (
   <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke={color}
@@ -90,7 +87,7 @@ const Highlighted: React.FC<{ text: string; query: string }> = ({ text, query })
   );
 };
 
-export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, error }) => {
+export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, onSelectTab, onOpenSettings, error }) => {
   const { t } = useLocalization();
   const [query, setQuery] = useState('');
   const [remote, setRemote] = useState<Suggestion[]>([]);
@@ -149,11 +146,14 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, 
 
   return (
     <div className="flex flex-col bg-paper" style={{ minHeight: '100dvh' }}>
-      {/* ── Back, and the field ── */}
+      {/*
+        The field, and the way to settings.
+
+        There is no back arrow any more. This screen is a tab, not somewhere
+        you were sent: a back arrow beside a tab bar offers two different
+        answers to "how do I leave", and the Scan tab is the honest one.
+      */}
       <div className="flex items-center gap-3 px-4 py-3">
-        <button type="button" onClick={onBack} aria-label={t('backToSearch')} className="active:scale-90 transition-transform shrink-0">
-          <ChevronBack />
-        </button>
         <form
           // min-w-0 as well as flex-1: a flex item will not shrink below its
           // content without it, so a placeholder longer than the English one
@@ -195,6 +195,8 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, 
             )}
           </div>
         </form>
+
+        <SettingsButton onClick={onOpenSettings} />
       </div>
 
       {error && (
@@ -272,7 +274,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, 
       )}
 
       {/* ── The way back to the camera ── */}
-      <div className="px-5 pt-6">
+      <div className="px-5 pt-6 pb-6">
         <button
           type="button"
           onClick={onBack}
@@ -283,6 +285,8 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, 
           <p className="text-[15px] leading-[1.55] text-ink m-0">{t('cannotSpellIt')}</p>
         </button>
       </div>
+
+      <TabBar active="search" onSelect={onSelectTab} />
     </div>
   );
 };

@@ -43,28 +43,50 @@ try {
   process.exit(1);
 }
 
+const pause = (ms) => execSync(`node -e "setTimeout(()=>{},${ms})"`);
+
 /**
  * Restarts the app and forwards its WebView debugger.
  *
  * Every suite needs a fresh one: the debugger port belongs to a particular
  * WebView process, and a suite that reloaded the page has left the previous
  * forward pointing at nothing.
+ *
+ * The socket is found by the app's *current* pid rather than by taking the
+ * first `webview_devtools_remote_*` line in /proc/net/unix. A force-stopped
+ * process leaves its socket listed for a moment, so the first match could be
+ * the one that just died — and forwarding to that hands the next suite a
+ * WebView showing the previous suite's page, with the previous suite's
+ * storage. That is how the tour suite came to report "no tour on a fresh
+ * install" only when run as part of the whole set, and passed on its own.
  */
 const attach = () => {
   adb(`shell am force-stop ${APP_ID}`);
   try { adb('forward --remove-all'); } catch { /* nothing forwarded yet */ }
+
+  // pidof still answers for a moment after force-stop, so wait for it to go
+  // quiet before starting: otherwise the pid read back is the dead one.
+  for (let attempt = 0; attempt < 20; attempt++) {
+    try {
+      if (!adb(`shell pidof ${APP_ID}`).trim()) break;
+    } catch { break; }
+    pause(250);
+  }
+
   adb(`shell am start -n ${APP_ID}/.MainActivity`);
 
-  for (let attempt = 0; attempt < 40; attempt++) {
+  for (let attempt = 0; attempt < 60; attempt++) {
     try {
-      const sockets = adb('shell cat /proc/net/unix');
-      const match = sockets.match(/webview_devtools_remote_\d+/);
-      if (match) {
-        adb(`forward tcp:9333 localabstract:${match[0]}`);
-        return match[0];
+      const pid = adb(`shell pidof ${APP_ID}`).trim().split(/\s+/)[0];
+      if (pid) {
+        const socket = `webview_devtools_remote_${pid}`;
+        if (adb('shell cat /proc/net/unix').includes(socket)) {
+          adb(`forward tcp:9333 localabstract:${socket}`);
+          return socket;
+        }
       }
     } catch { /* the app is still starting */ }
-    execSync('node -e "setTimeout(()=>{},250)"');
+    pause(250);
   }
   return null;
 };

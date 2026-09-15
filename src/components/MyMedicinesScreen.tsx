@@ -8,6 +8,7 @@ import {
 } from '../lib/profiles';
 import { useLocalization } from '../context/LanguageContext';
 import { TabBar, type Tab } from './TabBar';
+import { SettingsButton } from './SettingsScreen';
 
 /**
  * A list with a reason to return.
@@ -24,6 +25,7 @@ import { TabBar, type Tab } from './TabBar';
 interface MyMedicinesScreenProps {
   onSelectMed: (name: string) => void;
   onSelectTab: (tab: Tab) => void;
+  onOpenSettings: () => void;
 }
 
 const Chevron: React.FC<{ color?: string }> = ({ color = 'var(--ink-soft)' }) => (
@@ -52,7 +54,7 @@ const ClockIcon: React.FC = () => (
 
 const EMPTY_SCHEDULE: MedicationSchedule = { times: [], note: '' };
 
-export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMed, onSelectTab }) => {
+export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMed, onSelectTab, onOpenSettings }) => {
   const { t } = useLocalization();
   const meLabel = t('profileMe');
 
@@ -117,10 +119,13 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
 
   return (
     <div className="flex flex-col bg-paper" style={{ minHeight: '100dvh' }}>
-      <div className="px-5 pt-4">
-        <h1 className="font-semibold text-[30px] leading-[1.2] tracking-[-0.02em] text-ink m-0">
+      <div className="px-5 pt-4 flex items-start justify-between gap-3">
+        <h1 className="font-semibold text-[30px] leading-[1.2] tracking-[-0.02em] text-ink m-0 min-w-0">
           {t('myMedicinesTitle')}
         </h1>
+        <div className="shrink-0 pt-1">
+          <SettingsButton onClick={onOpenSettings} />
+        </div>
       </div>
 
       {/* ── Whose medicines ── */}

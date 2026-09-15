@@ -85,8 +85,13 @@ const stepsFor = (phase: Phase, t: (key: any) => string): Step[] =>
         { target: 'viewfinder', title: t('tourScanTitle'), body: t('tourScanBody'), radius: 22 },
         { target: 'shutter', title: t('tourShutterTitle'), body: t('tourShutterBody'), radius: 999, pad: 6 },
         { target: 'type-instead', title: t('tourTypeTitle'), body: t('tourTypeBody'), radius: 999 },
-        { target: 'my-medicines', title: t('tourSavedTitle'), body: t('tourSavedBody'), radius: 999, pad: 8 },
         { target: 'language', title: t('tourLanguageTitle'), body: t('tourLanguageBody'), radius: 999, pad: 8 },
+        /*
+          Last, because it is in the tab bar at the foot of the screen and the
+          two steps before it are in the header: ending here leaves the eye
+          where the next tap is, instead of sending it back up.
+        */
+        { target: 'my-medicines', title: t('tourSavedTitle'), body: t('tourSavedBody'), radius: 14, pad: 4 },
       ]
     : [
         { target: 'quick-facts', title: t('tourFactsTitle'), body: t('tourFactsBody'), radius: 14 },

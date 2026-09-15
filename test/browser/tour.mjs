@@ -83,7 +83,7 @@ check('one dot per step', first.dots === 5, String(first.dots));
   gone from the markup the step is silently skipped, so walking the phase and
   collecting what it actually spotlighted is the only way to notice.
 */
-const PHASE1 = ['viewfinder', 'shutter', 'type-instead', 'my-medicines', 'language'];
+const PHASE1 = ['viewfinder', 'shutter', 'type-instead', 'language', 'my-medicines'];
 const seen = [];
 for (let i = 0; i < PHASE1.length; i++) {
   const state = await readTour(browser);

@@ -118,7 +118,7 @@ const walk = async (label, targets) => {
   check(`${label}: every step found its target`, found.length === targets.length, JSON.stringify(found));
 };
 
-const PHASE1 = ['viewfinder', 'shutter', 'type-instead', 'my-medicines', 'language'];
+const PHASE1 = ['viewfinder', 'shutter', 'type-instead', 'language', 'my-medicines'];
 
 // ── English, on the real camera ────────────────────────────────────────────
 await freshInstall('en');

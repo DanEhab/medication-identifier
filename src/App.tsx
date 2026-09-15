@@ -12,12 +12,14 @@ import type { Tab } from './components/TabBar';
 import { NotFoundScreen } from './components/NotFoundScreen';
 import { findSavedMedication, isStale, saveMedication } from './lib/medicationStorage';
 import { useLocalization } from './context/LanguageContext';
-import { CoachMarks, shouldShowPhase1, shouldShowPhase2 } from './components/CoachMarks';
+import { CoachMarks, resetTour, shouldShowPhase1, shouldShowPhase2 } from './components/CoachMarks';
 import { IntroSplash } from './components/IntroSplash';
 import { CameraHome } from './components/CameraHome';
 import { FirstRun, hasAcceptedDisclaimer } from './components/FirstRun';
 import { ReadingScreen } from './components/ReadingScreen';
 import { ConfirmScreen } from './components/ConfirmScreen';
+import { SettingsScreen } from './components/SettingsScreen';
+import { useHardwareBack } from './hooks/useHardwareBack';
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('home');
@@ -36,6 +38,8 @@ const App: React.FC = () => {
   // The disclaimer gates the app on first launch. Existing installs have no
   // flag yet, so they see it once too — nobody loses the notice.
   const [needsDisclaimer, setNeedsDisclaimer] = useState<boolean>(() => !hasAcceptedDisclaimer());
+  /** True when it was opened from settings rather than shown on first launch. */
+  const [disclaimerIsReview, setDisclaimerIsReview] = useState(false);
 
   // ── Reading a pack ────────────────────────────────────────
   const [reading, setReading] = useState<PackReading | null>(null);
@@ -296,6 +300,87 @@ const App: React.FC = () => {
     setView(tab === 'scan' ? 'home' : tab === 'search' ? 'search' : 'myMedications');
   };
 
+  /**
+   * Which tab was on screen when settings was opened, so its back control
+   * returns there rather than always to the camera.
+   */
+  const [settingsFrom, setSettingsFrom] = useState<View>('home');
+
+  const openSettings = () => {
+    setSettingsFrom(view);
+    setView('settings');
+  };
+
+  /*
+    Runs the tour again from the beginning.
+
+    Both phases are cleared, not just the camera one: somebody asking to be
+    shown around again means the whole app, and the result screen's four steps
+    are the half that explains the answer they came for.
+  */
+  const replayTutorial = () => {
+    resetTour();
+    setShowPhase1(true);
+    setShowPhase2(false);
+    setError(null);
+    setView('home');
+  };
+
+  /*
+    What the Android back button means on each screen.
+
+    Returning false is the only thing that closes the app, and only the camera
+    does that — everywhere else back undoes the last step, which is what the
+    rest of Android does and what this app did not do at all until now.
+
+    Overlays come first because they are on top of whatever is underneath:
+    pressing back with the tour open should close the tour, not the screen the
+    tour is standing on.
+  */
+  const handleHardwareBack = useCallback((): boolean => {
+    if (needsDisclaimer) {
+      // A gate on first launch: accept it or leave. Re-opened from settings it
+      // is just a document, and back puts it away.
+      if (!disclaimerIsReview) return false;
+      setNeedsDisclaimer(false);
+      setDisclaimerIsReview(false);
+      return true;
+    }
+    if (showPhase1 || showPhase2) {
+      setShowPhase1(false);
+      setShowPhase2(false);
+      return true;
+    }
+
+    switch (view) {
+      case 'settings':
+        setView(settingsFrom);
+        return true;
+      case 'sideEffects':
+      case 'professional':
+        setView('results');
+        return true;
+      case 'reading':
+      case 'confirm':
+        handleCancelReading();
+        return true;
+      case 'results':
+      case 'notFound':
+        handleBack();
+        return true;
+      case 'search':
+      case 'myMedications':
+        setError(null);
+        setView('home');
+        return true;
+      case 'home':
+      default:
+        return false;
+    }
+  }, [view, settingsFrom, needsDisclaimer, disclaimerIsReview, showPhase1, showPhase2, handleCancelReading]);
+
+  useHardwareBack(handleHardwareBack);
+
   /** Which section the side effects screen should open at. */
   const [detailSection, setDetailSection] = useState<DetailSection>('sideEffects');
 
@@ -359,7 +444,13 @@ const App: React.FC = () => {
           />
         );
       case 'myMedications':
-        return <MyMedicinesScreen onSelectMed={handleSelectMed} onSelectTab={handleSelectTab} />;
+        return (
+          <MyMedicinesScreen
+            onSelectMed={handleSelectMed}
+            onSelectTab={handleSelectTab}
+            onOpenSettings={openSettings}
+          />
+        );
       case 'reading':
         return (
           <ReadingScreen photoUrl={photoUrl} stage={readingStage} onCancel={handleCancelReading} />
@@ -375,11 +466,25 @@ const App: React.FC = () => {
             />
           )
         );
+      case 'settings':
+        return (
+          <SettingsScreen
+            onBack={() => setView(settingsFrom)}
+            onReplayTutorial={replayTutorial}
+            onShowDisclaimer={() => {
+              setDisclaimerIsReview(true);
+              setNeedsDisclaimer(true);
+              setView(settingsFrom);
+            }}
+          />
+        );
       case 'search':
         return (
           <SearchScreen
             onIdentify={handleIdentify}
             onBack={() => { setError(null); setView('home'); }}
+            onSelectTab={handleSelectTab}
+            onOpenSettings={openSettings}
             error={error}
           />
         );
@@ -389,7 +494,8 @@ const App: React.FC = () => {
           <CameraHome
             onIdentify={handleIdentify}
             onTypeInstead={() => setView('search')}
-            onShowMyMedicines={handleShowMyMedications}
+            onSelectTab={handleSelectTab}
+            onOpenSettings={openSettings}
             error={error}
           />
         );
@@ -453,7 +559,9 @@ const App: React.FC = () => {
   return (
     <>
       {showIntro && <IntroSplash onDone={() => setShowIntro(false)} />}
-      {!showIntro && needsDisclaimer && <FirstRun onAccept={() => setNeedsDisclaimer(false)} />}
+      {!showIntro && needsDisclaimer && (
+        <FirstRun onAccept={() => { setNeedsDisclaimer(false); setDisclaimerIsReview(false); }} />
+      )}
       {/*
         The app is built underneath the splash rather than after it. It used to
         wait for the clip to finish before mounting at all, so the first render
