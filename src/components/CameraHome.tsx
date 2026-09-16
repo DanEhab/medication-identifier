@@ -286,8 +286,9 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
             onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
             aria-label={t('switchLanguage')}
             data-tutorial="language"
-            className={`h-[34px] px-[13px] rounded-full border border-paper-sand bg-surface
-              flex items-center font-semibold text-[16px] text-ink active:scale-95 transition-transform
+            className={`h-10 min-w-10 px-3.5 rounded-full border border-paper-sand bg-surface
+              flex items-center justify-center font-semibold text-[16px] text-ink
+              active:scale-95 transition-transform
               ${language === 'en' ? 'font-arabic' : ''}`}
           >
             {language === 'en' ? 'ع' : 'EN'}

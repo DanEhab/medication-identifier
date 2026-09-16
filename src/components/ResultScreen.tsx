@@ -159,11 +159,11 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
     <div className="flex flex-col bg-paper" style={{ minHeight: '100dvh' }}>
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between px-4 pt-3.5 pb-2.5">
-        <button type="button" onClick={onBack} aria-label={t('backToSearch')} className="active:scale-90 transition-transform">
+        <button type="button" onClick={onBack} aria-label={t('backToSearch')} className="p-2.5 -m-2.5 active:scale-90 transition-transform">
           <Chevron back />
         </button>
         <div className="flex gap-[18px]">
-          <button type="button" onClick={() => setExportOpen(true)} aria-label={t('exportShare')} className="active:scale-90 transition-transform">
+          <button type="button" onClick={() => setExportOpen(true)} aria-label={t('exportShare')} className="p-2.5 -m-2.5 active:scale-90 transition-transform">
             <ShareIcon />
           </button>
           <button
@@ -171,7 +171,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             onClick={handleSaveMedication}
             aria-label={isSaved ? t('savedToMyMedicines') : t('saveToMyMedicines')}
             aria-pressed={isSaved}
-            className="active:scale-90 transition-transform"
+            className="p-2.5 -m-2.5 active:scale-90 transition-transform"
           >
             <BookmarkIcon filled={isSaved} color={isSaved ? 'var(--teal)' : 'var(--ink)'} />
           </button>
@@ -252,7 +252,9 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             <button
               type="button"
               onClick={onShowMyMedications}
-              className="font-semibold text-[16px] text-clay mt-2.5 active:scale-[0.98] transition-transform"
+              // py-2 rather than a bare line of text: a link is a control, and
+              // one line of 16px type is 24 pixels of it to aim at.
+              className="font-semibold text-[16px] text-clay mt-1.5 py-2 active:scale-[0.98] transition-transform"
             >
               {t('checkAgainstMyMedicines')} <span className="rtl:hidden">→</span><span className="hidden rtl:inline">←</span>
             </button>

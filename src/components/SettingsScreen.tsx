@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocalization } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
+import { useReminders } from '../hooks/useReminders';
 
 /**
  * Everything the app can be told, in one place.
@@ -55,7 +56,9 @@ export const SettingsButton: React.FC<{ onClick: () => void }> = ({ onClick }) =
       onClick={onClick}
       aria-label={t('settings')}
       data-testid="open-settings"
-      className="w-[34px] h-[34px] rounded-full border border-paper-sand bg-surface
+      // 40, not the 34 it was: the circle is the hit area, and 34 is below
+      // every platform's minimum for something a finger has to find.
+      className="w-10 h-10 rounded-full border border-paper-sand bg-surface
         flex items-center justify-center text-ink active:scale-95 transition-transform"
     >
       <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
@@ -163,6 +166,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 }) => {
   const { t, language, setLanguage } = useLocalization();
   const { preference, setPreference, isDark } = useTheme();
+  const { permission, scheduled, rebuild, askPermission } = useReminders();
 
   return (
     <div className="flex flex-col bg-paper" style={{ minHeight: '100dvh' }} data-testid="settings">
@@ -171,7 +175,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           type="button"
           onClick={onBack}
           aria-label={t('backToSearch')}
-          className="active:scale-90 transition-transform shrink-0"
+          className="p-2.5 -m-2.5 active:scale-90 transition-transform shrink-0"
         >
           <ChevronBack />
         </button>
@@ -211,6 +215,40 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         ]}
       />
       <p className="text-[15px] leading-[1.5] text-ink-soft px-5 mt-2.5 m-0">{t('languageHint')}</p>
+
+      {/*
+        ── Reminders ──
+
+        Worth its own section rather than a line on the medicine sheet: the
+        times are set one at a time, on different medicines, and the only
+        question anybody actually has is whether the whole lot will arrive.
+        Android can refuse that at the system level long after the app asked.
+      */}
+      <SectionLabel>{t('remindersSection')}</SectionLabel>
+      <p className="text-[15px] leading-[1.5] text-ink-soft px-5 m-0" data-testid="reminder-state">
+        {permission === 'unavailable'
+          ? t('remindersUnavailable')
+          : permission !== 'granted'
+            ? t('remindersBlocked')
+            : scheduled === 0
+              ? t('remindersNone')
+              : scheduled === 1
+                ? t('remindersOnOne')
+                : t('remindersOn').replace('{count}', String(scheduled))}
+      </p>
+      {permission === 'prompt' && (
+        <div className="px-5 pt-3">
+          <button
+            type="button"
+            data-testid="allow-reminders"
+            onClick={async () => { await askPermission(); await rebuild(); }}
+            className="h-[50px] px-6 rounded-full bg-teal font-semibold text-[17px] text-teal-on
+              active:scale-[0.98] transition-transform"
+          >
+            {t('remindersAllow')}
+          </button>
+        </div>
+      )}
 
       {/* ── Help ── */}
       <SectionLabel>{t('helpSection')}</SectionLabel>
