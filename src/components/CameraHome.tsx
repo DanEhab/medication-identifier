@@ -38,6 +38,49 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [cameraState, setCameraState] = useState<CameraState>('starting');
+
+  /*
+    The framing square, measured rather than expressed in CSS.
+
+    It has to be square at every size, no larger than 238px, and never taller
+    than the space it is centred in. That is three constraints on one box, and
+    CSS could not be made to honour all three here: `aspect-ratio` needs a size
+    to transfer from, and the corner pieces are absolutely positioned so the
+    box has no content to take one from — it collapsed to a cross. Driving it
+    from height with a percentage failed differently, because a height written
+    as min() with a percentage in it is indefinite as far as a child's own
+    percentage height is concerned, and the hint inside flattened onto its line.
+
+    Measuring the container is the version that holds all three at once, and it
+    reads the same on a 640px phone as on a tablet.
+  */
+  const frameAreaRef = useRef<HTMLDivElement>(null);
+  const [frame, setFrame] = useState(238);
+
+  useEffect(() => {
+    const area = frameAreaRef.current;
+    if (!area) return;
+    const measure = () => {
+      const box = area.getBoundingClientRect();
+      if (box.width > 0 && box.height > 0) {
+        setFrame(Math.round(Math.min(238, box.width * 0.76, box.height)));
+      }
+    };
+    measure();
+
+    // The preview resizes as the stream starts, and again if the phone turns.
+    // Guarded because a WebView old enough to lack ResizeObserver would throw
+    // here and take the whole screen down; without it the frame keeps the size
+    // it was first measured at, which is what it used to do anyway.
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(area);
+    return () => observer.disconnect();
+  }, []);
+
+  // Small enough to stay inside a small frame, never larger than the original.
+  const cornerSize = Math.max(26, Math.min(54, Math.round(frame * 0.227)));
+  const corner = { width: cornerSize, height: cornerSize };
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
 
@@ -244,35 +287,28 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
           }}
         />
 
-        {/*
-          As close to 238px square as the preview allows, and never larger than
-          it. aspect-ratio was tried first and collapsed: the corner pieces are
-          absolutely positioned, so the box has no content to size from and a
-          flex row sized it to nothing.
-        */}
-        <div className="relative flex-1 min-h-0 flex items-center justify-center">
+        <div ref={frameAreaRef} className="relative flex-1 min-h-0">
         <div
-          className="relative pointer-events-none shrink-0"
-          style={{ width: 'min(238px, 76%)', height: 'min(238px, 100%)' }}
+          className="absolute pointer-events-none"
+          style={{
+            width: frame,
+            height: frame,
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+          }}
         >
-          <span className="absolute top-0 left-0 w-[54px] h-[54px] border-t-4 border-l-4 border-white rounded-tl-[18px]" />
-          <span className="absolute top-0 right-0 w-[54px] h-[54px] border-t-4 border-r-4 border-white rounded-tr-[18px]" />
-          <span className="absolute bottom-0 right-0 w-[54px] h-[54px] border-b-4 border-r-4 border-white rounded-br-[18px]" />
-          <span className="absolute bottom-0 left-0 w-[54px] h-[54px] border-b-4 border-l-4 border-white rounded-bl-[18px]" />
+          <span className="absolute top-0 left-0 border-t-4 border-l-4 border-white rounded-tl-[18px]" style={corner} />
+          <span className="absolute top-0 right-0 border-t-4 border-r-4 border-white rounded-tr-[18px]" style={corner} />
+          <span className="absolute bottom-0 right-0 border-b-4 border-r-4 border-white rounded-br-[18px]" style={corner} />
+          <span className="absolute bottom-0 left-0 border-b-4 border-l-4 border-white rounded-bl-[18px]" style={corner} />
 
           <div
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
               rounded-lg border border-dashed flex items-center justify-center text-center px-2.5 text-[12px]"
-            /*
-              Fixed, not a percentage of the frame. The frame's own height is a
-              min() containing a percentage, which leaves it indefinite as far
-              as a child's percentage height is concerned, so `height: 42%`
-              silently became auto and the hint collapsed onto its one line.
-            */
             style={{
-              width: '158px',
-              maxWidth: '66%',
-              height: '100px',
+              width: Math.round(frame * 0.66),
+              height: Math.round(frame * 0.42),
               borderColor: 'rgba(255,255,255,.34)',
               color: 'rgba(255,255,255,.6)',
             }}

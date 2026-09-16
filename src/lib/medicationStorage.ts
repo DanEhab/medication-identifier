@@ -140,6 +140,22 @@ export const removeMedication = (drugName: string, profileId = getActiveProfileI
     (m) => !(m.profileId === profileId && sameDrug(m.drugInfo.drugName, drugName)),
   ));
 
+/**
+ * Everything saved for one person, thrown away with them.
+ *
+ * Removing a profile used to leave its medicines behind, pointing at an id
+ * that no longer named anybody. Nothing ever read them again and nothing ever
+ * cleaned them up, so a household that added and removed a few people carried
+ * their medicines around for ever — in the one store on the device that holds
+ * what people take.
+ */
+export const forgetMedicationsFor = (profileId: string): SavedMedication[] =>
+  write(getSavedMedications().filter((m) => m.profileId !== profileId));
+
+/** How many are saved for one person, for asking before deleting them. */
+export const countMedicationsFor = (profileId: string): number =>
+  getSavedMedications().filter((m) => m.profileId === profileId).length;
+
 /** Replaces the times and note for one medicine. An empty schedule is removed. */
 export const setSchedule = (
   drugName: string,
