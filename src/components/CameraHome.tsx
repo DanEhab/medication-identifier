@@ -67,7 +67,12 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
       }
     };
     measure();
+
     // The preview resizes as the stream starts, and again if the phone turns.
+    // Guarded because a WebView old enough to lack ResizeObserver would throw
+    // here and take the whole screen down; without it the frame keeps the size
+    // it was first measured at, which is what it used to do anyway.
+    if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     observer.observe(area);
     return () => observer.disconnect();
