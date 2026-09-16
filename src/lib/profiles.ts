@@ -20,6 +20,35 @@ export interface Profile {
 /** Everyone starts with one, so the list is never empty and nothing to migrate. */
 export const DEFAULT_PROFILE_ID = 'me';
 
+/**
+ * How many people one phone can hold, counting the default one.
+ *
+ * Ten covers a household and anybody they care for. It is not a technical
+ * limit — the list is a few hundred bytes — it is a interface one: the pills
+ * wrap across the top of the saved list, and past ten rows of them the screen
+ * is mostly a list of names with the medicines pushed off the bottom.
+ */
+export const MAX_PROFILES = 10;
+
+/**
+ * How long a name may be.
+ *
+ * Long enough for "Grandma Fatima", short enough that the pill stays a pill.
+ * Names are only ever shown inside one, so a name that cannot fit in one is a
+ * name that will be read as an ellipsis.
+ */
+export const MAX_PROFILE_NAME = 24;
+
+/** Why a name was refused, so the screen can say which. */
+export type AddProfileError = 'empty' | 'duplicate' | 'full';
+
+export interface AddProfileResult {
+  profiles: Profile[];
+  /** The profile that was created, when one was. */
+  created?: Profile;
+  error?: AddProfileError;
+}
+
 const defaultProfile = (name: string): Profile => ({ id: DEFAULT_PROFILE_ID, name });
 
 const read = (): Profile[] => {
@@ -71,18 +100,35 @@ export const setActiveProfileId = (id: string): void => {
   }
 };
 
-export const addProfile = (name: string, meLabel: string): Profile[] => {
-  const cleaned = name.trim();
-  if (!cleaned) return getProfiles(meLabel);
-
+/**
+ * Adds a person, or says why not.
+ *
+ * It used to return the unchanged list when a name was empty, a duplicate, or
+ * anything else it did not like — which the screen could not tell apart from
+ * success, so the input simply closed and nothing happened. Refusing out loud
+ * is the whole difference between a limit and a bug.
+ */
+export const addProfile = (name: string, meLabel: string): AddProfileResult => {
   const existing = getProfiles(meLabel);
+  const cleaned = name.trim().replace(/\s+/g, ' ').slice(0, MAX_PROFILE_NAME);
+
+  if (!cleaned) return { profiles: existing, error: 'empty' };
+
+  // Case-insensitive, so "Hana" and "hana" are one person. Two people who
+  // really are both called Hana need telling apart anyway, and the app cannot
+  // do it for them.
   if (existing.some((profile) => profile.name.toLowerCase() === cleaned.toLowerCase())) {
-    return existing;
+    return { profiles: existing, error: 'duplicate' };
   }
+
+  if (existing.length >= MAX_PROFILES) {
+    return { profiles: existing, error: 'full' };
+  }
+
   // Time-based rather than a counter, so deleting one cannot hand its id to
   // the next person added and silently give them somebody else's medicines.
   const profile: Profile = { id: `p${Date.now().toString(36)}`, name: cleaned };
-  return write([...existing, profile]);
+  return { profiles: write([...existing, profile]), created: profile };
 };
 
 /**

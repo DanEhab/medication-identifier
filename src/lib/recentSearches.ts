@@ -19,7 +19,17 @@ export const getRecentSearches = (): string[] => {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0);
+    /*
+      Capped on the way out as well as on the way in.
+
+      Writing already trims to MAX_RECENTS, but a list written by an older
+      build — or half-written, or edited by hand — would be read back whole,
+      and the search screen renders every one of them as a chip. The cap has
+      to hold wherever the list came from, not only where this build put it.
+    */
+    return parsed
+      .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+      .slice(0, MAX_RECENTS);
   } catch {
     // Corrupt or unavailable storage behaves as "nothing looked up yet".
     return [];

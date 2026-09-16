@@ -6,7 +6,7 @@ import {
 import { findInteractions, displayNameOf, type Interaction } from '../lib/interactions';
 import {
   getProfiles, getActiveProfileId, setActiveProfileId, addProfile, removeProfile,
-  initialFor, DEFAULT_PROFILE_ID, type Profile,
+  initialFor, DEFAULT_PROFILE_ID, MAX_PROFILES, MAX_PROFILE_NAME, type Profile,
 } from '../lib/profiles';
 import { useLocalization } from '../context/LanguageContext';
 import { TabBar, type Tab } from './TabBar';
@@ -69,6 +69,8 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
   const [interactionsOpen, setInteractionsOpen] = useState(false);
   /** The person the remove confirmation is asking about, if it is open. */
   const [removingProfile, setRemovingProfile] = useState<Profile | null>(null);
+  /** Why the last attempt to add somebody was refused, if it was. */
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   const refresh = useCallback((profileId: string) => {
     setSaved(getMedicationsFor(profileId));
@@ -94,13 +96,30 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
 
   const commitNewProfile = () => {
     const name = newProfileName.trim();
+    const result = addProfile(name, meLabel);
+    setProfiles(result.profiles);
+
+    /*
+      A refusal keeps the field open with what was typed still in it. Closing
+      it and clearing it is what the screen used to do for every outcome,
+      which meant a duplicate name looked exactly like a name that had been
+      accepted and then vanished.
+    */
+    if (result.error === 'duplicate') {
+      setProfileError(t('nameAlreadyUsed').replace('{name}', name));
+      return;
+    }
+    if (result.error === 'full') {
+      setProfileError(t('tooManyPeople').replace('{max}', String(MAX_PROFILES)));
+      setAddingProfile(false);
+      setNewProfileName('');
+      return;
+    }
+
+    setProfileError(null);
     setAddingProfile(false);
     setNewProfileName('');
-    if (!name) return;
-    const next = addProfile(name, meLabel);
-    setProfiles(next);
-    const created = next.find((profile) => profile.name.toLowerCase() === name.toLowerCase());
-    if (created) chooseProfile(created.id);
+    if (result.created) chooseProfile(result.created.id);
   };
 
   /*
@@ -112,6 +131,7 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
     number, so nobody loses a list they had forgotten was there.
   */
   const confirmRemoveProfile = (profile: Profile) => {
+    setProfileError(null);
     forgetMedicationsFor(profile.id);
     setProfiles(removeProfile(profile.id, meLabel));
     setRemovingProfile(null);
@@ -208,22 +228,35 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
           <input
             autoFocus
             value={newProfileName}
-            onChange={(event) => setNewProfileName(event.target.value)}
+            // The store truncates too, because it is the thing that must be
+            // right; this stops the field showing more than will be kept.
+            maxLength={MAX_PROFILE_NAME}
+            onChange={(event) => {
+              setNewProfileName(event.target.value);
+              // Clear a refusal as soon as the name it was about changes.
+              if (profileError) setProfileError(null);
+            }}
             onBlur={commitNewProfile}
             onKeyDown={(event) => {
               if (event.key === 'Enter') commitNewProfile();
-              if (event.key === 'Escape') { setAddingProfile(false); setNewProfileName(''); }
+              if (event.key === 'Escape') {
+                setAddingProfile(false);
+                setNewProfileName('');
+                setProfileError(null);
+              }
             }}
             placeholder={t('whoIsThisFor')}
             aria-label={t('whoIsThisFor')}
+            data-testid="new-profile-name"
             className="h-10 w-36 rounded-full bg-surface border border-paper-edge px-4
               text-[16px] text-ink outline-none placeholder:text-ink-soft"
           />
-        ) : (
+        ) : profiles.length >= MAX_PROFILES ? null : (
           <button
             type="button"
             onClick={() => setAddingProfile(true)}
             aria-label={t('addPerson')}
+            data-testid="add-profile"
             className="w-10 h-10 rounded-full bg-surface flex items-center justify-center
               text-[20px] text-ink-soft active:scale-95 transition-transform"
             style={{ border: '1px dashed var(--paper-edge)' }}
@@ -232,6 +265,20 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
           </button>
         )}
       </div>
+
+      {profileError && (
+        <div className="px-5 pt-3">
+          <p
+            role="alert"
+            data-testid="profile-error"
+            className="bg-clay-wash border border-clay-soft rounded-[14px] py-3 px-4
+              text-[15px] leading-[1.5] text-clay-deep m-0"
+            style={{ textWrap: 'pretty' }}
+          >
+            {profileError}
+          </p>
+        </div>
+      )}
 
       {/* ── What the list can tell you that one page cannot ── */}
       {interactions.length > 0 && (
