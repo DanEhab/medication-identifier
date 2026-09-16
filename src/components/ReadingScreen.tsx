@@ -61,7 +61,7 @@ export const ReadingScreen: React.FC<ReadingScreenProps> = ({ photoUrl, stage, o
         <button
           type="button"
           onClick={onCancel}
-          className="font-medium text-[16px] text-ink-soft px-2 py-1 active:scale-95 transition-transform"
+          className="font-medium text-[17px] text-ink-soft px-2 py-1 active:scale-95 transition-transform"
         >
           {t('cancel')}
         </button>
@@ -79,7 +79,7 @@ export const ReadingScreen: React.FC<ReadingScreenProps> = ({ photoUrl, stage, o
         <h1 className="font-semibold text-[26px] leading-[1.25] text-ink m-0 mb-1 tracking-[-0.01em]">
           {t('readingTheLabel')}
         </h1>
-        <p className="text-[15px] leading-[1.55] text-ink-soft m-0">{t('usuallyFewSeconds')}</p>
+        <p className="text-[16px] leading-[1.55] text-ink-soft m-0">{t('usuallyFewSeconds')}</p>
 
         <ol className="mt-5 bg-surface border border-paper-sand rounded-[18px] px-[18px] py-1.5 list-none m-0">
           {steps.map((step, index) => {
@@ -91,7 +91,7 @@ export const ReadingScreen: React.FC<ReadingScreenProps> = ({ photoUrl, stage, o
                 <div className="flex items-center gap-3 py-[13px]">
                   {done ? <CheckIcon /> : active ? <Spinner /> : <Pending />}
                   <span
-                    className={`text-[16px] ${
+                    className={`text-[17px] ${
                       done || active ? 'font-medium text-ink' : 'text-ink-soft'
                     }`}
                   >
@@ -112,7 +112,7 @@ export const ReadingScreen: React.FC<ReadingScreenProps> = ({ photoUrl, stage, o
           <rect x="4" y="10" width="16" height="10" rx="2.5" />
           <path d="M8 10V7a4 4 0 0 1 8 0v3" />
         </svg>
-        <p className="text-[13px] leading-[1.55] text-ink-soft m-0">{t('readOnYourPhone')}</p>
+        <p className="text-[14px] leading-[1.55] text-ink-soft m-0">{t('readOnYourPhone')}</p>
       </div>
     </div>
   );

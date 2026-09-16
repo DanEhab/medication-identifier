@@ -374,21 +374,21 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
         }}
       >
         <div className="flex items-center justify-between mb-2.5">
-          <span className="font-mono font-semibold text-[11px] tracking-[0.06em] text-ink-soft">
+          <span className="font-mono font-semibold text-[12px] tracking-[0.06em] text-ink-soft">
             {t('tourStep').replace('{n}', String(index + 1)).replace('{total}', String(steps.length))}
           </span>
           <button
             type="button"
             onClick={finish}
             data-testid="tour-skip"
-            className="font-medium text-[14px] text-ink-soft underline underline-offset-2 px-1 active:scale-95 transition-transform"
+            className="font-medium text-[15px] text-ink-soft underline underline-offset-2 px-1 active:scale-95 transition-transform"
           >
             {t('tourSkip')}
           </button>
         </div>
 
         <h2 className="font-semibold text-[21px] leading-[1.3] text-ink m-0 mb-1.5">{step.title}</h2>
-        <p className="text-[15.5px] leading-[1.6] text-ink-dim m-0">{step.body}</p>
+        <p className="text-[17px] leading-[1.6] text-ink-dim m-0">{step.body}</p>
 
         <div className="flex items-center gap-3 mt-4">
           <div className="flex gap-1.5 flex-1" aria-hidden="true">
@@ -407,7 +407,7 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
             type="button"
             onClick={next}
             data-testid="tour-next"
-            className="h-[46px] px-6 rounded-full bg-teal font-semibold text-[16px] text-teal-on
+            className="h-[46px] px-6 rounded-full bg-teal font-semibold text-[17px] text-teal-on
               active:scale-[0.97] transition-transform"
           >
             {isLast ? t('tourDone') : t('tourNext')}

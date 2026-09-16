@@ -59,7 +59,7 @@ export const FirstRun: React.FC<FirstRunProps> = ({ onAccept }) => {
   };
 
   const languageButton =
-    'flex-1 h-[50px] rounded-full flex items-center justify-center font-semibold text-[16px] text-white ' +
+    'h-[38px] px-4 rounded-full flex items-center justify-center font-semibold text-[16px] ' +
     'active:scale-95 transition-transform';
 
   return (
@@ -74,9 +74,59 @@ export const FirstRun: React.FC<FirstRunProps> = ({ onAccept }) => {
       aria-modal="true"
       aria-labelledby="firstrun-title"
     >
+      {/*
+        The language choice, in the corner.
+
+        It used to be a pair of full-width buttons above the accept button,
+        which put a decision nobody thinks twice about in the same weight as
+        the one decision this screen exists to ask. Up here it is out of the
+        way of reading the notice, and it is where the language control lives
+        on every other screen.
+
+        dir="ltr" does two things at once: it keeps English on the left and
+        العربية on the right whichever language is running — the page is
+        mirrored in Arabic, which flipped the pair and made them appear to
+        swap under the finger that pressed one, when only the fill should
+        move — and it keeps the pill itself in the right-hand corner rather
+        than letting it cross to the other side of the screen.
+      */}
+      <div
+        className="flex justify-end shrink-0"
+        dir="ltr"
+        style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
+      >
+        <div
+          className="rounded-full p-1 flex gap-1"
+          style={{ background: 'rgba(255,255,255,.12)' }}
+        >
+          <button
+            type="button"
+            onClick={() => setLanguage('en')}
+            aria-pressed={language === 'en'}
+            className={`${languageButton} font-sans`}
+            style={language === 'en'
+              ? { background: '#FFFFFF', color: 'var(--brand-ground)' }
+              : { background: 'transparent', color: 'rgba(255,255,255,.72)' }}
+          >
+            English
+          </button>
+          <button
+            type="button"
+            onClick={() => setLanguage('ar')}
+            aria-pressed={language === 'ar'}
+            className={`${languageButton} font-arabic`}
+            style={language === 'ar'
+              ? { background: '#FFFFFF', color: 'var(--brand-ground)' }
+              : { background: 'transparent', color: 'rgba(255,255,255,.72)' }}
+          >
+            العربية
+          </button>
+        </div>
+      </div>
+
       <div
         className="flex-1 flex flex-col justify-center items-center gap-5"
-        style={{ paddingTop: 'max(2.5rem, env(safe-area-inset-top))' }}
+        style={{ paddingTop: '1.5rem' }}
       >
         <div
           className="w-[104px] h-[104px] bg-white overflow-hidden shrink-0 flex items-center justify-center"
@@ -95,7 +145,7 @@ export const FirstRun: React.FC<FirstRunProps> = ({ onAccept }) => {
           <div className="font-arabic font-semibold text-[24px] leading-[1.5] text-white mt-1.5">
             {t('appNameArabic')}
           </div>
-          <div className="font-arabic text-[16px] leading-[1.6] text-teal-light mt-2">
+          <div className="font-arabic text-[17px] leading-[1.6] text-teal-light mt-2">
             {t('tagline')}
           </div>
         </div>
@@ -105,7 +155,7 @@ export const FirstRun: React.FC<FirstRunProps> = ({ onAccept }) => {
         className="rounded-[18px] px-5 py-[18px] mb-4"
         style={{ background: 'rgba(255,255,255,.07)' }}
       >
-        <p className="text-[15px] leading-[1.6] m-0" style={{ color: 'rgba(255,255,255,.88)' }}>
+        <p className="text-[16px] leading-[1.6] m-0" style={{ color: 'rgba(255,255,255,.88)' }}>
           {t('disclaimerLeadIn')}
           <strong className="text-white font-semibold">{t('disclaimerEmphasis')}</strong>
           {t('disclaimerRest')}
@@ -120,48 +170,13 @@ export const FirstRun: React.FC<FirstRunProps> = ({ onAccept }) => {
           type="button"
           onClick={accept}
           className="h-[58px] rounded-full bg-white flex items-center justify-center
-            font-semibold text-[17px] active:scale-[0.98] transition-transform"
+            font-semibold text-[18px] active:scale-[0.98] transition-transform"
           style={{ color: 'var(--brand-ground)' }}
         >
           {t('iUnderstandContinue')}
         </button>
 
-        {/*
-          dir="ltr" so the two buttons keep their places when the language
-          changes. The page is mirrored in Arabic, which flipped this row and
-          made the buttons appear to swap under the finger that pressed one —
-          only the fill should move. A language picker is two proper nouns in
-          their own scripts, not a sentence, so it has no reading direction to
-          honour in the first place.
-        */}
-        <div className="flex gap-2.5" dir="ltr">
-          <button
-            type="button"
-            onClick={() => setLanguage('en')}
-            aria-pressed={language === 'en'}
-            className={`${languageButton} font-sans`}
-            style={{
-              border: '1px solid rgba(255,255,255,.3)',
-              background: language === 'en' ? 'rgba(255,255,255,.14)' : 'transparent',
-            }}
-          >
-            English
-          </button>
-          <button
-            type="button"
-            onClick={() => setLanguage('ar')}
-            aria-pressed={language === 'ar'}
-            className={`${languageButton} font-arabic`}
-            style={{
-              border: '1px solid rgba(255,255,255,.3)',
-              background: language === 'ar' ? 'rgba(255,255,255,.14)' : 'transparent',
-            }}
-          >
-            العربية
-          </button>
-        </div>
-
-        <p className="text-center text-[13px] mt-1.5 m-0" style={{ color: 'rgba(255,255,255,.5)' }}>
+        <p className="text-center text-[14px] mt-1.5 m-0" style={{ color: 'rgba(255,255,255,.5)' }}>
           {t('shownOnce')}
         </p>
       </div>
