@@ -183,7 +183,9 @@ check('one profile exists by default', profiles.labels.some((l) => /Me/.test(l))
 // are separate: pointing the initial at the pill's own foreground once turned
 // it into a white disc, which no assertion here noticed.
 const pillColours = await browser.evaluate(`
-  const pill = document.querySelector('[data-testid="profiles"] button');
+  // The pill is the row, not the button inside it: the name and the remove
+  // control are two buttons now, and the ground they share belongs to neither.
+  const pill = document.querySelector('[data-testid="profiles"] > div');
   const avatar = pill.querySelector('span');
   return {
     pill: getComputedStyle(pill).backgroundColor,
@@ -229,6 +231,110 @@ const switched = await browser.evaluate(`
 `);
 check('switching back shows the first list again',
   switched.length === 1 && /Lipitor/.test(switched[0]), JSON.stringify(switched));
+
+// ── Removing a person ──────────────────────────────────────────────────────
+//
+// There used to be no way to do this that anybody could find: a double-click
+// on the pill, no confirmation, and their medicines left behind in storage
+// under an id that no longer named anybody.
+await browser.evaluate(`
+  localStorage.setItem('profiles', JSON.stringify([
+    { id: 'me', name: 'Me' },
+    { id: 'pmum', name: 'Mum' },
+  ]));
+  localStorage.setItem('activeProfile', 'pmum');
+  const all = JSON.parse(localStorage.getItem('myMedications') || '[]');
+  const one = all[0];
+  localStorage.setItem('myMedications', JSON.stringify([
+    { ...one, profileId: 'me' },
+    { ...one, profileId: 'pmum' },
+    { ...one, profileId: 'pmum', drugInfo: { ...one.drugInfo, drugName: 'Metformin', brandName: 'Metformin' } },
+  ]));
+  return 'seeded';
+`);
+await browser.goto(BASE);
+await openMedicines();
+
+const affordance = await browser.evaluate(`
+  const pills = [...document.querySelectorAll('[data-testid="profiles"] > div')];
+  const removes = [...document.querySelectorAll('[data-testid="remove-profile"]')];
+  return {
+    pills: pills.length,
+    removeCount: removes.length,
+    removeLabel: removes[0] ? removes[0].getAttribute('aria-label') : null,
+    // The one it sits on must be the one that is selected.
+    onSelected: removes[0] ? removes[0].closest('div').querySelector('[aria-pressed="true"]') !== null : false,
+    hers: [...document.querySelectorAll('[data-testid="medicine-list"] > div')].length,
+  };
+`);
+check('the person you are looking at carries a remove button', affordance.removeCount === 1,
+  `${affordance.removeCount} of ${affordance.pills} pills`);
+check('it names who it removes', /Mum/.test(affordance.removeLabel || ''), affordance.removeLabel);
+check('and it is on the selected pill, not a different one', affordance.onSelected);
+check('her two medicines are listed', affordance.hers === 2, String(affordance.hers));
+
+// The default person has to survive: something owns the medicines saved
+// before anybody thought about profiles.
+const onMe = await browser.evaluate(`
+  [...document.querySelectorAll('[data-testid="profiles"] button')].find(b => /Me/.test(b.innerText)).click();
+  await new Promise(r => setTimeout(r, 500));
+  return document.querySelectorAll('[data-testid="remove-profile"]').length;
+`);
+check('the default person cannot be removed', onMe === 0, String(onMe));
+
+const asked = await browser.evaluate(`
+  [...document.querySelectorAll('[data-testid="profiles"] button')].find(b => /Mum/.test(b.innerText)).click();
+  await new Promise(r => setTimeout(r, 400));
+  document.querySelector('[data-testid="remove-profile"]').click();
+  await new Promise(r => setTimeout(r, 500));
+  const sheet = document.querySelector('[data-testid="remove-profile-sheet"]');
+  return {
+    shown: !!sheet,
+    heading: sheet ? sheet.querySelector('h2').textContent.trim() : null,
+    body: sheet ? sheet.querySelector('p').textContent.trim() : null,
+  };
+`);
+check('removing asks first', asked.shown, JSON.stringify(asked));
+check('the question names the person', /Mum/.test(asked.heading || ''), asked.heading);
+// The count is the whole point of asking: "remove Mum" and "remove Mum and
+// the two medicines saved for her" are different decisions.
+check('and says how many medicines go with them', /\b2\b/.test(asked.body || ''), asked.body);
+
+const cancelled = await browser.evaluate(`
+  document.querySelector('[data-testid="remove-profile-cancel"]').click();
+  await new Promise(r => setTimeout(r, 400));
+  return {
+    sheetGone: !document.querySelector('[data-testid="remove-profile-sheet"]'),
+    stillThere: JSON.parse(localStorage.getItem('profiles')).some(p => p.name === 'Mum'),
+    medicines: JSON.parse(localStorage.getItem('myMedications')).length,
+  };
+`);
+check('cancelling changes nothing', cancelled.sheetGone && cancelled.stillThere && cancelled.medicines === 3,
+  JSON.stringify(cancelled));
+
+const removed = await browser.evaluate(`
+  document.querySelector('[data-testid="remove-profile"]').click();
+  await new Promise(r => setTimeout(r, 400));
+  document.querySelector('[data-testid="remove-profile-confirm"]').click();
+  await new Promise(r => setTimeout(r, 700));
+  const meds = JSON.parse(localStorage.getItem('myMedications') || '[]');
+  return {
+    profiles: JSON.parse(localStorage.getItem('profiles')).map(p => p.name),
+    active: localStorage.getItem('activeProfile'),
+    orphans: meds.filter(m => m.profileId === 'pmum').length,
+    mine: meds.filter(m => m.profileId === 'me').map(m => m.drugInfo.drugName),
+    listed: [...document.querySelectorAll('[data-testid="medicine-list"] > div')].map(c => c.innerText.split('\\n')[0]),
+  };
+`);
+check('confirming removes the person', !removed.profiles.includes('Mum'), JSON.stringify(removed.profiles));
+// The bug this is really guarding: their medicines used to stay in storage
+// for ever, invisible, under an id that named nobody.
+check('and takes their medicines with them', removed.orphans === 0, `${removed.orphans} left behind`);
+check('while leaving your own list alone',
+  removed.mine.length === 1 && removed.mine[0] === 'Lipitor', JSON.stringify(removed.mine));
+check('and you are put back on a person who exists', removed.active === 'me', String(removed.active));
+check('showing that person’s list', removed.listed.length === 1 && /Lipitor/.test(removed.listed[0]),
+  JSON.stringify(removed.listed));
 
 // ── Schedules ──────────────────────────────────────────────────────────────
 const scheduled = await browser.evaluate(`
