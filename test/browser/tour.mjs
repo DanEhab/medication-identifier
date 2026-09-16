@@ -109,6 +109,33 @@ for (let i = 0; i < PHASE1.length; i++) {
   check(`step ${i + 1}'s card is fully on screen`,
     state.cardBox.top >= 0 && state.cardBox.bottom <= state.viewport.h,
     JSON.stringify(state.cardBox));
+
+  /*
+    The hand has to be somewhere it can be seen.
+
+    It used to sit just under the control's lower corner on every step, which
+    is exactly where the card goes for a control at the top of the screen, at
+    the foot of it, or as large as the viewfinder. Three steps of five drew a
+    hand entirely behind the card, and nothing noticed, because a hand that is
+    rendered is a hand that is present as far as the DOM is concerned.
+  */
+  const hand = await browser.evaluate(`
+    const h = document.querySelector('[data-testid="tour"] .tour-hand');
+    const card = document.querySelector('.tour-card');
+    if (!h) return null;
+    const b = h.getBoundingClientRect();
+    const c = card.getBoundingClientRect();
+    const overlapW = Math.max(0, Math.min(b.right, c.right) - Math.max(b.left, c.left));
+    const overlapH = Math.max(0, Math.min(b.bottom, c.bottom) - Math.max(b.top, c.top));
+    return {
+      box: { top: Math.round(b.top), left: Math.round(b.left), w: Math.round(b.width), h: Math.round(b.height) },
+      onScreen: b.top >= 0 && b.left >= 0 && b.bottom <= window.innerHeight && b.right <= window.innerWidth,
+      hiddenByCard: (overlapW * overlapH) / (b.width * b.height),
+    };
+  `);
+  check(`step ${i + 1}'s hand is on screen`, hand && hand.onScreen, JSON.stringify(hand));
+  check(`and not buried under the card`, hand && hand.hiddenByCard < 0.2,
+    `${Math.round((hand?.hiddenByCard ?? 1) * 100)}% covered`);
   check(`step ${i + 1} says something`,
     (state.title || '').length > 3 && (state.body || '').length > 20,
     `${state.title} / ${(state.body || '').slice(0, 40)}`);
