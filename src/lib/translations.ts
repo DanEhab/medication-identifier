@@ -133,6 +133,8 @@ export const translations = {
     profileMe: 'Me',
     addPerson: 'Add someone',
     whoIsThisFor: 'Their name',
+    nameAlreadyUsed: 'You already have someone called {name}. Give this one a different name — a surname or an initial works.',
+    tooManyPeople: 'You can keep {max} people on this phone. Remove one to add someone else.',
     removePerson: 'Remove {name}',
     removePersonTitle: 'Remove {name}?',
     removePersonBody: 'The {count} medicines saved for them are deleted too. Your own list is not touched.',
@@ -337,10 +339,17 @@ export const translations = {
     appName: 'اعرف دوائك',
     switchLanguage: 'تغيير اللغة',
     nameOnPack: 'اسم الدواء على العلبة',
-    pointAtBox: 'وجّه الكاميرا إلى واجهة العلبة.',
-    stripOrBottle: 'الشريط أو ملصق الزجاجة يعمل أيضاً.',
-    typeInstead: 'اكتب الاسم بدلاً من ذلك',
-    privacyLine: 'الصور تبقى على هاتفك · بدون حساب',
+    /*
+      Written to be read aloud, not translated word for word.
+
+      "يعمل أيضاً" is what a machine produces for "works too" and is not
+      something anybody says; "بدلاً من ذلك" is textbook for "instead" and
+      belongs in an exercise book rather than on a button.
+    */
+    pointAtBox: 'وجّه الكاميرا لواجهة العلبة.',
+    stripOrBottle: 'يمكنك أيضاً تصوير شريط الدواء أو الزجاجة.',
+    typeInstead: 'أو اكتب اسم الدواء هنا',
+    privacyLine: 'صورك محفوظة على هاتفك · بدون إنشاء حساب',
     flash: 'الفلاش',
     cameraDenied: 'الكاميرا محجوبة.',
     cameraUnavailable: 'لا توجد كاميرا متاحة.',
@@ -440,6 +449,8 @@ export const translations = {
     profileMe: 'أنا',
     addPerson: 'إضافة شخص',
     whoIsThisFor: 'الاسم',
+    nameAlreadyUsed: 'لديك شخص بهذا الاسم ({name}). اختر اسماً مختلفاً لهذا الشخص — يكفي إضافة اسم العائلة أو حرف.',
+    tooManyPeople: 'يمكنك الاحتفاظ بـ {max} أشخاص على هذا الهاتف. احذف أحدهم لإضافة شخص جديد.',
     removePerson: 'إزالة {name}',
     removePersonTitle: 'إزالة {name}؟',
     removePersonBody: 'ستُحذف معه الأدوية المحفوظة له وعددها {count}. قائمتك أنت لن تُمَس.',
