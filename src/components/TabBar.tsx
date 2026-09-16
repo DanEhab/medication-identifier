@@ -94,7 +94,7 @@ export const TabBar: React.FC<TabBarProps> = ({ active, onSelect }) => {
           >
             {tab.icon(color, isActive)}
             <span
-              className={`text-[12px] ${isActive ? 'font-semibold' : 'font-medium'}`}
+              className={`text-[13px] ${isActive ? 'font-semibold' : 'font-medium'}`}
               style={{ color }}
             >
               {tab.label}

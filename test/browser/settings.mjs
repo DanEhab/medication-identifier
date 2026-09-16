@@ -131,7 +131,55 @@ const backToAuto = await browser.evaluate(`
 check('Automatic goes back to following the phone', !backToAuto.dark && backToAuto.stored === null,
   JSON.stringify(backToAuto));
 
+/*
+  The headings are the structure of this page.
+
+  They were the app's small mono label — right on the result screen, where the
+  label names the value directly under it — and here that made them quieter
+  than the hint text under every control, so the thing you scan to find a
+  setting was the least visible thing on screen.
+*/
+const headings = await browser.evaluate(`
+  const size = (el) => parseFloat(getComputedStyle(el).fontSize);
+  const settings = document.querySelector('[data-testid="settings"]');
+  const sections = [...settings.querySelectorAll('h2')];
+  const hint = settings.querySelector('p');
+  return {
+    texts: sections.map(h => h.textContent.trim()),
+    sizes: sections.map(size),
+    hintSize: size(hint),
+    weights: sections.map(h => getComputedStyle(h).fontWeight),
+  };
+`);
+check('every group has a real heading', headings.texts.length === 4, JSON.stringify(headings.texts));
+check('and each is larger than the hint text underneath the controls',
+  headings.sizes.every((s) => s > headings.hintSize),
+  `${JSON.stringify(headings.sizes)} vs ${headings.hintSize}`);
+check('and set in a heading weight', headings.weights.every((w) => Number(w) >= 600),
+  JSON.stringify(headings.weights));
+
 // ── Language ───────────────────────────────────────────────────────────────
+/*
+  The two language options must not trade places when the language changes.
+
+  The page mirrors in Arabic, which flipped the pair — so the button you just
+  pressed moved out from under your finger, and the one that would undo it was
+  sitting where the first one had been.
+*/
+const languageOrder = () => browser.evaluate(`
+  const group = [...document.querySelectorAll('[role="radiogroup"]')]
+    .find(g => [...g.children].some(b => /العربية/.test(b.textContent)));
+  return [...group.children].map(b => ({
+    label: b.textContent.trim(),
+    left: Math.round(b.getBoundingClientRect().left),
+    checked: b.getAttribute('aria-checked') === 'true',
+  }));
+`);
+const orderBefore = await languageOrder();
+check('English is on the left of the language control',
+  orderBefore[0].label === 'English' && orderBefore[0].left < orderBefore[1].left,
+  JSON.stringify(orderBefore));
+
 const arabic = await browser.evaluate(`
   const arabicOption = [...document.querySelectorAll('[role="radio"]')].find(r => /العربية/.test(r.textContent));
   arabicOption.click();
@@ -147,6 +195,17 @@ check('the language can be changed without leaving the medicine you are reading'
   arabic.stored === 'ar' && arabic.dir === 'rtl', JSON.stringify(arabic));
 check('and the screen you are on translates under you', /[؀-ۿ]/.test(arabic.title || ''), arabic.title);
 check('without navigating away from it', arabic.stillOnSettings);
+
+const orderAfter = await languageOrder();
+check('and the two language options stay exactly where they were',
+  orderAfter[0].label === 'English'
+  && orderAfter[0].left === orderBefore[0].left
+  && orderAfter[1].left === orderBefore[1].left,
+  JSON.stringify(orderAfter));
+check('only the selection moves',
+  !orderAfter[0].checked && orderAfter[1].checked,
+  JSON.stringify(orderAfter.map((o) => `${o.label}:${o.checked}`)));
+
 await screenshot(browser, 'settings-ar', import.meta.url);
 
 await browser.evaluate(`
@@ -197,7 +256,9 @@ const notice = await browser.evaluate(`
 check('the notice can be read again on demand', notice.shown, JSON.stringify(notice));
 
 const dismissed = await browser.evaluate(`
-  document.querySelector('[role="dialog"] button').click();
+  // The accept button is the one without aria-pressed; the two with it are
+  // the language pair, which now sits at the top of the screen.
+  document.querySelector('[role="dialog"] button:not([aria-pressed])').click();
   await new Promise(r => setTimeout(r, 800));
   return {
     gone: !document.querySelector('#firstrun-title'),

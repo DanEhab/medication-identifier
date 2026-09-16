@@ -48,10 +48,10 @@ const Row: React.FC<{ label: string; value: string; last?: boolean }> = ({ label
   if (!value || !value.trim()) return null;
   return (
     <div className={`py-3.5 ${last ? '' : 'border-b border-paper-deep'}`}>
-      <div className="font-mono font-semibold text-[11px] tracking-[0.06em] text-ink-soft mb-[5px]">
+      <div className="font-mono font-semibold text-[12px] tracking-[0.06em] text-ink-soft mb-[5px]">
         {label}
       </div>
-      <div className="text-[15.5px] leading-[1.55] text-ink">
+      <div className="text-[17px] leading-[1.55] text-ink">
         <bdi>{value}</bdi>
       </div>
     </div>
@@ -140,7 +140,7 @@ export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({
             data-testid="tab-plain"
             onClick={onBackToPatientView}
             className="flex-1 h-[42px] rounded-full flex items-center justify-center
-              font-medium text-[15px] text-ink-soft active:scale-[0.98] transition-transform"
+              font-medium text-[16px] text-ink-soft active:scale-[0.98] transition-transform"
           >
             {t('plainLanguage')}
           </button>
@@ -150,7 +150,7 @@ export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({
             aria-selected
             data-testid="tab-professional"
             className="flex-1 h-[42px] rounded-full bg-selected flex items-center justify-center
-              font-semibold text-[15px] text-selected-fg"
+              font-semibold text-[16px] text-selected-fg"
           >
             {t('professionalTab')}
           </button>
@@ -160,7 +160,7 @@ export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({
       {/* ── Identity, in the order a clinician reads it ── */}
       <div className="px-5 pt-5">
         {info?.atcCode?.trim() && (
-          <div className="font-mono font-semibold text-[12px] tracking-[0.06em] text-ink-soft">
+          <div className="font-mono font-semibold text-[13px] tracking-[0.06em] text-ink-soft">
             {t('atcLabel')} {info.atcCode}
           </div>
         )}
@@ -168,7 +168,7 @@ export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({
           <bdi>{title}</bdi>
         </h1>
         {info?.formAndStrength?.trim() && (
-          <div className="text-[16px] text-ink-soft"><bdi>{info.formAndStrength}</bdi></div>
+          <div className="text-[17px] text-ink-soft"><bdi>{info.formAndStrength}</bdi></div>
         )}
       </div>
 
@@ -177,8 +177,8 @@ export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({
 
         {error && (
           <div className="bg-surface rounded-[16px] py-4 px-[18px]" style={{ border: '2px solid var(--clay-soft)' }} role="alert">
-            <p className="font-semibold text-[16px] text-clay m-0 mb-1.5">{t('professionalLoadFailed')}</p>
-            <p className="text-[15px] leading-[1.55] text-clay-deep m-0">{error}</p>
+            <p className="font-semibold text-[17px] text-clay m-0 mb-1.5">{t('professionalLoadFailed')}</p>
+            <p className="text-[16px] leading-[1.55] text-clay-deep m-0">{error}</p>
           </div>
         )}
 
@@ -191,14 +191,14 @@ export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({
 
             {info.majorInteractions.length > 0 && (
               <div className="py-3.5 border-b border-paper-deep">
-                <div className="font-mono font-semibold text-[11px] tracking-[0.06em] text-clay mb-2">
+                <div className="font-mono font-semibold text-[12px] tracking-[0.06em] text-clay mb-2">
                   {t('majorInteractionsLabel')}
                 </div>
                 <div className="flex flex-wrap gap-[7px]">
                   {info.majorInteractions.map((interaction) => (
                     <span
                       key={interaction}
-                      className="font-medium text-[13.5px] text-clay-deep bg-clay-wash rounded-lg py-1.5 px-2.5"
+                      className="font-medium text-[14px] text-clay-deep bg-clay-wash rounded-lg py-1.5 px-2.5"
                     >
                       <bdi>{interaction}</bdi>
                     </span>
@@ -214,7 +214,7 @@ export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({
 
       {/* ── What this is, and is not ── */}
       <div className="px-5 pt-4 pb-7">
-        <p className="text-[13px] leading-[1.6] text-ink-soft m-0">{t('referenceSummaryNote')}</p>
+        <p className="text-[14px] leading-[1.6] text-ink-soft m-0">{t('referenceSummaryNote')}</p>
       </div>
 
       {dialog}

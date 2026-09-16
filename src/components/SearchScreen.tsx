@@ -177,7 +177,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, 
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
-              className="flex-1 min-w-0 bg-transparent border-0 outline-none text-[17px] text-ink
+              className="flex-1 min-w-0 bg-transparent border-0 outline-none text-[18px] text-ink
                 placeholder:text-ink-soft [&::-webkit-search-cancel-button]:hidden"
             />
             {query && (
@@ -202,7 +202,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, 
       {error && (
         <div className="px-5 pb-1">
           <div className="bg-clay-wash rounded-[14px] py-3 px-4">
-            <p className="text-[15px] leading-[1.5] text-clay-deep m-0">{error}</p>
+            <p className="text-[16px] leading-[1.5] text-clay-deep m-0">{error}</p>
           </div>
         </div>
       )}
@@ -219,11 +219,11 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, 
                   text-start active:bg-paper-deep transition-colors"
               >
                 <span className="min-w-0">
-                  <span className="block text-[17px] leading-[1.3] text-ink truncate">
+                  <span className="block text-[18px] leading-[1.3] text-ink truncate">
                     <bdi><Highlighted text={suggestion.name} query={query} /></bdi>
                   </span>
                   {suggestion.detail && (
-                    <span className="block text-[14px] leading-[1.35] text-ink-soft truncate mt-0.5">
+                    <span className="block text-[15px] leading-[1.35] text-ink-soft truncate mt-0.5">
                       <bdi>{suggestion.detail}</bdi>
                     </span>
                   )}
@@ -243,7 +243,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, 
             type="button"
             onClick={() => search(query)}
             className="w-full h-[52px] rounded-full bg-teal flex items-center justify-center gap-2.5
-              font-semibold text-[16px] text-teal-on active:scale-[0.98] transition-transform"
+              font-semibold text-[17px] text-teal-on active:scale-[0.98] transition-transform"
           >
             <SearchIcon color="var(--on-teal)" />
             {t('searchFor')} <bdi>“{query.trim()}”</bdi>
@@ -254,7 +254,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, 
       {/* ── What this person looked up before ── */}
       {showRecents && (
         <div className="px-5 pt-[22px]">
-          <div className="font-mono font-semibold text-[11px] tracking-[0.06em] text-ink-soft mb-3">
+          <div className="font-mono font-semibold text-[12px] tracking-[0.06em] text-ink-soft mb-3">
             {t('youLookedUpRecently')}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -263,7 +263,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, 
                 key={recent}
                 type="button"
                 onClick={() => search(recent)}
-                className="font-medium text-[15px] text-ink bg-surface border border-paper-sand
+                className="font-medium text-[16px] text-ink bg-surface border border-paper-sand
                   rounded-full py-[9px] px-3.5 active:scale-[0.97] transition-transform"
               >
                 <bdi>{recent}</bdi>
@@ -282,7 +282,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onIdentify, onBack, 
             text-start active:scale-[0.99] transition-transform"
         >
           <ScanHintIcon />
-          <p className="text-[15px] leading-[1.55] text-ink m-0">{t('cannotSpellIt')}</p>
+          <p className="text-[16px] leading-[1.55] text-ink m-0">{t('cannotSpellIt')}</p>
         </button>
       </div>
 

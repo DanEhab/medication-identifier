@@ -232,7 +232,7 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
           <div className="w-8 h-8 rounded-[9px] bg-surface overflow-hidden shrink-0">
             <img src="/app-icon.png" alt="" className="w-full h-full object-cover" />
           </div>
-          <span className="font-semibold text-[17px] text-ink tracking-[-0.01em] truncate">
+          <span className="font-semibold text-[18px] text-ink tracking-[-0.01em] truncate">
             {t('appName')}
           </span>
         </div>
@@ -252,7 +252,7 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
             aria-label={t('switchLanguage')}
             data-tutorial="language"
             className={`h-[34px] px-[13px] rounded-full border border-paper-sand bg-surface
-              flex items-center font-semibold text-[15px] text-ink active:scale-95 transition-transform
+              flex items-center font-semibold text-[16px] text-ink active:scale-95 transition-transform
               ${language === 'en' ? 'font-arabic' : ''}`}
           >
             {language === 'en' ? 'ع' : 'EN'}
@@ -305,7 +305,7 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
 
           <div
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
-              rounded-lg border border-dashed flex items-center justify-center text-center px-2.5 text-[12px]"
+              rounded-lg border border-dashed flex items-center justify-center text-center px-2.5 text-[13px]"
             style={{
               width: Math.round(frame * 0.66),
               height: Math.round(frame * 0.42),
@@ -321,18 +321,18 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
 
         <div className="relative shrink-0 pb-[18px] text-center px-[26px] pointer-events-none">
           {cameraState === 'live' || cameraState === 'starting' ? (
-            <p className="text-white text-[16px] leading-[1.5] m-0" style={{ textWrap: 'pretty' }}>
+            <p className="text-white text-[17px] leading-[1.5] m-0" style={{ textWrap: 'pretty' }}>
               {t('pointAtBox')}
               <br />
-              <span className="text-[14px]" style={{ color: 'rgba(255,255,255,.75)' }}>
+              <span className="text-[15px]" style={{ color: 'rgba(255,255,255,.75)' }}>
                 {t('stripOrBottle')}
               </span>
             </p>
           ) : (
-            <p className="text-white text-[16px] leading-[1.5] m-0">
+            <p className="text-white text-[17px] leading-[1.5] m-0">
               {cameraState === 'denied' ? t('cameraDenied') : t('cameraUnavailable')}
               <br />
-              <span className="text-[14px]" style={{ color: 'rgba(255,255,255,.75)' }}>
+              <span className="text-[15px]" style={{ color: 'rgba(255,255,255,.75)' }}>
                 {t('useGalleryOrType')}
               </span>
             </p>
@@ -342,7 +342,7 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
 
       {error && (
         <div className="mx-4 mt-3 rounded-2xl bg-clay-wash border border-clay-soft px-4 py-3" role="alert">
-          <p className="text-[15px] leading-snug text-clay-deep m-0">{error}</p>
+          <p className="text-[16px] leading-snug text-clay-deep m-0">{error}</p>
         </div>
       )}
 
@@ -397,10 +397,10 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
             <circle cx="11" cy="11" r="7" />
             <path d="m20 20-4-4" />
           </svg>
-          <span className="text-[17px] text-ink-soft">{t('typeInstead')}</span>
+          <span className="text-[18px] text-ink-soft">{t('typeInstead')}</span>
         </button>
 
-        <p className="text-center text-[13px] text-ink-soft mt-3 m-0">{t('privacyLine')}</p>
+        <p className="text-center text-[14px] text-ink-soft mt-3 m-0">{t('privacyLine')}</p>
       </div>
 
       <input type="file" accept="image/*" ref={fileInputRef} onChange={onFilePicked} className="hidden" />

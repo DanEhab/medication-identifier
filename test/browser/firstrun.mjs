@@ -91,7 +91,7 @@ await screenshot(browser, 'firstrun-en', import.meta.url);
 
 // ── The language buttons keep their places ────────────────────────────────
 const buttons = () => browser.evaluate(`
-  const row = [...document.querySelectorAll('[role="dialog"] button')].slice(1);
+  const row = [...document.querySelectorAll('[role="dialog"] button[aria-pressed]')];
   return row.map(b => ({
     label: b.textContent.trim(),
     left: Math.round(b.getBoundingClientRect().left),
@@ -105,12 +105,40 @@ check('English is on the left to start with',
   before[0].label === 'English' && before[0].left < before[1].left, JSON.stringify(before));
 check('and it is the selected one', before[0].pressed && !before[1].pressed);
 
+/*
+  Up in the corner, not in the run of decisions at the foot of the screen.
+
+  It was a pair of full-width buttons directly above the accept button, which
+  gave a choice nobody thinks twice about the same weight as the one decision
+  this screen exists to ask.
+*/
+const corner = await browser.evaluate(`
+  const pill = document.querySelector('[role="dialog"] button[aria-pressed]').parentElement;
+  const title = document.querySelector('#firstrun-title');
+  const accept = document.querySelector('[role="dialog"] button:not([aria-pressed])');
+  const p = pill.getBoundingClientRect();
+  return {
+    top: Math.round(p.top),
+    rightGap: Math.round(window.innerWidth - p.right),
+    aboveTitle: p.bottom <= title.getBoundingClientRect().top,
+    clearOfAccept: p.bottom < accept.getBoundingClientRect().top,
+    width: Math.round(p.width),
+    viewport: window.innerWidth,
+  };
+`);
+check('the language pill sits at the top of the screen', corner.top < 120, `${corner.top}px down`);
+check('against the right edge', corner.rightGap > 0 && corner.rightGap < 40, `${corner.rightGap}px from the right`);
+check('above the title, not beside the accept button', corner.aboveTitle && corner.clearOfAccept);
+// Full width is what made it read as a primary action in the first place.
+check('and it no longer spans the screen', corner.width < corner.viewport * 0.75,
+  `${corner.width} of ${corner.viewport}`);
+
 const after = await browser.evaluate(`
   const arabic = [...document.querySelectorAll('[role="dialog"] button')]
     .find(b => b.textContent.trim() === 'العربية');
   arabic.click();
   await new Promise(r => setTimeout(r, 700));
-  const row = [...document.querySelectorAll('[role="dialog"] button')].slice(1);
+  const row = [...document.querySelectorAll('[role="dialog"] button[aria-pressed]')];
   return {
     dir: document.documentElement.dir,
     buttons: row.map(b => ({
@@ -149,7 +177,7 @@ await screenshot(browser, 'firstrun-ar', import.meta.url);
 
 // ── Accepting ─────────────────────────────────────────────────────────────
 const accepted = await browser.evaluate(`
-  const accept = document.querySelector('[role="dialog"] button');
+  const accept = document.querySelector('[role="dialog"] button:not([aria-pressed])');
   accept.click();
   await new Promise(r => setTimeout(r, 900));
   return {
@@ -185,7 +213,7 @@ check('its ground is the same brand colour in both themes',
 check('and every word on it is still legible', dark.bad.length === 0, JSON.stringify(dark.bad));
 
 const darkAccept = await night.evaluate(`
-  const accept = document.querySelector('[role="dialog"] button');
+  const accept = document.querySelector('[role="dialog"] button:not([aria-pressed])');
   return { bg: getComputedStyle(accept).backgroundColor, fg: getComputedStyle(accept).color };
 `);
 check('the continue button is not white on white',
