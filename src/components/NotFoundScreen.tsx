@@ -102,7 +102,7 @@ export const NotFoundScreen: React.FC<NotFoundScreenProps> = ({
         </h1>
 
         <p
-          className="text-[17px] leading-[1.6] text-ink-soft m-0"
+          className="text-[18px] leading-[1.6] text-ink-soft m-0"
           style={{ textWrap: 'pretty' } as React.CSSProperties}
         >
           {t('weReadOnTheLabel')}{' '}
@@ -116,11 +116,11 @@ export const NotFoundScreen: React.FC<NotFoundScreenProps> = ({
         <div className="bg-surface rounded-[16px] py-4 px-[18px]" style={{ border: '2px solid var(--clay-soft)' }}>
           <div className="flex items-center gap-[9px] mb-2">
             <DangerIcon />
-            <span className="font-semibold text-[16px] text-clay">{t('doNotUseAppToJudge')}</span>
+            <span className="font-semibold text-[17px] text-clay">{t('doNotUseAppToJudge')}</span>
           </div>
-          <p className="text-[16px] leading-[1.55] text-clay-deep m-0">{t('safeToSwallowIsAQuestion')}</p>
+          <p className="text-[17px] leading-[1.55] text-clay-deep m-0">{t('safeToSwallowIsAQuestion')}</p>
           {result.safetyNote.trim() && (
-            <p className="text-[16px] leading-[1.55] text-clay-deep m-0 mt-2.5">
+            <p className="text-[17px] leading-[1.55] text-clay-deep m-0 mt-2.5">
               <bdi>{result.safetyNote}</bdi>
             </p>
           )}
@@ -132,7 +132,7 @@ export const NotFoundScreen: React.FC<NotFoundScreenProps> = ({
           type="button"
           onClick={onScan}
           className="h-[58px] rounded-full bg-teal flex items-center justify-center gap-2.5
-            font-semibold text-[17px] text-teal-on active:scale-[0.98] transition-transform"
+            font-semibold text-[18px] text-teal-on active:scale-[0.98] transition-transform"
         >
           <ScanIcon />
           {t('scanThePackInstead')}
@@ -141,7 +141,7 @@ export const NotFoundScreen: React.FC<NotFoundScreenProps> = ({
           type="button"
           onClick={onSearchAgain}
           className="h-[58px] rounded-full bg-surface border border-paper-edge flex items-center justify-center
-            font-semibold text-[17px] text-ink active:scale-[0.98] transition-transform"
+            font-semibold text-[18px] text-ink active:scale-[0.98] transition-transform"
         >
           {t('typeTheName')}
         </button>
@@ -150,12 +150,12 @@ export const NotFoundScreen: React.FC<NotFoundScreenProps> = ({
       {/* ── It refuses to be the last word ── */}
       <div className="mt-auto p-5 text-center">
         {insistedAlready ? (
-          <p className="text-[15px] leading-[1.6] text-ink-soft m-0">{t('askedAgainStillNothing')}</p>
+          <p className="text-[16px] leading-[1.6] text-ink-soft m-0">{t('askedAgainStillNothing')}</p>
         ) : (
           <button
             type="button"
             onClick={onInsist}
-            className="font-medium text-[15px] text-ink-soft underline underline-offset-[3px]
+            className="font-medium text-[16px] text-ink-soft underline underline-offset-[3px]
               active:scale-[0.98] transition-transform"
           >
             {t('weGotItWrong')}

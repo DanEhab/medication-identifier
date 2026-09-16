@@ -95,15 +95,15 @@ const Eyebrow: React.FC<{ children: React.ReactNode; color?: string; className?:
   color = 'var(--ink-soft)',
   className = '',
 }) => (
-  <div className={`font-mono font-semibold text-[12px] tracking-[0.06em] ${className}`} style={{ color }}>
+  <div className={`font-mono font-semibold text-[13px] tracking-[0.06em] ${className}`} style={{ color }}>
     {children}
   </div>
 );
 
 const QuickFact: React.FC<{ value: string; note: string }> = ({ value, note }) => (
   <div className="bg-surface border border-paper-sand rounded-[14px] py-3 px-2 text-center">
-    <div className="font-semibold text-[16px] leading-[1.2] text-ink"><bdi>{value}</bdi></div>
-    {note && <div className="text-[13px] leading-[1.3] text-ink-soft mt-0.5"><bdi>{note}</bdi></div>}
+    <div className="font-semibold text-[17px] leading-[1.2] text-ink"><bdi>{value}</bdi></div>
+    {note && <div className="text-[14px] leading-[1.3] text-ink-soft mt-0.5"><bdi>{note}</bdi></div>}
   </div>
 );
 
@@ -192,13 +192,13 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
           {brand}
         </h1>
         {drugInfo.strength && (
-          <div className="text-[17px] text-ink-soft"><bdi>{drugInfo.strength}</bdi></div>
+          <div className="text-[18px] text-ink-soft"><bdi>{drugInfo.strength}</bdi></div>
         )}
 
         {drugInfo.whatItIsFor?.trim() && (
           <div className="bg-teal-wash rounded-[16px] py-4 px-[18px] mt-[18px]" data-tutorial="what-it-is-for">
             <Eyebrow color="var(--teal)" className="mb-1.5">{t('whatItIsForLabel')}</Eyebrow>
-            <p className="text-[17px] leading-[1.5] text-ink m-0" style={{ textWrap: 'pretty' } as React.CSSProperties}>
+            <p className="text-[18px] leading-[1.5] text-ink m-0" style={{ textWrap: 'pretty' } as React.CSSProperties}>
               <bdi>{drugInfo.whatItIsFor}</bdi>
             </p>
           </div>
@@ -218,7 +218,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
       {(drugInfo.howToTake?.trim() || drugInfo.dosageAdministration) && (
         <div className="px-5 pt-[22px]">
           <Eyebrow className="mb-2">{t('howToTakeItLabel')}</Eyebrow>
-          <div className="text-[16px] leading-[1.6] text-ink-dim">
+          <div className="text-[17px] leading-[1.6] text-ink-dim">
             <bdi><MarkdownText text={drugInfo.howToTake?.trim() || drugInfo.dosageAdministration} /></bdi>
           </div>
         </div>
@@ -230,9 +230,9 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
           <div className="bg-saffron-wash rounded-[16px] py-4 px-[18px]">
             <div className="flex items-center gap-[9px] mb-2">
               <WarnIcon />
-              <span className="font-semibold text-[16px] text-saffron">{t('tellYourDoctorIfLabel')}</span>
+              <span className="font-semibold text-[17px] text-saffron">{t('tellYourDoctorIfLabel')}</span>
             </div>
-            <p className="text-[16px] leading-[1.55] text-saffron m-0">
+            <p className="text-[17px] leading-[1.55] text-saffron m-0">
               <bdi>{drugInfo.tellYourDoctorIf}</bdi>
             </p>
           </div>
@@ -244,15 +244,15 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
           <div className="bg-surface rounded-[16px] py-4 px-[18px]" style={{ border: '2px solid var(--clay-soft)' }}>
             <div className="flex items-center gap-[9px] mb-2">
               <DangerIcon />
-              <span className="font-semibold text-[16px] text-clay">{t('neverWithLabel')}</span>
+              <span className="font-semibold text-[17px] text-clay">{t('neverWithLabel')}</span>
             </div>
-            <p className="text-[16px] leading-[1.55] text-clay-deep m-0">
+            <p className="text-[17px] leading-[1.55] text-clay-deep m-0">
               <bdi>{drugInfo.neverWith}</bdi>
             </p>
             <button
               type="button"
               onClick={onShowMyMedications}
-              className="font-semibold text-[15px] text-clay mt-2.5 active:scale-[0.98] transition-transform"
+              className="font-semibold text-[16px] text-clay mt-2.5 active:scale-[0.98] transition-transform"
             >
               {t('checkAgainstMyMedicines')} <span className="rtl:hidden">→</span><span className="hidden rtl:inline">←</span>
             </button>
@@ -267,7 +267,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             key={chip.key}
             type="button"
             onClick={() => onShowDetails(chip.key)}
-            className="h-10 px-[15px] rounded-full flex items-center font-medium text-[15px]
+            className="h-10 px-[15px] rounded-full flex items-center font-medium text-[16px]
               bg-surface text-ink border border-paper-sand active:scale-[0.97] transition-transform"
           >
             {chip.label}
@@ -286,8 +286,8 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         >
           <ProfessionalIcon />
           <span className="flex-1 min-w-0">
-            <span className="block font-semibold text-[16px] leading-[1.35] text-ink">{t('professionalView')}</span>
-            <span className="block text-[14px] leading-[1.4] text-ink-soft">{t('professionalViewSub')}</span>
+            <span className="block font-semibold text-[17px] leading-[1.35] text-ink">{t('professionalView')}</span>
+            <span className="block text-[15px] leading-[1.4] text-ink-soft">{t('professionalViewSub')}</span>
           </span>
           <Chevron color="var(--ink-soft)" />
         </button>
@@ -310,7 +310,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
           onClick={handleSaveMedication}
           data-tutorial="save-medicine"
           className={`flex-1 h-[54px] rounded-full flex items-center justify-center gap-[9px]
-            font-semibold text-[17px] active:scale-[0.98] transition-transform ${
+            font-semibold text-[18px] active:scale-[0.98] transition-transform ${
               isSaved ? 'bg-surface border border-teal text-teal' : 'bg-teal text-teal-on'
             }`}
         >
@@ -348,7 +348,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
               type="button"
               onClick={() => { setExportOpen(false); requestExport('pdf'); }}
               className="h-[54px] rounded-[14px] bg-surface border border-paper-sand px-4
-                flex items-center font-medium text-[16px] text-ink active:scale-[0.99] transition-transform"
+                flex items-center font-medium text-[17px] text-ink active:scale-[0.99] transition-transform"
             >
               {t('exportAsPdfLabel')}
             </button>
@@ -356,7 +356,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
               type="button"
               onClick={() => { setExportOpen(false); requestExport('doc'); }}
               className="h-[54px] rounded-[14px] bg-surface border border-paper-sand px-4
-                flex items-center font-medium text-[16px] text-ink active:scale-[0.99] transition-transform"
+                flex items-center font-medium text-[17px] text-ink active:scale-[0.99] transition-transform"
             >
               {t('exportAsDocLabel')}
             </button>
@@ -367,8 +367,8 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
               className="rounded-[14px] bg-surface border border-paper-sand px-4 py-3.5
                 text-start active:scale-[0.99] transition-transform"
             >
-              <span className="block font-medium text-[16px] text-ink">{t('addPatientDetails')}</span>
-              <span className="block text-[13px] leading-[1.45] text-ink-soft mt-0.5">
+              <span className="block font-medium text-[17px] text-ink">{t('addPatientDetails')}</span>
+              <span className="block text-[14px] leading-[1.45] text-ink-soft mt-0.5">
                 {t('patientDetailsOnReport')}
               </span>
             </button>
