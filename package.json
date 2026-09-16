@@ -12,7 +12,8 @@
     "open:android": "cap open android",
     "test": "node --test \"api/**/*.test.js\" \"test/**/*.test.js\"",
     "test:browser": "node test/browser/run.mjs",
-    "test:device": "node test/device/run.mjs"
+    "test:device": "node test/device/run.mjs",
+    "audit:db": "node tools/dbAudit.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",

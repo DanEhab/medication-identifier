@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { MedicationSchedule, SavedMedication } from '../lib/medicationStorage';
-import { getMedicationsFor, removeMedication, setSchedule } from '../lib/medicationStorage';
+import {
+  getMedicationsFor, removeMedication, setSchedule, forgetMedicationsFor, countMedicationsFor,
+} from '../lib/medicationStorage';
 import { findInteractions, displayNameOf, type Interaction } from '../lib/interactions';
 import {
   getProfiles, getActiveProfileId, setActiveProfileId, addProfile, removeProfile,
@@ -65,6 +67,8 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
   const [newProfileName, setNewProfileName] = useState('');
   const [editing, setEditing] = useState<SavedMedication | null>(null);
   const [interactionsOpen, setInteractionsOpen] = useState(false);
+  /** The person the remove confirmation is asking about, if it is open. */
+  const [removingProfile, setRemovingProfile] = useState<Profile | null>(null);
 
   const refresh = useCallback((profileId: string) => {
     setSaved(getMedicationsFor(profileId));
@@ -99,8 +103,19 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
     if (created) chooseProfile(created.id);
   };
 
-  const handleRemoveProfile = (id: string) => {
-    setProfiles(removeProfile(id, meLabel));
+  /*
+    Removing somebody takes their medicines with them.
+
+    It used to leave them in storage under an id that no longer named anybody:
+    invisible, never read again, never cleaned up. Deleting them here is also
+    the honest reading of what the button says — the confirmation names the
+    number, so nobody loses a list they had forgotten was there.
+  */
+  const confirmRemoveProfile = (profile: Profile) => {
+    forgetMedicationsFor(profile.id);
+    setProfiles(removeProfile(profile.id, meLabel));
+    setRemovingProfile(null);
+    chooseProfile(DEFAULT_PROFILE_ID);
   };
 
   const saveSchedule = (entry: SavedMedication, schedule: MedicationSchedule) => {
@@ -132,28 +147,60 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
       <div className="flex gap-2 px-5 pt-4 flex-wrap items-center" data-testid="profiles">
         {profiles.map((profile) => {
           const isActive = profile.id === activeId;
+          /*
+            The remove control appears on the person you have selected, and
+            never on the default one, which has to survive to own the medicines
+            saved before anybody thought about profiles.
+
+            Only on the selected one because a row of pills each wearing a
+            delete button reads as a row of delete buttons. Selecting somebody
+            is already how you look at their list, so it costs a tap nobody
+            minds — and it means the × cannot be hit while aiming at a name.
+          */
+          const removable = isActive && profile.id !== DEFAULT_PROFILE_ID;
           return (
-            <button
+            <div
               key={profile.id}
-              type="button"
-              onClick={() => chooseProfile(profile.id)}
-              onDoubleClick={() => profile.id !== DEFAULT_PROFILE_ID && handleRemoveProfile(profile.id)}
-              aria-pressed={isActive}
-              className={`h-10 rounded-full flex items-center gap-2 ps-1.5 pe-3.5 transition-colors
-                active:scale-[0.97] ${isActive ? 'bg-selected' : 'bg-surface border border-paper-sand'}`}
+              className={`h-10 rounded-full flex items-center gap-2 ps-1.5 transition-colors
+                ${removable ? 'pe-1' : 'pe-3.5'}
+                ${isActive ? 'bg-selected' : 'bg-surface border border-paper-sand'}`}
             >
-              <span
-                className="w-7 h-7 rounded-full flex items-center justify-center font-semibold text-[13px]"
-                style={isActive
-                  ? { background: 'var(--selected-avatar-bg)', color: 'var(--selected-avatar-fg)' }
-                  : { background: 'var(--paper-deep)', color: 'var(--ink-soft)' }}
+              <button
+                type="button"
+                onClick={() => chooseProfile(profile.id)}
+                aria-pressed={isActive}
+                className="flex items-center gap-2 active:scale-[0.97] transition-transform"
               >
-                {initialFor(profile.name)}
-              </span>
-              <span className={`text-[15px] ${isActive ? 'font-semibold text-selected-fg' : 'font-medium text-ink'}`}>
-                <bdi>{profile.name}</bdi>
-              </span>
-            </button>
+                <span
+                  className="w-7 h-7 rounded-full flex items-center justify-center font-semibold text-[13px]"
+                  style={isActive
+                    ? { background: 'var(--selected-avatar-bg)', color: 'var(--selected-avatar-fg)' }
+                    : { background: 'var(--paper-deep)', color: 'var(--ink-soft)' }}
+                >
+                  {initialFor(profile.name)}
+                </span>
+                <span className={`text-[15px] ${isActive ? 'font-semibold text-selected-fg' : 'font-medium text-ink'}`}>
+                  <bdi>{profile.name}</bdi>
+                </span>
+              </button>
+
+              {removable && (
+                <button
+                  type="button"
+                  onClick={() => setRemovingProfile(profile)}
+                  aria-label={t('removePerson').replace('{name}', profile.name)}
+                  data-testid="remove-profile"
+                  className="w-8 h-8 rounded-full flex items-center justify-center shrink-0
+                    active:scale-90 transition-transform"
+                  style={{ background: 'var(--selected-avatar-bg)' }}
+                >
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none"
+                    stroke="var(--selected-avatar-fg)" strokeWidth="2.4" strokeLinecap="round">
+                    <path d="m6 6 12 12M18 6 6 18" />
+                  </svg>
+                </button>
+              )}
+            </div>
           );
         })}
 
@@ -293,6 +340,14 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
         />
       )}
 
+      {removingProfile && (
+        <RemoveProfileSheet
+          profile={removingProfile}
+          onConfirm={() => confirmRemoveProfile(removingProfile)}
+          onClose={() => setRemovingProfile(null)}
+        />
+      )}
+
       {editing && (
         <ScheduleSheet
           entry={editing}
@@ -328,6 +383,67 @@ const Sheet: React.FC<{ label: string; onClose: () => void; children: React.Reac
     </div>
   </div>
 );
+
+/**
+ * Asks before a person's list is thrown away, and says what else goes with it.
+ *
+ * The count is in the question rather than in a footnote: "remove Mum" and
+ * "remove Mum and the eleven medicines saved for her" are different decisions,
+ * and only one of them is what the button used to do silently.
+ */
+const RemoveProfileSheet: React.FC<{
+  profile: Profile;
+  onConfirm: () => void;
+  onClose: () => void;
+}> = ({ profile, onConfirm, onClose }) => {
+  const { t } = useLocalization();
+  const count = countMedicationsFor(profile.id);
+  const body = count === 0
+    ? t('removePersonBodyEmpty')
+    : count === 1
+      ? t('removePersonBodyOne')
+      : t('removePersonBody').replace('{count}', String(count));
+
+  return (
+    <Sheet label={t('removePersonTitle').replace('{name}', profile.name)} onClose={onClose}>
+      <div data-testid="remove-profile-sheet">
+        <h2 className="font-semibold text-[21px] leading-[1.3] text-ink m-0 mb-1.5">
+          <bdi>{t('removePersonTitle').replace('{name}', profile.name)}</bdi>
+        </h2>
+        <p className="text-[15.5px] leading-[1.55] text-ink-dim m-0 mb-5" style={{ textWrap: 'pretty' }}>
+          {body}
+        </p>
+
+        <div className="flex gap-2.5">
+          <button
+            type="button"
+            onClick={onClose}
+            data-testid="remove-profile-cancel"
+            className="flex-1 h-[52px] rounded-full bg-surface border border-paper-sand
+              font-semibold text-[16px] text-ink active:scale-[0.98] transition-transform"
+          >
+            {t('cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            data-testid="remove-profile-confirm"
+            /*
+              Tinted rather than filled. A solid --clay button needs white text
+              to be legible, and --clay is a pale salmon in the dark theme, so
+              white on it would vanish. The wash and the deep tone flip
+              together, which keeps the pair readable in both.
+            */
+            className="flex-1 h-[52px] rounded-full bg-clay-wash border border-clay-soft
+              font-semibold text-[16px] text-clay-deep active:scale-[0.98] transition-transform"
+          >
+            {t('removePersonConfirm')}
+          </button>
+        </div>
+      </div>
+    </Sheet>
+  );
+};
 
 const InteractionSheet: React.FC<{ interactions: Interaction[]; onClose: () => void }> = ({
   interactions, onClose,
