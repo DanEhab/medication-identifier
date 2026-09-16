@@ -23,17 +23,30 @@ const suites = readdirSync(HERE)
   .filter((name) => name.endsWith('.mjs') && !name.startsWith('_') && name !== 'run.mjs')
   .sort();
 
-const adb = (args) => execSync(`adb ${args}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+/**
+ * Set once a device is chosen, so every later command names it.
+ *
+ * The runner already found and printed a device, then issued every command
+ * without -s. The moment a second emulator is attached — a cold boot that left
+ * the old one behind, a phone plugged in beside it — adb refuses with "more
+ * than one device/emulator" and the run dies before the first suite.
+ */
+let target = '';
+
+const adb = (args) => execSync(`adb ${target} ${args}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
 try {
   // Trim each line first: adb's output is CRLF on Windows, so a $-anchored
   // match on "\tdevice" never fires and a connected phone reads as no phone.
-  const devices = adb('devices')
+  const devices = execSync('adb devices', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => /\tdevice$/.test(line));
   if (devices.length === 0) throw new Error('none');
-  console.log(`device: ${devices[0].split('\t')[0]}\n`);
+
+  const chosen = devices[0].split('\t')[0];
+  target = `-s ${chosen}`;
+  console.log(`device: ${chosen}${devices.length > 1 ? ` (${devices.length} attached)` : ''}\n`);
 } catch {
   console.error(
     'No device is connected.\n' +
@@ -94,7 +107,13 @@ const attach = () => {
 const run = (suite) =>
   new Promise((resolve) => {
     const started = Date.now();
-    const child = spawn(process.execPath, [join(HERE, suite)], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(process.execPath, [join(HERE, suite)], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      // The suites run adb themselves — reminders reads dumpsys, back sends a
+      // key event — and adb honours ANDROID_SERIAL for the same reason -s
+      // exists, so they aim at the device the runner picked.
+      env: { ...process.env, ANDROID_SERIAL: target.replace('-s ', '') },
+    });
     let output = '';
     child.stdout.on('data', (chunk) => { output += chunk; });
     child.stderr.on('data', (chunk) => { output += chunk; });
