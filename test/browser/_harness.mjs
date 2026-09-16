@@ -113,6 +113,17 @@ export async function openApp({
    * suite that clears the flags itself has them written straight back.
    */
   tour = false,
+  /**
+   * Hand the camera screen a fake stream whose track reports a torch.
+   *
+   * Headless Chrome has no camera and no lamp, so the only way to exercise the
+   * torch button is to give it a track that answers getCapabilities the way a
+   * phone's does. What this proves is the half the app owns — that the button
+   * enables, asks for the right constraint, and reports what it asked for.
+   * Whether the hardware then lights up is the phone's half, and no test here
+   * can speak for it.
+   */
+  torch = false,
 } = {}) {
   const browser = await launch({ width: 428, height: 908 });
 
@@ -137,6 +148,36 @@ export async function openApp({
       localStorage.setItem('tourSeenVersion2', '1.4.0');`}
       if (!localStorage.getItem('app-language')) localStorage.setItem('app-language', ${JSON.stringify(language)});
       ${seeds}
+
+      ${torch ? `
+      (() => {
+        window.__torchCalls = [];
+        /*
+          A real MediaStream with its real track patched, not an object shaped
+          like one: srcObject refuses anything that is not a MediaStream and
+          throws, which the camera screen catches as "no camera available" —
+          so a plain stub produced a disabled button and proved nothing.
+        */
+        navigator.mediaDevices = navigator.mediaDevices || {};
+        navigator.mediaDevices.getUserMedia = async () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 1280;
+          canvas.height = 960;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#123'; ctx.fillRect(0, 0, 1280, 960);
+          // Keep it painting, or the track produces no frames and never starts.
+          setInterval(() => { ctx.fillRect(0, 0, 1280, 960); }, 100);
+          const stream = canvas.captureStream(10);
+          const track = stream.getVideoTracks()[0];
+          track.getCapabilities = () => ({ torch: true, facingMode: ['environment'] });
+          track.applyConstraints = (c) => {
+            window.__torchCalls.push(JSON.parse(JSON.stringify(c)));
+            return Promise.resolve();
+          };
+          return stream;
+        };
+      })();
+      ` : ''}
 
       window.__patient = ${JSON.stringify(patient)};
       window.__clinical = ${JSON.stringify(clinical)};

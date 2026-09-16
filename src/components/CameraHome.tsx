@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { useLocalization } from '../context/LanguageContext';
 import { TabBar, type Tab } from './TabBar';
 import { SettingsButton } from './SettingsScreen';
+import { coverCrop } from '../lib/captureFrame';
 
 /**
  * The home screen: a live viewfinder rather than a menu.
@@ -155,22 +156,56 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
     const onVisibility = () => {
       const track = streamRef.current?.getVideoTracks()[0];
       if (!track) return;
-      track.enabled = document.visibilityState === 'visible';
+      const visible = document.visibilityState === 'visible';
+      track.enabled = visible;
+
+      /*
+        Disabling a track does not put the lamp out. Leaving the app with the
+        torch on would leave a phone shining in somebody's pocket, draining
+        the battery and getting warm, so it is turned off explicitly — and the
+        button is left showing off, because that is now the truth.
+      */
+      if (!visible && torchOn) {
+        void track.applyConstraints({ advanced: [{ torch: false }] } as MediaTrackConstraints)
+          .catch(() => { /* Nothing to put out. */ });
+        setTorchOn(false);
+      }
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, []);
+  }, [torchOn]);
 
+  /**
+   * The photo is what the preview showed, and nothing else.
+   *
+   * The preview is `object-cover`, so it crops the sensor frame to fit a box
+   * that is not the camera's shape. The capture used to take the whole frame
+   * anyway, which meant the picture sent for reading included bands above and
+   * below what the user had framed — on this emulator about 6% of the image,
+   * more on a phone whose camera is further from the preview's proportions.
+   *
+   * That is wrong twice over: it puts text on the model that nobody chose to
+   * photograph, and it makes the framing brackets a promise the app does not
+   * keep. Undoing the object-cover mapping here is what makes the two agree.
+   */
   const capture = useCallback(() => {
     const video = videoRef.current;
     if (!video || cameraState !== 'live' || !video.videoWidth) return;
 
+    const box = video.getBoundingClientRect();
+    const crop = coverCrop(video.videoWidth, video.videoHeight, box.width, box.height);
+    if (!crop) return;
+
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = crop.width;
+    canvas.height = crop.height;
     const context = canvas.getContext('2d');
     if (!context) return;
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    context.drawImage(
+      video,
+      crop.sourceX, crop.sourceY, crop.sourceWidth, crop.sourceHeight,
+      0, 0, canvas.width, canvas.height,
+    );
 
     canvas.toBlob(
       (blob) => {
