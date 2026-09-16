@@ -136,6 +136,24 @@ for (let i = 0; i < PHASE1.length; i++) {
   check(`step ${i + 1}'s hand is on screen`, hand && hand.onScreen, JSON.stringify(hand));
   check(`and not buried under the card`, hand && hand.hiddenByCard < 0.2,
     `${Math.round((hand?.hiddenByCard ?? 1) * 100)}% covered`);
+
+  /*
+    The card must not sit on the thing it is describing.
+
+    It used to choose its side by asking only whether the space below was
+    bigger than the card plus a margin, without checking that the space above
+    was any better. On the viewfinder step that gap is within a few pixels of
+    the threshold, and the Arabic card is nine pixels taller than the English
+    one — enough to tip it. Arabic flipped the card to the top of the screen,
+    where it did not fit either, so it clamped to the edge and covered the
+    header and half the spotlight.
+  */
+  if (state.hole) {
+    const overlap = Math.max(0, Math.min(state.cardBox.bottom, state.hole.y + state.hole.h) - Math.max(state.cardBox.top, state.hole.y))
+      * Math.max(0, Math.min(state.cardBox.right, state.hole.x + state.hole.w) - Math.max(state.cardBox.left, state.hole.x));
+    check(`and the card is clear of the spotlight`, overlap === 0,
+      `card=${JSON.stringify(state.cardBox)} hole=${JSON.stringify(state.hole)}`);
+  }
   check(`step ${i + 1} says something`,
     (state.title || '').length > 3 && (state.body || '').length > 20,
     `${state.title} / ${(state.body || '').slice(0, 40)}`);
@@ -282,4 +300,61 @@ if (again === 'ok') {
     !(await second.evaluate(`return !!document.querySelector('[data-testid="tour"]');`)));
 }
 
-await finish(second);
+// finish() ends the process, and Arabic still has to be walked.
+await second.close();
+
+// ── The same tour in Arabic ─────────────────────────────────────────
+//
+// Not a translation check — a layout one. The Arabic card is a few pixels
+// taller than the English, which was enough to send the whole card to the
+// other side of the screen on the viewfinder step, where it covered the
+// header and half the spotlight. The English walk above would never have
+// caught it, because in English the card fits.
+const arabic = await openApp({ tour: true, language: 'ar' });
+await arabic.evaluate(`
+  await new Promise(r => setTimeout(r, 2200));
+  const v = document.querySelector('video'); if (v) v.dispatchEvent(new Event('ended'));
+  await new Promise(r => setTimeout(r, 1500));
+  return 'ok';
+`);
+
+const arabicSeen = [];
+for (let i = 0; i < PHASE1.length; i++) {
+  const state = await readTour(arabic);
+  if (!state.present) break;
+  arabicSeen.push(PHASE1[i]);
+
+  check(`ar: step ${i + 1} is written in Arabic`, /[؀-ۿ]/.test(state.title || ''), state.title);
+  check(`ar: step ${i + 1}'s card is fully on screen`,
+    state.cardBox.top >= 0 && state.cardBox.bottom <= state.viewport.h, JSON.stringify(state.cardBox));
+
+  if (state.hole) {
+    const overlap = Math.max(0, Math.min(state.cardBox.bottom, state.hole.y + state.hole.h) - Math.max(state.cardBox.top, state.hole.y))
+      * Math.max(0, Math.min(state.cardBox.right, state.hole.x + state.hole.w) - Math.max(state.cardBox.left, state.hole.x));
+    check(`ar: and clear of the spotlight`, overlap === 0,
+      `card=${JSON.stringify(state.cardBox)} hole=${JSON.stringify(state.hole)}`);
+  }
+
+  const hand = await arabic.evaluate(`
+    const h = document.querySelector('[data-testid="tour"] .tour-hand');
+    const c = document.querySelector('.tour-card');
+    if (!h) return null;
+    const b = h.getBoundingClientRect();
+    const r = c.getBoundingClientRect();
+    const ow = Math.max(0, Math.min(b.right, r.right) - Math.max(b.left, r.left));
+    const oh = Math.max(0, Math.min(b.bottom, r.bottom) - Math.max(b.top, r.top));
+    return {
+      onScreen: b.top >= 0 && b.left >= 0 && b.bottom <= window.innerHeight && b.right <= window.innerWidth,
+      covered: (ow * oh) / (b.width * b.height),
+    };
+  `);
+  check(`ar: step ${i + 1}'s hand is visible`, hand && hand.onScreen && hand.covered < 0.2,
+    JSON.stringify(hand));
+
+  if (i < PHASE1.length - 1) await advance(arabic);
+}
+check('ar: the whole tour runs', arabicSeen.length === PHASE1.length, JSON.stringify(arabicSeen));
+check('ar: nothing overflows sideways',
+  !(await arabic.evaluate(`return document.documentElement.scrollWidth > document.documentElement.clientWidth;`)));
+
+await finish(arabic);
