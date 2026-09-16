@@ -142,7 +142,7 @@ export const SideEffectsScreen: React.FC<SideEffectsScreenProps> = ({
         className="sticky top-0 z-20 border-b border-paper-sand px-4 py-3 flex items-center gap-3.5"
         style={{ background: 'var(--bar)', backdropFilter: 'blur(8px)' }}
       >
-        <button type="button" onClick={onBack} aria-label={t('backToSearch')} className="active:scale-90 transition-transform">
+        <button type="button" onClick={onBack} aria-label={t('backToSearch')} className="p-2.5 -m-2.5 active:scale-90 transition-transform">
           <ChevronBack />
         </button>
         <span className="font-semibold text-[17px] text-ink truncate"><bdi>{title}</bdi></span>

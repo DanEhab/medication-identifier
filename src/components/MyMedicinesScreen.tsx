@@ -9,6 +9,7 @@ import {
   initialFor, DEFAULT_PROFILE_ID, MAX_PROFILES, MAX_PROFILE_NAME, type Profile,
 } from '../lib/profiles';
 import { useLocalization } from '../context/LanguageContext';
+import { useReminders } from '../hooks/useReminders';
 import { TabBar, type Tab } from './TabBar';
 import { SettingsButton } from './SettingsScreen';
 
@@ -59,6 +60,7 @@ const EMPTY_SCHEDULE: MedicationSchedule = { times: [], note: '' };
 export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMed, onSelectTab, onOpenSettings }) => {
   const { t } = useLocalization();
   const meLabel = t('profileMe');
+  const { rebuild, askPermission } = useReminders();
 
   const [profiles, setProfiles] = useState<Profile[]>(() => getProfiles(meLabel));
   const [activeId, setActiveId] = useState<string>(() => getActiveProfileId());
@@ -136,18 +138,32 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
     setProfiles(removeProfile(profile.id, meLabel));
     setRemovingProfile(null);
     chooseProfile(DEFAULT_PROFILE_ID);
+    // Their medicines are gone, so their reminders have to go with them.
+    void rebuild();
   };
 
-  const saveSchedule = (entry: SavedMedication, schedule: MedicationSchedule) => {
+  const saveSchedule = async (entry: SavedMedication, schedule: MedicationSchedule) => {
     setSchedule(entry.drugInfo.drugName, schedule, activeId);
     setEditing(null);
     refresh(activeId);
+
+    /*
+      Ask at the moment a time is set, not on launch. Android 13 needs
+      permission before anything can be delivered, and asked here the request
+      arrives with an obvious reason attached — somebody has just written down
+      when to take a tablet — rather than before there is anything to be
+      reminded about.
+    */
+    if (schedule.times.length > 0) await askPermission();
+    await rebuild();
   };
 
-  const forget = (entry: SavedMedication) => {
+  const forget = async (entry: SavedMedication) => {
     removeMedication(entry.drugInfo.drugName, activeId);
     setEditing(null);
     refresh(activeId);
+    // A removed medicine must stop going off at seven in the morning.
+    await rebuild();
   };
 
   const activeProfile = profiles.find((profile) => profile.id === activeId) || profiles[0];
@@ -189,7 +205,9 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
                 type="button"
                 onClick={() => chooseProfile(profile.id)}
                 aria-pressed={isActive}
-                className="flex items-center gap-2 active:scale-[0.97] transition-transform"
+                // h-full: the pill is 40 tall but the padding is on the row,
+                // so without this the pressable part was the 28px of avatar.
+                className="h-full flex items-center gap-2 active:scale-[0.97] transition-transform"
               >
                 <span
                   className="w-7 h-7 rounded-full flex items-center justify-center font-semibold text-[14px]"
