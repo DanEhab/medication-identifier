@@ -59,7 +59,8 @@ export const FirstRun: React.FC<FirstRunProps> = ({ onAccept }) => {
   };
 
   const languageButton =
-    'h-[38px] px-4 rounded-full flex items-center justify-center font-semibold text-[16px] ' +
+    // 40, the floor for something a finger has to hit. It was 38.
+    'h-10 px-4 rounded-full flex items-center justify-center font-semibold text-[16px] ' +
     'active:scale-95 transition-transform';
 
   return (
@@ -125,12 +126,20 @@ export const FirstRun: React.FC<FirstRunProps> = ({ onAccept }) => {
       </div>
 
       <div
-        className="flex-1 flex flex-col justify-center items-center gap-5"
-        style={{ paddingTop: '1.5rem' }}
+        className="flex-1 flex flex-col justify-center items-center gap-4 min-h-0"
+        style={{ paddingTop: '1rem' }}
       >
         <div
-          className="w-[104px] h-[104px] bg-white overflow-hidden shrink-0 flex items-center justify-center"
-          style={{ borderRadius: '24%', boxShadow: '0 6px 20px rgba(0,0,0,.32)' }}
+          className="bg-white overflow-hidden shrink-0 flex items-center justify-center"
+          // Scales with the room available rather than being 104 everywhere:
+          // on a 568px screen those pixels are the difference between the
+          // accept button being on screen and being below it.
+          style={{
+            width: 'min(104px, 22vh)',
+            height: 'min(104px, 22vh)',
+            borderRadius: '24%',
+            boxShadow: '0 6px 20px rgba(0,0,0,.32)',
+          }}
         >
           <img src="/app-icon.png" alt="" className="w-full h-full object-cover" />
         </div>
@@ -152,7 +161,7 @@ export const FirstRun: React.FC<FirstRunProps> = ({ onAccept }) => {
       </div>
 
       <div
-        className="rounded-[18px] px-5 py-[18px] mb-4"
+        className="rounded-[18px] px-5 py-4 mb-3 shrink-0"
         style={{ background: 'rgba(255,255,255,.07)' }}
       >
         <p className="text-[16px] leading-[1.6] m-0" style={{ color: 'rgba(255,255,255,.88)' }}>
@@ -169,7 +178,7 @@ export const FirstRun: React.FC<FirstRunProps> = ({ onAccept }) => {
         <button
           type="button"
           onClick={accept}
-          className="h-[58px] rounded-full bg-white flex items-center justify-center
+          className="h-[56px] shrink-0 rounded-full bg-white flex items-center justify-center
             font-semibold text-[18px] active:scale-[0.98] transition-transform"
           style={{ color: 'var(--brand-ground)' }}
         >

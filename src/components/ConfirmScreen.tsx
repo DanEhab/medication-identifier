@@ -49,7 +49,7 @@ export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
   return (
     <div className="flex flex-col bg-paper" style={{ minHeight: '100dvh' }}>
       <div className="flex items-center gap-3.5 px-4 py-3.5">
-        <button type="button" onClick={onReject} aria-label={t('backToSearch')} className="active:scale-90 transition-transform">
+        <button type="button" onClick={onReject} aria-label={t('backToSearch')} className="p-2.5 -m-2.5 active:scale-90 transition-transform">
           <ChevronBack />
         </button>
         <span className="font-semibold text-[18px] text-ink">{t('isThisYourBox')}</span>

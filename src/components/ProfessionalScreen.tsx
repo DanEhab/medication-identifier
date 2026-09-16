@@ -117,14 +117,14 @@ export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({
   return (
     <div className="flex flex-col bg-paper" style={{ minHeight: '100dvh' }}>
       <div className="flex items-center justify-between px-4 pt-3.5 pb-2.5">
-        <button type="button" onClick={onBackToPatientView} aria-label={t('backToSearch')} className="active:scale-90 transition-transform">
+        <button type="button" onClick={onBackToPatientView} aria-label={t('backToSearch')} className="p-2.5 -m-2.5 active:scale-90 transition-transform">
           <ChevronBack />
         </button>
         <button
           type="button"
           onClick={() => requestExport('pdf')}
           aria-label={t('exportShare')}
-          className="active:scale-90 transition-transform"
+          className="p-2.5 -m-2.5 active:scale-90 transition-transform"
         >
           <ShareIcon />
         </button>

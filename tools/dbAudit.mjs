@@ -2,10 +2,16 @@
  * Reports on the health of the answer cache.
  *
  *   node tools/dbAudit.mjs [path/to/.env]
+ *   node tools/dbAudit.mjs [path/to/.env] --fix
  *
- * Read-only by design: it opens no write path, so it can be pointed at
- * production without thinking about it twice. The connection string is read
- * from the environment or an env file and is never printed.
+ * Read-only unless --fix is passed, so it can be pointed at production
+ * without thinking about it twice. The connection string is read from the
+ * environment or an env file and is never printed.
+ *
+ * --fix deletes only documents the server already refuses to serve. Those are
+ * regenerated on the next lookup, so removing one costs a single model call
+ * and nothing else; leaving one costs that same call every time somebody opens
+ * that medicine until it happens to be rewritten.
  *
  * The checks import the server's own normalisers and key functions rather than
  * re-describing what a good document looks like. A report that disagrees with
@@ -59,6 +65,7 @@ if (!uri) {
   process.exit(1);
 }
 
+const FIX = process.argv.includes('--fix');
 const MAX_AGE_DAYS = Number(process.env.CACHE_MAX_AGE_DAYS || 180);
 const staleBefore = new Date(Date.now() - MAX_AGE_DAYS * 24 * 60 * 60 * 1000);
 
@@ -110,6 +117,13 @@ for (const [collection, normalize, cacheable, hasFields] of [
     keyMismatch.slice(0, 5).join(', '));
   report(unservable.length === 0, 'every document can be rendered',
     unservable.slice(0, 5).join(', '));
+
+  if (FIX && unservable.length > 0) {
+    const { deletedCount } = await db.collection(collection).deleteMany({ _id: { $in: unservable } });
+    console.log(`  fix   removed ${deletedCount} unservable document(s): ${unservable.join(', ')}`);
+    // They were not being served anyway; the next lookup writes a good one.
+    problems--;
+  }
   // Not a fault: the code refetches these on first use rather than serving a
   // page of empty cards. Worth naming so the number is known.
   report(true, `${willRefetch.length} will be refetched on first use (written before the current fields)`,

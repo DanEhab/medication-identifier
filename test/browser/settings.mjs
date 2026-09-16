@@ -151,7 +151,8 @@ const headings = await browser.evaluate(`
     weights: sections.map(h => getComputedStyle(h).fontWeight),
   };
 `);
-check('every group has a real heading', headings.texts.length === 4, JSON.stringify(headings.texts));
+// Appearance, Language, Reminders, Help, About.
+check('every group has a real heading', headings.texts.length === 5, JSON.stringify(headings.texts));
 check('and each is larger than the hint text underneath the controls',
   headings.sizes.every((s) => s > headings.hintSize),
   `${JSON.stringify(headings.sizes)} vs ${headings.hintSize}`);
