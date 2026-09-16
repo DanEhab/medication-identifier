@@ -167,7 +167,13 @@ const motion = await wv.evaluate(`
   return {
     hand: running(hand), ripple: running(ripple), halo: running(halo),
     distinct: [...new Set(frames)].length,
-    handSvg: !!document.querySelector('.tour-hand svg path'),
+    // Drawn, whatever it is drawn out of: it was one path and is now a
+    // silhouette built from rects, because the path's knuckle arcs were
+    // separate subpaths and the stroke drew them across the filled shape.
+    handSvg: (() => {
+      const svg = document.querySelector('.tour-hand svg');
+      return !!svg && svg.querySelectorAll('path, rect, circle').length > 0;
+    })(),
   };
 `);
 check('the hand is drawn, not an emoji', motion.handSvg);
