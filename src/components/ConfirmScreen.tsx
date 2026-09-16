@@ -52,7 +52,7 @@ export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
         <button type="button" onClick={onReject} aria-label={t('backToSearch')} className="active:scale-90 transition-transform">
           <ChevronBack />
         </button>
-        <span className="font-semibold text-[17px] text-ink">{t('isThisYourBox')}</span>
+        <span className="font-semibold text-[18px] text-ink">{t('isThisYourBox')}</span>
       </div>
 
       <div className="px-4 pt-2">
@@ -62,14 +62,14 @@ export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
           </div>
 
           <div className="min-w-0">
-            <div className="font-mono font-semibold text-[11px] text-ink-soft tracking-[0.06em] mb-1.5">
+            <div className="font-mono font-semibold text-[12px] text-ink-soft tracking-[0.06em] mb-1.5">
               {t('weRead')}
             </div>
             <div className="font-semibold text-[21px] leading-[1.25] text-ink break-words">
               {reading.readAs}
             </div>
             {reading.strengthAndPack && (
-              <div className="text-[15px] leading-[1.4] text-ink-soft mt-0.5">
+              <div className="text-[16px] leading-[1.4] text-ink-soft mt-0.5">
                 {reading.strengthAndPack}
               </div>
             )}
@@ -81,7 +81,7 @@ export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
                 <path d="M9 12l2.5 2.5L16 9" />
                 <circle cx="12" cy="12" r="9" />
               </svg>
-              <span className="font-semibold text-[12px]" style={{ color: confidence.fg }}>
+              <span className="font-semibold text-[13px]" style={{ color: confidence.fg }}>
                 {confidence.label}
               </span>
             </div>
@@ -94,7 +94,7 @@ export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
           type="button"
           onClick={() => onConfirm(reading.readAs)}
           className="h-[58px] rounded-full bg-teal flex items-center justify-center
-            font-semibold text-[17px] text-teal-on active:scale-[0.98] transition-transform"
+            font-semibold text-[18px] text-teal-on active:scale-[0.98] transition-transform"
         >
           {t('yesShowInfo')}
         </button>
@@ -102,7 +102,7 @@ export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
           type="button"
           onClick={onReject}
           className="h-[58px] rounded-full bg-surface border border-paper-edge flex items-center justify-center
-            font-semibold text-[17px] text-ink active:scale-[0.98] transition-transform"
+            font-semibold text-[18px] text-ink active:scale-[0.98] transition-transform"
         >
           {t('noThatIsNotIt')}
         </button>
@@ -110,7 +110,7 @@ export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
 
       {reading.alternatives.length > 0 && (
         <div className="px-4 pt-2">
-          <div className="font-mono font-semibold text-[11px] text-ink-soft tracking-[0.06em] mb-2.5">
+          <div className="font-mono font-semibold text-[12px] text-ink-soft tracking-[0.06em] mb-2.5">
             {t('orPickCloseMatch')}
           </div>
           <div className="flex flex-col gap-2">
@@ -123,9 +123,9 @@ export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
                   flex items-center justify-between gap-3 text-start active:scale-[0.99] transition-transform"
               >
                 <span className="min-w-0">
-                  <span className="block font-medium text-[16px] text-ink truncate">{alternative.name}</span>
+                  <span className="block font-medium text-[17px] text-ink truncate">{alternative.name}</span>
                   {alternative.detail && (
-                    <span className="block text-[14px] text-ink-soft truncate">{alternative.detail}</span>
+                    <span className="block text-[15px] text-ink-soft truncate">{alternative.detail}</span>
                   )}
                 </span>
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 rtl:rotate-180">
@@ -145,7 +145,7 @@ export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
           <rect x="4" y="10" width="16" height="10" rx="2.5" />
           <path d="M8 10V7a4 4 0 0 1 8 0v3" />
         </svg>
-        <p className="text-[13px] leading-[1.55] text-ink-soft m-0">{t('informationOnly')}</p>
+        <p className="text-[14px] leading-[1.55] text-ink-soft m-0">{t('informationOnly')}</p>
       </div>
     </div>
   );

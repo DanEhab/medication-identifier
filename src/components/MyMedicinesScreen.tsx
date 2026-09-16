@@ -172,14 +172,14 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
                 className="flex items-center gap-2 active:scale-[0.97] transition-transform"
               >
                 <span
-                  className="w-7 h-7 rounded-full flex items-center justify-center font-semibold text-[13px]"
+                  className="w-7 h-7 rounded-full flex items-center justify-center font-semibold text-[14px]"
                   style={isActive
                     ? { background: 'var(--selected-avatar-bg)', color: 'var(--selected-avatar-fg)' }
                     : { background: 'var(--paper-deep)', color: 'var(--ink-soft)' }}
                 >
                   {initialFor(profile.name)}
                 </span>
-                <span className={`text-[15px] ${isActive ? 'font-semibold text-selected-fg' : 'font-medium text-ink'}`}>
+                <span className={`text-[16px] ${isActive ? 'font-semibold text-selected-fg' : 'font-medium text-ink'}`}>
                   <bdi>{profile.name}</bdi>
                 </span>
               </button>
@@ -217,7 +217,7 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
             placeholder={t('whoIsThisFor')}
             aria-label={t('whoIsThisFor')}
             className="h-10 w-36 rounded-full bg-surface border border-paper-edge px-4
-              text-[15px] text-ink outline-none placeholder:text-ink-soft"
+              text-[16px] text-ink outline-none placeholder:text-ink-soft"
           />
         ) : (
           <button
@@ -246,10 +246,10 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
           >
             <DangerIcon />
             <span className="flex-1 min-w-0">
-              <span className="block font-semibold text-[15px] leading-[1.4] text-clay">
+              <span className="block font-semibold text-[16px] leading-[1.4] text-clay">
                 {interactions.length === 1 ? t('twoMayInteract') : t('someMayInteract')}
               </span>
-              <span className="block text-[14px] leading-[1.4] text-clay-deep truncate">
+              <span className="block text-[15px] leading-[1.4] text-clay-deep truncate">
                 <bdi>{interactions[0].aName} + {interactions[0].bName}</bdi>
               </span>
             </span>
@@ -261,8 +261,8 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
       {/* ── The list ── */}
       {saved.length === 0 ? (
         <div className="px-5 pt-8 flex flex-col items-center text-center">
-          <p className="text-[17px] leading-[1.5] text-ink m-0 mb-1.5 font-medium">{t('nothingSavedYet')}</p>
-          <p className="text-[15px] leading-[1.55] text-ink-soft m-0 mb-5">
+          <p className="text-[18px] leading-[1.5] text-ink m-0 mb-1.5 font-medium">{t('nothingSavedYet')}</p>
+          <p className="text-[16px] leading-[1.55] text-ink-soft m-0 mb-5">
             {activeProfile && activeProfile.id !== DEFAULT_PROFILE_ID
               ? t('nothingSavedForPerson').replace('{name}', activeProfile.name)
               : t('nothingSavedHint')}
@@ -270,7 +270,7 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
           <button
             type="button"
             onClick={() => onSelectTab('scan')}
-            className="h-[52px] px-6 rounded-full bg-teal font-semibold text-[16px] text-teal-on
+            className="h-[52px] px-6 rounded-full bg-teal font-semibold text-[17px] text-teal-on
               active:scale-[0.98] transition-transform"
           >
             {t('scanAMedicine')}
@@ -294,8 +294,8 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
                   className="w-full flex items-start justify-between gap-3 text-start"
                 >
                   <span className="min-w-0">
-                    <span className="block font-semibold text-[18px] leading-[1.3] text-ink truncate"><bdi>{name}</bdi></span>
-                    {detail && <span className="block text-[15px] text-ink-soft truncate"><bdi>{detail}</bdi></span>}
+                    <span className="block font-semibold text-[19px] leading-[1.3] text-ink truncate"><bdi>{name}</bdi></span>
+                    {detail && <span className="block text-[16px] text-ink-soft truncate"><bdi>{detail}</bdi></span>}
                   </span>
                   <Chevron />
                 </button>
@@ -309,14 +309,14 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
                   {schedule?.times.map((time) => (
                     <span
                       key={time}
-                      className="font-mono font-medium text-[13px] text-teal bg-teal-wash rounded-full py-1 px-2.5"
+                      className="font-mono font-medium text-[14px] text-teal bg-teal-wash rounded-full py-1 px-2.5"
                     >
                       {time}
                     </span>
                   ))}
-                  {schedule?.note && <span className="text-[14px] text-ink-soft"><bdi>{schedule.note}</bdi></span>}
+                  {schedule?.note && <span className="text-[15px] text-ink-soft"><bdi>{schedule.note}</bdi></span>}
                   {!schedule && (
-                    <span className="flex items-center gap-2 text-[14px] text-ink-soft">
+                    <span className="flex items-center gap-2 text-[15px] text-ink-soft">
                       <ClockIcon />
                       {t('addWhenToTake')}
                     </span>
@@ -410,7 +410,7 @@ const RemoveProfileSheet: React.FC<{
         <h2 className="font-semibold text-[21px] leading-[1.3] text-ink m-0 mb-1.5">
           <bdi>{t('removePersonTitle').replace('{name}', profile.name)}</bdi>
         </h2>
-        <p className="text-[15.5px] leading-[1.55] text-ink-dim m-0 mb-5" style={{ textWrap: 'pretty' }}>
+        <p className="text-[17px] leading-[1.55] text-ink-dim m-0 mb-5" style={{ textWrap: 'pretty' }}>
           {body}
         </p>
 
@@ -420,7 +420,7 @@ const RemoveProfileSheet: React.FC<{
             onClick={onClose}
             data-testid="remove-profile-cancel"
             className="flex-1 h-[52px] rounded-full bg-surface border border-paper-sand
-              font-semibold text-[16px] text-ink active:scale-[0.98] transition-transform"
+              font-semibold text-[17px] text-ink active:scale-[0.98] transition-transform"
           >
             {t('cancel')}
           </button>
@@ -435,7 +435,7 @@ const RemoveProfileSheet: React.FC<{
               together, which keeps the pair readable in both.
             */
             className="flex-1 h-[52px] rounded-full bg-clay-wash border border-clay-soft
-              font-semibold text-[16px] text-clay-deep active:scale-[0.98] transition-transform"
+              font-semibold text-[17px] text-clay-deep active:scale-[0.98] transition-transform"
           >
             {t('removePersonConfirm')}
           </button>
@@ -452,7 +452,7 @@ const InteractionSheet: React.FC<{ interactions: Interaction[]; onClose: () => v
   return (
     <Sheet label={t('interactionsTitle')} onClose={onClose}>
       <h2 className="font-semibold text-[22px] leading-[1.3] text-ink m-0 mb-1">{t('interactionsTitle')}</h2>
-      <p className="text-[15px] leading-[1.55] text-ink-soft m-0 mb-4">{t('interactionsLead')}</p>
+      <p className="text-[16px] leading-[1.55] text-ink-soft m-0 mb-4">{t('interactionsLead')}</p>
 
       <div className="flex flex-col gap-2.5">
         {interactions.map((interaction) => (
@@ -461,10 +461,10 @@ const InteractionSheet: React.FC<{ interactions: Interaction[]; onClose: () => v
             className="bg-surface rounded-[16px] p-4"
             style={{ border: '2px solid var(--clay-soft)' }}
           >
-            <div className="font-semibold text-[16px] leading-[1.35] text-clay mb-1.5">
+            <div className="font-semibold text-[17px] leading-[1.35] text-clay mb-1.5">
               <bdi>{interaction.aName} + {interaction.bName}</bdi>
             </div>
-            <p className="text-[15px] leading-[1.55] text-clay-deep m-0">
+            <p className="text-[16px] leading-[1.55] text-clay-deep m-0">
               <bdi>{t('neverWithLabel')}: {interaction.warning}</bdi>
             </p>
           </div>
@@ -472,12 +472,12 @@ const InteractionSheet: React.FC<{ interactions: Interaction[]; onClose: () => v
       </div>
 
       {/* The limit of the check, stated where it is being relied on. */}
-      <p className="text-[13px] leading-[1.6] text-ink-soft mt-4 mb-0">{t('interactionsCaveat')}</p>
+      <p className="text-[14px] leading-[1.6] text-ink-soft mt-4 mb-0">{t('interactionsCaveat')}</p>
 
       <button
         type="button"
         onClick={onClose}
-        className="w-full h-[52px] rounded-full bg-teal font-semibold text-[16px] text-teal-on
+        className="w-full h-[52px] rounded-full bg-teal font-semibold text-[17px] text-teal-on
           mt-4 active:scale-[0.98] transition-transform"
       >
         {t('gotIt')}
@@ -511,7 +511,7 @@ const ScheduleSheet: React.FC<{
       <h2 className="font-semibold text-[22px] leading-[1.3] text-ink m-0 mb-1">
         <bdi>{displayNameOf(entry)}</bdi>
       </h2>
-      <p className="text-[15px] leading-[1.55] text-ink-soft m-0 mb-4">{t('scheduleLead')}</p>
+      <p className="text-[16px] leading-[1.55] text-ink-soft m-0 mb-4">{t('scheduleLead')}</p>
 
       <div className="flex flex-wrap gap-2 mb-3" data-testid="schedule-times">
         {times.map((time) => (
@@ -520,7 +520,7 @@ const ScheduleSheet: React.FC<{
             type="button"
             onClick={() => setTimes(times.filter((other) => other !== time))}
             aria-label={`${t('removeTime')} ${time}`}
-            className="font-mono font-medium text-[14px] text-teal bg-teal-wash rounded-full
+            className="font-mono font-medium text-[15px] text-teal bg-teal-wash rounded-full
               py-2 px-3.5 flex items-center gap-2 active:scale-95 transition-transform"
           >
             {time}
@@ -536,12 +536,12 @@ const ScheduleSheet: React.FC<{
           onChange={(event) => setAdding(event.target.value)}
           aria-label={t('addTime')}
           className="flex-1 h-[52px] rounded-[14px] bg-surface border border-paper-sand px-4
-            text-[16px] text-ink outline-none"
+            text-[17px] text-ink outline-none"
         />
         <button
           type="button"
           onClick={addTime}
-          className="h-[52px] px-5 rounded-[14px] bg-selected font-semibold text-[15px] text-selected-fg
+          className="h-[52px] px-5 rounded-[14px] bg-selected font-semibold text-[16px] text-selected-fg
             active:scale-[0.98] transition-transform"
         >
           {t('addTime')}
@@ -554,13 +554,13 @@ const ScheduleSheet: React.FC<{
         placeholder={t('schedulePlaceholder')}
         aria-label={t('scheduleNote')}
         className="w-full h-[52px] rounded-[14px] bg-surface border border-paper-sand px-4
-          text-[16px] text-ink outline-none placeholder:text-ink-soft mb-4"
+          text-[17px] text-ink outline-none placeholder:text-ink-soft mb-4"
       />
 
       <button
         type="button"
         onClick={() => onSave({ times, note })}
-        className="w-full h-[54px] rounded-full bg-teal font-semibold text-[17px] text-teal-on
+        className="w-full h-[54px] rounded-full bg-teal font-semibold text-[18px] text-teal-on
           active:scale-[0.98] transition-transform"
       >
         {t('save')}
@@ -568,7 +568,7 @@ const ScheduleSheet: React.FC<{
       <button
         type="button"
         onClick={onForget}
-        className="w-full h-[52px] rounded-full bg-transparent font-medium text-[16px] text-clay
+        className="w-full h-[52px] rounded-full bg-transparent font-medium text-[17px] text-clay
           mt-2 active:scale-[0.98] transition-transform"
       >
         {t('removeFromMyMedicines')}

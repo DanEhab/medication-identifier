@@ -67,11 +67,20 @@ export const SettingsButton: React.FC<{ onClick: () => void }> = ({ onClick }) =
   );
 };
 
-/** A heading that names a group of rows, in the app's small mono label style. */
+/**
+ * The heading over a group of settings.
+ *
+ * A real heading, not the app's small mono label. That label is right on the
+ * result screen, where it names the value directly underneath it and the value
+ * is the thing being read. Here the headings *are* the structure of the page —
+ * they are what somebody scans to find the setting they came for — and at
+ * twelve mono pixels in the soft ink they were quieter than the hint text
+ * under every control.
+ */
 const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="font-mono font-semibold text-[11px] tracking-[0.06em] text-ink-soft px-5 mb-2.5 mt-7">
+  <h2 className="font-semibold text-[20px] leading-[1.3] tracking-[-0.01em] text-ink px-5 m-0 mb-3 mt-8">
     {children}
-  </div>
+  </h2>
 );
 
 /**
@@ -82,16 +91,25 @@ const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => 
  * is actually using is the one that looks pressed, so following the phone at
  * night still shows Automatic selected rather than Dark.
  */
-function Segmented<T extends string>({ value, options, onChange, label }: {
+function Segmented<T extends string>({ value, options, onChange, label, fixedOrder }: {
   value: T;
   options: { key: T; label: string }[];
   onChange: (next: T) => void;
   label: string;
+  /**
+   * Keep the options in the order they are written, whichever way the page
+   * reads. Only the language control wants this: its two options *are* the two
+   * directions, so letting the page flip them means the button you just
+   * pressed moves out from under your finger, and the one you would press to
+   * undo it is where the first one used to be.
+   */
+  fixedOrder?: boolean;
 }) {
   return (
     <div
       role="radiogroup"
       aria-label={label}
+      dir={fixedOrder ? 'ltr' : undefined}
       className="mx-5 rounded-full bg-paper-deep p-1 flex gap-1"
     >
       {options.map((option) => {
@@ -104,7 +122,7 @@ function Segmented<T extends string>({ value, options, onChange, label }: {
             aria-checked={isActive}
             data-testid={`option-${option.key}`}
             onClick={() => onChange(option.key)}
-            className={`flex-1 h-11 rounded-full text-[15px] transition-colors active:scale-[0.98]
+            className={`flex-1 h-11 rounded-full text-[16px] transition-colors active:scale-[0.98]
               ${isActive ? 'font-semibold' : 'font-medium text-ink-soft'}`}
             style={isActive
               ? { background: 'var(--surface)', color: 'var(--ink)', boxShadow: '0 1px 3px rgba(0,0,0,.12)' }
@@ -133,8 +151,8 @@ const ActionRow: React.FC<{
       active:bg-paper-deep transition-colors"
   >
     <span className="flex-1 min-w-0">
-      <span className="block text-[17px] leading-[1.35] text-ink">{title}</span>
-      <span className="block text-[14px] leading-[1.45] text-ink-soft mt-0.5">{hint}</span>
+      <span className="block text-[18px] leading-[1.35] text-ink">{title}</span>
+      <span className="block text-[15px] leading-[1.45] text-ink-soft mt-0.5">{hint}</span>
     </span>
     <ChevronForward />
   </button>
@@ -174,7 +192,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           { key: 'dark', label: t('themeDark') },
         ]}
       />
-      <p className="text-[14px] leading-[1.5] text-ink-soft px-5 mt-2.5 m-0">
+      <p className="text-[15px] leading-[1.5] text-ink-soft px-5 mt-2.5 m-0">
         {preference === 'system'
           ? t('followingPhone').replace('{mode}', isDark ? t('themeDark') : t('themeLight'))
           : t('appearanceHint')}
@@ -186,12 +204,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         label={t('languageSetting')}
         value={language}
         onChange={setLanguage}
+        fixedOrder
         options={[
           { key: 'en', label: 'English' },
           { key: 'ar', label: 'العربية' },
         ]}
       />
-      <p className="text-[14px] leading-[1.5] text-ink-soft px-5 mt-2.5 m-0">{t('languageHint')}</p>
+      <p className="text-[15px] leading-[1.5] text-ink-soft px-5 mt-2.5 m-0">{t('languageHint')}</p>
 
       {/* ── Help ── */}
       <SectionLabel>{t('helpSection')}</SectionLabel>
@@ -213,10 +232,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       {/* ── About ── */}
       <SectionLabel>{t('aboutSection')}</SectionLabel>
       <div className="px-5">
-        <p className="text-[15px] leading-[1.55] text-ink-soft m-0">
+        <p className="text-[16px] leading-[1.55] text-ink-soft m-0">
           {t('versionLabel')} <bdi>{VERSION}</bdi>
         </p>
-        <p className="text-[15px] leading-[1.55] text-ink-soft mt-2 m-0" style={{ textWrap: 'pretty' }}>
+        <p className="text-[16px] leading-[1.55] text-ink-soft mt-2 m-0" style={{ textWrap: 'pretty' }}>
           {t('privacyLine2')}
         </p>
       </div>
