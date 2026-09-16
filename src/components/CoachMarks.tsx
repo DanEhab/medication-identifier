@@ -146,46 +146,33 @@ function useTargetRect(target: string | null): Rect | null {
 // ── The hand ───────────────────────────────────────────────────────────────
 
 /**
- * A hand about to tap, drawn rather than an emoji so it looks the same anywhere.
+ * A pointing hand, drawn rather than an emoji so it looks the same anywhere.
  *
- * A silhouette, not an outlined drawing. The version before this was one path
- * whose knuckle arcs were separate subpaths, so the stroke drew them as lines
- * *through* the filled shape — at 44 pixels that reads as grey smears across
- * the hand rather than as fingers.
- *
- * The outline is a fat copy of the same shapes underneath, in the stroke
- * colour, rather than a stroke on each shape: stroking two overlapping shapes
- * draws the seam where they meet, and the seam is exactly what a silhouette
- * is for hiding.
+ * The arcs inside the outline are the finger joints, and they are meant to be
+ * there — a silhouette was tried instead and read as a blob rather than a
+ * hand. The shadow is kept light: at this size a heavy one muddies those
+ * inner lines into grey smears, which is what made the drawing look wrong.
  */
-const Hand: React.FC = () => {
-  // Index finger, then the fist below it. Drawn twice, so named once.
-  const shapes = (
-    <>
-      {/* Index finger, off to one side the way a real hand points. */}
-      <rect x="13" y="2" width="9" height="25" rx="4.5" />
-      {/* The fist: wider and squarer than the finger, or the two read as one
-          lozenge and the whole thing looks like a thermometer. */}
-      <rect x="12" y="19" width="24" height="24" rx="8" />
-      {/* Thumb, which is what settles it as a hand rather than a shape. */}
-      <rect x="5.5" y="26" width="10" height="14" rx="5" />
-    </>
-  );
-  return (
-    <svg
-      viewBox="0 0 42 46"
-      width="42"
-      height="46"
-      aria-hidden="true"
-      style={{ filter: 'drop-shadow(0 3px 8px rgba(0,0,0,.4))' }}
-    >
-      <g fill="var(--tour-hand-stroke)" stroke="var(--tour-hand-stroke)" strokeWidth="4" strokeLinejoin="round">
-        {shapes}
-      </g>
-      <g fill="var(--tour-hand-fill)">{shapes}</g>
-    </svg>
-  );
-};
+const Hand: React.FC = () => (
+  <svg
+    viewBox="0 0 44 52"
+    width="44"
+    height="52"
+    aria-hidden="true"
+    style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,.28))' }}
+  >
+    <path
+      d="M17.5 21.5V8.2a3.7 3.7 0 0 1 7.4 0v12.1m0-1.4a3.2 3.2 0 0 1 6.4 0v2.4m0-1.1a3.1 3.1 0 0 1 6.2 0v3.1
+         m0-1.6a3 3 0 0 1 6 0v10.8c0 8.3-5.2 14.4-13.6 14.4-6.8 0-10.1-2.6-13.4-7.6L6.9 30
+         a3.4 3.4 0 0 1 1.2-4.7 3.4 3.4 0 0 1 4.6 1.2l4.8 7.4"
+      fill="var(--tour-hand-fill)"
+      stroke="var(--tour-hand-stroke)"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 
 // ── The tour ───────────────────────────────────────────────────────────────
 
@@ -199,8 +186,8 @@ const EDGE = 16;
 const CARD_GAP = 18;
 
 /** The hand's own box, needed before it is drawn in order to place it. */
-const HAND_W = 42;
-const HAND_H = 46;
+const HAND_W = 44;
+const HAND_H = 52;
 
 export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }) => {
   const { t, language } = useLocalization();
@@ -367,7 +354,13 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
 
   return (
     <div
-      className="fixed inset-0 z-[9997]"
+      /*
+        Nothing here is worth copying, and a long press on it was selecting
+        the step text and raising Android's Copy / Share / Select all bar over
+        the tour — on top of the very buttons that move it along.
+      */
+      className="fixed inset-0 z-[9997] select-none"
+      style={{ WebkitTouchCallout: 'none' }}
       role="dialog"
       aria-modal="true"
       aria-label={t('tourLabel')}
@@ -434,11 +427,11 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
           }}
         >
           <div className="relative" style={rtl ? { transform: 'scaleX(-1)' } : undefined}>
-            {/* Centred on the fingertip, because that is where a tap lands. */}
+            {/* Around the fingertip, because that is where a tap lands. */}
             <span
               className="tour-ripple absolute rounded-full"
               style={{
-                width: 44, height: 44, top: -16, left: -2,
+                width: 46, height: 46, top: -16, left: -12,
                 border: '2px solid var(--teal-light)',
               }}
             />
