@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="false"
@@ -41,6 +42,27 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
+
+    <!--
+        Reminders.
+
+        POST_NOTIFICATIONS, WAKE_LOCK and RECEIVE_BOOT_COMPLETED come from the
+        local-notifications plugin and are all needed: the first to deliver at
+        all on Android 13 and up, the last to put the reminders back after the
+        phone restarts, since a scheduled alarm does not survive a reboot.
+
+        SCHEDULE_EXACT_ALARM is removed. The plugin declares it, but Google
+        Play treats exact alarms as a restricted capability that has to be
+        justified, and this app is already published — quietly adding it would
+        put an update in front of a policy review. Without it the reminders are
+        inexact, which for a daily tablet means the system may batch it with
+        other work and deliver it a few minutes late rather than to the second.
+        If that is ever not good enough, delete these three lines and declare
+        the use on the Play Console.
+    -->
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        tools:node="remove" />
     
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 </manifest>

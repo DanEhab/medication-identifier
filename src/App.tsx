@@ -20,6 +20,7 @@ import { ReadingScreen } from './components/ReadingScreen';
 import { ConfirmScreen } from './components/ConfirmScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { useHardwareBack } from './hooks/useHardwareBack';
+import { useReminders } from './hooks/useReminders';
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('home');
@@ -59,6 +60,17 @@ const App: React.FC = () => {
     });
   }, []);
   const { language } = useLocalization();
+
+  /*
+    The reminders are rebuilt here, at the root, and nowhere else.
+
+    An alarm does not survive the phone being switched off, and the saved list
+    is the only record of what was meant to be scheduled. Doing it on the
+    screen that shows the times would mean reminders coming back the next time
+    somebody happened to open that list — which is exactly when they do not
+    need reminding.
+  */
+  useReminders({ syncOnMount: true });
 
   // ── Tutorial state ────────────────────────────────────────
   // Phase 1: triggered on absolute first launch (home screen tour)
