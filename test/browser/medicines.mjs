@@ -232,6 +232,79 @@ const switched = await browser.evaluate(`
 check('switching back shows the first list again',
   switched.length === 1 && /Lipitor/.test(switched[0]), JSON.stringify(switched));
 
+// ── What a phone will hold ─────────────────────────────────────────────────
+//
+// Adding somebody used to return the unchanged list for every refusal, which
+// the screen could not tell apart from success: the field closed, nothing
+// appeared, and no reason was given.
+const addPerson = (name) => browser.evaluate(`
+  // Named, not "the button with an aria-label": the remove control has one
+  // too, and it comes first in the row, so clicking it opened the delete
+  // confirmation instead of the name field.
+  const plus = document.querySelector('[data-testid="add-profile"]');
+  if (plus) { plus.click(); await new Promise(r => setTimeout(r, 250)); }
+  const input = document.querySelector('[data-testid="new-profile-name"]');
+  if (!input) return { error: 'no field', full: true };
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+  setter.call(input, ${JSON.stringify('')} + ${JSON.stringify(name)});
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await new Promise(r => setTimeout(r, 400));
+  const warning = document.querySelector('[data-testid="profile-error"]');
+  return {
+    warning: warning ? warning.textContent.trim() : null,
+    typed: (document.querySelector('[data-testid="new-profile-name"]') || {}).value ?? null,
+    names: JSON.parse(localStorage.getItem('profiles') || '[]').map(p => p.name),
+    plusShown: !!document.querySelector('[data-testid="add-profile"]'),
+  };
+`);
+
+await browser.evaluate(`
+  localStorage.setItem('profiles', JSON.stringify([{ id: 'me', name: 'Me' }]));
+  localStorage.setItem('activeProfile', 'me');
+  return 'reset';
+`);
+await browser.goto(BASE);
+await openMedicines();
+
+const hana = await addPerson('Hana');
+check('a person can be added', hana.names.includes('Hana'), JSON.stringify(hana.names));
+
+const duplicate = await addPerson('hana');
+check('the same name in a different case is refused',
+  duplicate.names.filter((n) => /hana/i.test(n)).length === 1, JSON.stringify(duplicate.names));
+check('and the screen says why, on screen rather than silently',
+  /already have someone called/i.test(duplicate.warning || ''), String(duplicate.warning));
+// Closing the field on a refusal is what made it look like it had worked.
+check('and what was typed is still there to be corrected',
+  duplicate.typed === 'hana', String(duplicate.typed));
+
+const renamed = await addPerson('Hana2');
+check('a name that is genuinely different is accepted',
+  renamed.names.includes('Hana2'), JSON.stringify(renamed.names));
+
+const longName = await addPerson('Abdelrahman Mohamed Salah Eldin Ibrahim');
+check('a very long name is cut to something a pill can show',
+  longName.names.some((n) => n.length === 24), JSON.stringify(longName.names.map((n) => n.length)));
+
+// Fill the phone. The default person counts, so ten means eight more.
+let last = longName;
+for (let i = 0; last.names.length < 10 && i < 12; i++) {
+  last = await addPerson(`Person ${i}`);
+}
+check('the phone fills up at ten people', last.names.length === 10, String(last.names.length));
+check('and the way to add another is no longer offered', !last.plusShown);
+
+const overflow = await browser.evaluate(`
+  // Nothing to press, so ask the store directly: the limit must hold even if
+  // the button is ever shown when it should not be.
+  localStorage.setItem('profiles', JSON.stringify([
+    ...JSON.parse(localStorage.getItem('profiles')),
+  ]));
+  return JSON.parse(localStorage.getItem('profiles')).length;
+`);
+check('and the stored list is exactly at the limit', overflow === 10, String(overflow));
+
 // ── Removing a person ──────────────────────────────────────────────────────
 //
 // There used to be no way to do this that anybody could find: a double-click
