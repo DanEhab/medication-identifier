@@ -145,21 +145,47 @@ function useTargetRect(target: string | null): Rect | null {
 
 // ── The hand ───────────────────────────────────────────────────────────────
 
-/** A pointing hand, drawn rather than an emoji so it looks the same anywhere. */
-const Hand: React.FC = () => (
-  <svg viewBox="0 0 44 52" width="44" height="52" aria-hidden="true" style={{ filter: 'drop-shadow(0 4px 10px rgba(0,0,0,.35))' }}>
-    <path
-      d="M17.5 21.5V8.2a3.7 3.7 0 0 1 7.4 0v12.1m0-1.4a3.2 3.2 0 0 1 6.4 0v2.4m0-1.1a3.1 3.1 0 0 1 6.2 0v3.1
-         m0-1.6a3 3 0 0 1 6 0v10.8c0 8.3-5.2 14.4-13.6 14.4-6.8 0-10.1-2.6-13.4-7.6L6.9 30
-         a3.4 3.4 0 0 1 1.2-4.7 3.4 3.4 0 0 1 4.6 1.2l4.8 7.4"
-      fill="var(--tour-hand-fill)"
-      stroke="var(--tour-hand-stroke)"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
+/**
+ * A hand about to tap, drawn rather than an emoji so it looks the same anywhere.
+ *
+ * A silhouette, not an outlined drawing. The version before this was one path
+ * whose knuckle arcs were separate subpaths, so the stroke drew them as lines
+ * *through* the filled shape — at 44 pixels that reads as grey smears across
+ * the hand rather than as fingers.
+ *
+ * The outline is a fat copy of the same shapes underneath, in the stroke
+ * colour, rather than a stroke on each shape: stroking two overlapping shapes
+ * draws the seam where they meet, and the seam is exactly what a silhouette
+ * is for hiding.
+ */
+const Hand: React.FC = () => {
+  // Index finger, then the fist below it. Drawn twice, so named once.
+  const shapes = (
+    <>
+      {/* Index finger, off to one side the way a real hand points. */}
+      <rect x="13" y="2" width="9" height="25" rx="4.5" />
+      {/* The fist: wider and squarer than the finger, or the two read as one
+          lozenge and the whole thing looks like a thermometer. */}
+      <rect x="12" y="19" width="24" height="24" rx="8" />
+      {/* Thumb, which is what settles it as a hand rather than a shape. */}
+      <rect x="5.5" y="26" width="10" height="14" rx="5" />
+    </>
+  );
+  return (
+    <svg
+      viewBox="0 0 42 46"
+      width="42"
+      height="46"
+      aria-hidden="true"
+      style={{ filter: 'drop-shadow(0 3px 8px rgba(0,0,0,.4))' }}
+    >
+      <g fill="var(--tour-hand-stroke)" stroke="var(--tour-hand-stroke)" strokeWidth="4" strokeLinejoin="round">
+        {shapes}
+      </g>
+      <g fill="var(--tour-hand-fill)">{shapes}</g>
+    </svg>
+  );
+};
 
 // ── The tour ───────────────────────────────────────────────────────────────
 
@@ -171,6 +197,10 @@ interface CoachMarksProps {
 /** Kept clear of the phone's rounded corners and any system bar. */
 const EDGE = 16;
 const CARD_GAP = 18;
+
+/** The hand's own box, needed before it is drawn in order to place it. */
+const HAND_W = 42;
+const HAND_H = 46;
 
 export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }) => {
   const { t, language } = useLocalization();
@@ -263,19 +293,75 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
     : Math.max(EDGE, (viewportH - cardHeight) / 2);
 
   /*
-    The hand sits on the control, a little inside its lower corner, pointing up
-    at it — the way a finger actually approaches a button. Which corner depends
-    on the language: a right hand comes in from the right of a left-to-right
-    screen and from the left of a right-to-left one, and coming in from the
-    wrong side means the arm crosses the thing it is pointing at.
+    Where the hand goes, chosen rather than assumed.
+
+    It used to sit just under the control's lower corner, always. That works
+    for a button with room beneath it and fails everywhere else: under the
+    viewfinder, under the language button in the header, and under the tab bar
+    at the foot of the screen, the card is exactly where the hand wants to be,
+    and the hand went behind it. Three of the five steps showed no hand at all.
+
+    So the candidates are tried in order of how a finger would really approach
+    the thing, and the first that is fully on screen and clear of the card
+    wins. Inside the control comes first for anything big enough to hold a
+    hand — on the viewfinder that reads as "tap in here", which is the
+    instruction — and outside it for the small controls.
   */
   const rtl = language === 'ar';
-  const handTop = hole ? hole.top + hole.height - 10 : 0;
-  const handLeft = hole
-    ? rtl
-      ? Math.max(EDGE - 24, hole.left - 30)
-      : Math.min(hole.left + hole.width - 14, viewportW - 54)
-    : 0;
+  const cardRect = { top: cardTop, bottom: cardTop + cardHeight, left: EDGE, right: viewportW - EDGE };
+
+  const handPlacement = (() => {
+    if (!hole) return { top: 0, left: 0 };
+
+    // The side a right hand comes in from: from the right of a left-to-right
+    // screen and the left of a right-to-left one, so the arm never crosses
+    // the thing it is pointing at.
+    const nearX = rtl
+      ? hole.left - HAND_W + 14
+      : hole.left + hole.width - 14;
+    const insideX = rtl
+      ? hole.left + 10
+      : hole.left + hole.width - HAND_W - 10;
+    const centreX = hole.left + (hole.width - HAND_W) / 2;
+
+    const candidates = [
+      /*
+        Inside the control, near its lower edge — but only for something the
+        size of the viewfinder, where the hand reads as "tap in here". On a
+        shutter button barely larger than the hand it covers the very control
+        it is pointing at, so a generous threshold, not a tight one.
+      */
+      hole.height > 150 && hole.width > 150
+        ? { top: hole.top + hole.height - HAND_H - 10, left: insideX }
+        : null,
+      // Just below it, the way a thumb comes up to a button.
+      { top: hole.top + hole.height - 10, left: nearX },
+      // Above it, for a control sitting on the floor of the screen.
+      { top: hole.top - HAND_H + 10, left: nearX },
+      // Beside it, for a control pinned to the top with the card beneath.
+      { top: hole.top + (hole.height - HAND_H) / 2, left: rtl ? hole.left - HAND_W - 4 : hole.left + hole.width + 4 },
+      { top: hole.top + (hole.height - HAND_H) / 2, left: rtl ? hole.left + hole.width + 4 : hole.left - HAND_W - 4 },
+      // Centred under it, when the sides are what is blocked.
+      { top: hole.top + hole.height + 6, left: centreX },
+    ].filter(Boolean) as { top: number; left: number }[];
+
+    const onScreen = (p: { top: number; left: number }) =>
+      p.top >= 0 && p.left >= 0
+      && p.top + HAND_H <= viewportH && p.left + HAND_W <= viewportW;
+
+    const clearOfCard = (p: { top: number; left: number }) =>
+      p.top + HAND_H <= cardRect.top || p.top >= cardRect.bottom
+      || p.left + HAND_W <= cardRect.left || p.left >= cardRect.right;
+
+    return candidates.find((p) => onScreen(p) && clearOfCard(p))
+      // Nothing fits: put it where it is at least on screen, rather than
+      // hiding it. A hand half behind the card still says which control.
+      || candidates.find(onScreen)
+      || candidates[0];
+  })();
+
+  const handTop = handPlacement.top;
+  const handLeft = handPlacement.left;
 
   const isLast = index === steps.length - 1;
 
@@ -287,14 +373,14 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
       aria-label={t('tourLabel')}
       data-testid="tour"
       /*
-        A hand tapping the screen is an instruction to tap the screen, so the
-        whole scrim advances. The card is excluded: its own two buttons say
-        what they do, and a stray tap on the paragraph should not move on.
+        Tapping the scrim does nothing on purpose.
+
+        It used to advance, on the reasoning that a hand tapping the screen is
+        an instruction to tap the screen. In use that reads as a tour running
+        away with itself: a finger resting anywhere, a mis-aimed press at the
+        card, the edge of a thumb — and a step is gone before it was read.
+        Next and Skip are the only two things that move it.
       */
-      onClick={(event) => {
-        if (cardRef.current?.contains(event.target as Node)) return;
-        next();
-      }}
     >
       {/* ── The spotlight ── */}
       <svg
@@ -348,10 +434,11 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
           }}
         >
           <div className="relative" style={rtl ? { transform: 'scaleX(-1)' } : undefined}>
+            {/* Centred on the fingertip, because that is where a tap lands. */}
             <span
               className="tour-ripple absolute rounded-full"
               style={{
-                width: 46, height: 46, top: -16, left: -12,
+                width: 44, height: 44, top: -16, left: -2,
                 border: '2px solid var(--teal-light)',
               }}
             />

@@ -452,8 +452,25 @@ const survived = await browser.evaluate(`
 `);
 check('the medicine still belongs to the right person', survived === 'me', String(survived));
 
-// ── Opening one goes to its page ───────────────────────────────────────────
+// ── Opening one goes to its page, with the network genuinely cut ──────────
+//
+// This check was called "offline" and did nothing of the sort: the stub
+// backend was still answering, so a screen that quietly refetched would have
+// passed. The tour tells people a saved medicine opens without internet, so
+// the test has to be the thing that says it is true.
 const opened = await browser.evaluate(`
+  window.__blockedRequests = 0;
+  window.fetch = () => {
+    window.__blockedRequests++;
+    return Promise.reject(new TypeError('Failed to fetch'));
+  };
+  if (window.XMLHttpRequest) {
+    window.XMLHttpRequest.prototype.send = function () {
+      window.__blockedRequests++;
+      this.dispatchEvent(new Event('error'));
+    };
+  }
+
   const card = document.querySelector('[data-testid="medicine-list"] > div button');
   card.click();
   for (let i = 0; i < 40; i++) {
@@ -467,7 +484,20 @@ const opened = await browser.evaluate(`
   }
   return document.body.innerText.slice(0, 150);
 `);
-check('tapping a medicine opens its page offline', opened === 'ok', opened);
+check('tapping a medicine opens its page with no network at all', opened === 'ok', opened);
+
+const offline = await browser.evaluate(`
+  return {
+    attempts: window.__blockedRequests,
+    stillShowing: !!document.querySelector('[data-tutorial="detail-chips"]'),
+    error: !!document.querySelector('[role="alert"]'),
+  };
+`);
+// Not merely "it worked despite the network": it never went near the network.
+check('and did not try to reach the network to do it', offline.attempts === 0,
+  `${offline.attempts} request(s) attempted`);
+check('and no error is shown', !offline.error);
+check('and the medicine is still on screen', offline.stillShowing);
 
 await browser.goto(BASE);
 await openMedicines();
