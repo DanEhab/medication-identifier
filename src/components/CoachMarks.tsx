@@ -146,31 +146,33 @@ function useTargetRect(target: string | null): Rect | null {
 // ── The hand ───────────────────────────────────────────────────────────────
 
 /**
- * A pointing hand, drawn rather than an emoji so it looks the same anywhere.
+ * The pointing hand, taken from the touch animation.
  *
- * The arcs inside the outline are the finger joints, and they are meant to be
- * there — a silhouette was tried instead and read as a blob rather than a
- * hand. The shadow is kept light: at this size a heavy one muddies those
- * inner lines into grey smears, which is what made the drawing look wrong.
+ * The artwork is the one from the Lottie file, converted to two SVG paths: the
+ * outer edge of the hand, and the inner edge that makes the drawing an outline
+ * rather than a blob. Drawing the outer one filled and then both together with
+ * an even-odd rule paints the ring between them — a white hand with a dark
+ * outline, which is what the Lottie renders.
+ *
+ * Converted rather than played. The animation in that file is a press and a
+ * ripple, which is exactly what the CSS here already does; running it properly
+ * would mean a Lottie renderer, and lottie-web is about 60KB gzipped against a
+ * 110KB bundle — more than half as much again, to animate something already
+ * animated.
  */
+const HAND_OUTER = 'M125.44,57.00C121.56,57.00 117.76,58.07 114.46,60.11C109.56,49.61 97.07,45.07 86.57,49.97C86.53,49.99 86.48,50.01 86.44,50.03C86.44,50.03 86.44,21.00 86.44,21.00C86.44,9.40 77.04,0.00 65.44,0.00C53.84,0.00 44.44,9.40 44.44,21.00C44.44,21.00 44.44,89.56 44.44,89.56C44.44,89.56 39.19,80.47 39.19,80.47C33.39,70.42 20.55,66.98 10.50,72.78C0.55,78.53 -2.94,91.21 2.69,101.24C27.02,152.55 43.23,174.00 80.44,174.00C116.87,173.96 146.40,144.43 146.44,108.00C146.44,108.00 146.44,78.00 146.44,78.00C146.43,66.41 137.03,57.01 125.44,57.00Z';
+const HAND_INNER = 'M134.44,108.00C134.41,137.81 110.25,161.97 80.44,162.00C65.31,162.00 54.77,157.91 45.21,148.32C35.84,138.92 26.63,123.73 13.44,95.89C13.37,95.75 13.29,95.61 13.21,95.47C10.72,91.16 12.20,85.66 16.50,83.17C20.81,80.69 26.31,82.16 28.80,86.47C28.80,86.47 45.24,114.95 45.24,114.95C46.90,117.82 50.57,118.80 53.44,117.15C55.30,116.07 56.44,114.09 56.44,111.95C56.44,111.95 56.44,21.00 56.44,21.00C56.44,16.03 60.47,12.00 65.44,12.00C70.41,12.00 74.44,16.03 74.44,21.00C74.44,21.00 74.44,72.00 74.44,72.00C74.44,75.31 77.13,78.00 80.44,78.00C83.75,78.00 86.44,75.31 86.44,72.00C86.44,72.00 86.44,69.00 86.44,69.00C86.44,64.03 90.47,60.00 95.44,60.00C100.41,60.00 104.44,64.03 104.44,69.00C104.44,69.00 104.44,78.00 104.44,78.00C104.44,81.31 107.13,84.00 110.44,84.00C113.75,84.00 116.44,81.31 116.44,78.00C116.44,73.03 120.47,69.00 125.44,69.00C130.41,69.00 134.44,73.03 134.44,78.00C134.44,78.00 134.44,108.00 134.44,108.00Z';
+
 const Hand: React.FC = () => (
   <svg
-    viewBox="0 0 44 52"
+    viewBox="-8 -6 164 188"
     width="44"
-    height="52"
+    height="50"
     aria-hidden="true"
     style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,.28))' }}
   >
-    <path
-      d="M17.5 21.5V8.2a3.7 3.7 0 0 1 7.4 0v12.1m0-1.4a3.2 3.2 0 0 1 6.4 0v2.4m0-1.1a3.1 3.1 0 0 1 6.2 0v3.1
-         m0-1.6a3 3 0 0 1 6 0v10.8c0 8.3-5.2 14.4-13.6 14.4-6.8 0-10.1-2.6-13.4-7.6L6.9 30
-         a3.4 3.4 0 0 1 1.2-4.7 3.4 3.4 0 0 1 4.6 1.2l4.8 7.4"
-      fill="var(--tour-hand-fill)"
-      stroke="var(--tour-hand-stroke)"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
+    <path d={HAND_OUTER} fill="var(--tour-hand-fill)" />
+    <path d={`${HAND_OUTER} ${HAND_INNER}`} fillRule="evenodd" fill="var(--tour-hand-stroke)" />
   </svg>
 );
 
@@ -187,7 +189,7 @@ const CARD_GAP = 18;
 
 /** The hand's own box, needed before it is drawn in order to place it. */
 const HAND_W = 44;
-const HAND_H = 52;
+const HAND_H = 50;
 
 export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }) => {
   const { t, language } = useLocalization();
@@ -269,10 +271,28 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
       }
     : null;
 
-  // The card goes wherever there is more room, and the hand points from the
-  // same side, so the two never argue about which way the eye should travel.
+  /*
+    The card goes on the side that actually has room for it.
+
+    The rule used to be "below unless the gap beneath is smaller than the card
+    plus a margin", with no check that the space *above* was any better. On the
+    viewfinder step the gap beneath is a few pixels either side of that
+    threshold — and the Arabic card is nine pixels taller than the English one,
+    which was enough to tip it. Arabic flipped the card to the top of the
+    screen, where it did not fit either, so it was clamped to the edge and
+    landed on top of the header and half the spotlight. Same code, same screen,
+    unrecognisably different layout, decided by the length of a sentence.
+
+    So: below if it fits below, above if it fits above, and if neither fits,
+    the roomier side — which only happens when the cutout is nearly the whole
+    screen and some overlap is unavoidable.
+  */
   const spaceBelow = hole ? viewportH - (hole.top + hole.height) : viewportH;
-  const below = !hole || spaceBelow > cardHeight + CARD_GAP + 40;
+  const spaceAbove = hole ? hole.top : 0;
+  const needed = cardHeight + CARD_GAP + EDGE;
+  const below = !hole
+    || spaceBelow >= needed
+    || (spaceAbove < needed && spaceBelow >= spaceAbove);
   const cardTop = hole
     ? below
       ? Math.min(hole.top + hole.height + CARD_GAP, viewportH - cardHeight - EDGE)
@@ -347,8 +367,73 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
       || candidates[0];
   })();
 
-  const handTop = handPlacement.top;
-  const handLeft = handPlacement.left;
+  const rawHandTop = handPlacement.top;
+  const rawHandLeft = handPlacement.left;
+
+  /*
+    Tilt the hand toward what it is pointing at.
+
+    The finger points straight up, which is right when the hand is directly
+    beneath its target and wrong everywhere else — beside the language button
+    in the header it pointed at the ceiling, and beside the saved-medicines tab
+    it pointed past it. The angle is taken from the fingertip to the middle of
+    the cutout, so it follows the placement instead of being guessed per step.
+
+    Only when the hand is outside the cutout: inside one, "toward the middle"
+    is backwards. Clamped, because a hand at forty-five degrees reads as
+    pointing and one at ninety reads as falling over.
+  */
+  const tilt = (() => {
+    if (!hole) return 0;
+    const tipX = rawHandLeft + HAND_W * 0.44;
+    const tipY = rawHandTop + HAND_H * 0.04;
+    const inside = tipX > hole.left && tipX < hole.left + hole.width
+      && tipY > hole.top && tipY < hole.top + hole.height;
+    if (inside) return 0;
+
+    const dx = hole.left + hole.width / 2 - tipX;
+    const dy = hole.top + hole.height / 2 - tipY;
+    const degrees = Math.atan2(dx, -dy) * (180 / Math.PI);
+    if (Math.abs(degrees) < 8) return 0;
+    // Thirty-two degrees reads as leaning toward something. Forty-eight, which
+    // is what the raw angle comes to for a hand tucked close under a small
+    // button, reads as a hand falling over.
+    return Math.max(-32, Math.min(32, degrees));
+  })();
+
+  /*
+    Rotating a box makes it bigger, so the position has to be nudged back.
+
+    Placement is worked out on the upright hand; tilting it turns a 44x50 box
+    into roughly 64x66, and at the top of the screen that pushed the fingertip
+    off the edge. The corners are rotated properly rather than padded
+    symmetrically, because the hand pivots on its fingertip rather than its
+    middle, so the box does not grow evenly on all four sides.
+  */
+  const spread = (() => {
+    const radians = tilt * (Math.PI / 180);
+    const cos = Math.cos(radians);
+    const sin = Math.sin(radians);
+    const originX = HAND_W * 0.44;
+    const originY = HAND_H * 0.04;
+    const corners = [[0, 0], [HAND_W, 0], [HAND_W, HAND_H], [0, HAND_H]].map(([x, y]) => {
+      const dx = x - originX;
+      const dy = y - originY;
+      return [originX + dx * cos - dy * sin, originY + dx * sin + dy * cos];
+    });
+    const xs = corners.map((c) => c[0]);
+    const ys = corners.map((c) => c[1]);
+    return {
+      left: Math.min(...xs), right: Math.max(...xs),
+      top: Math.min(...ys), bottom: Math.max(...ys),
+    };
+  })();
+
+  // A pixel of margin, because the corners are rotated in floating point and
+  // landing exactly on the edge rounds to a hair outside it.
+  const MARGIN = 1;
+  const handTop = Math.max(MARGIN - spread.top, Math.min(rawHandTop, viewportH - spread.bottom - MARGIN));
+  const handLeft = Math.max(MARGIN - spread.left, Math.min(rawHandLeft, viewportW - spread.right - MARGIN));
 
   const isLast = index === steps.length - 1;
 
@@ -422,8 +507,15 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
           className="absolute"
           aria-hidden="true"
           style={{
-            top: handTop, left: handLeft, pointerEvents: 'none',
-            transition: 'top .34s cubic-bezier(.32,.72,0,1), left .34s cubic-bezier(.32,.72,0,1)',
+            top: handTop,
+            left: handLeft,
+            pointerEvents: 'none',
+            transform: `rotate(${tilt}deg)`,
+            // Around the fingertip, so the hand pivots on the point it touches
+            // rather than swinging the tip away from the control.
+            transformOrigin: '44% 4%',
+            transition: 'top .34s cubic-bezier(.32,.72,0,1), left .34s cubic-bezier(.32,.72,0,1),'
+              + ' transform .34s cubic-bezier(.32,.72,0,1)',
           }}
         >
           <div className="relative" style={rtl ? { transform: 'scaleX(-1)' } : undefined}>
