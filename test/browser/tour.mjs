@@ -32,6 +32,53 @@ const SIZES = [
 /** What the rest of the suite runs at, restored after each sweep. */
 const BASE_SIZE = { width: 428, height: 926 };
 
+/**
+ * One step, measured against everything that can go wrong with it.
+ *
+ * Gathered in a single evaluate so the numbers all describe the same moment —
+ * reading them one at a time let the tour settle between reads and hid the
+ * state that was actually on screen.
+ */
+const measureStep = (browser, target) => browser.evaluate(`
+  const tour = document.querySelector('[data-testid="tour"]');
+  if (!tour) return null;
+  const hand = tour.querySelector('.tour-hand');
+  const card = document.querySelector('.tour-card');
+  const control = document.querySelector('[data-tutorial=' + ${JSON.stringify(JSON.stringify(target))} + ']');
+  if (!hand || !card) return null;
+
+  const h = hand.getBoundingClientRect();
+  const c = card.getBoundingClientRect();
+  const over = (a, b) =>
+    Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
+    * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+
+  return {
+    handOnScreen: h.top >= 0 && h.left >= 0 && h.bottom <= innerHeight && h.right <= innerWidth,
+    handUnderCard: over(h, c) / (h.width * h.height),
+    controlBuried: control ? over(h, control.getBoundingClientRect())
+      / (control.getBoundingClientRect().width * control.getBoundingClientRect().height) : 0,
+    cardOnScreen: c.top >= 0 && c.bottom <= innerHeight,
+    overflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    // A tour with its own words missing is a tour nobody can follow.
+    hasTitle: !!(tour.querySelector('h2, h3') || {}).textContent,
+    hand: { t: Math.round(h.top), l: Math.round(h.left) },
+    viewport: [innerWidth, innerHeight],
+  };
+`);
+
+/** Every way a step can be wrong, in one place so the message says which. */
+const checkStep = (check, label, m) => {
+  check(`${label}: the hand is on screen`, m && m.handOnScreen, JSON.stringify(m));
+  check(`${label}: the hand is not under the card`, m && m.handUnderCard < 0.2,
+    `${Math.round((m?.handUnderCard ?? 1) * 100)}%`);
+  check(`${label}: the hand is not on top of the control`, m && m.controlBuried < 0.25,
+    `${Math.round((m?.controlBuried ?? 1) * 100)}%`);
+  check(`${label}: the card fits and nothing overflows`,
+    m && m.cardOnScreen && !m.overflows, JSON.stringify(m));
+  check(`${label}: the step has words`, m && m.hasTitle, JSON.stringify(m));
+};
+
 /*
   Reading the tour's state out of the DOM.
 
@@ -156,6 +203,29 @@ for (let i = 0; i < PHASE1.length; i++) {
   check(`step ${i + 1}'s hand is on screen`, hand && hand.onScreen, JSON.stringify(hand));
   check(`and not buried under the card`, hand && hand.hiddenByCard < 0.2,
     `${Math.round((hand?.hiddenByCard ?? 1) * 100)}% covered`);
+
+  /*
+    And not sitting on the control either.
+
+    The hand is 44 by 50; the language button is 40 by 40. Any placement that
+    lands on something that size hides it completely, which is the opposite of
+    pointing at it — it was covering 77% of that button and 31% of the shutter.
+    The card being clear of the hand says nothing about this: both were true at
+    once.
+  */
+  const obstruction = await browser.evaluate(`
+    const h = document.querySelector('[data-testid="tour"] .tour-hand');
+    const target = document.querySelector('[data-tutorial=${JSON.stringify(PHASE1[i])}]');
+    if (!h || !target) return null;
+    const a = h.getBoundingClientRect();
+    const b = target.getBoundingClientRect();
+    const over = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
+      * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+    return { covered: over / (b.width * b.height), size: [Math.round(b.width), Math.round(b.height)] };
+  `);
+  check(`and does not bury ${PHASE1[i]} itself`,
+    obstruction && obstruction.covered < 0.25,
+    `${Math.round((obstruction?.covered ?? 1) * 100)}% of ${JSON.stringify(obstruction?.size)}`);
 
   /*
     The card must not sit on the thing it is describing.
@@ -519,4 +589,154 @@ for (let i = 0; i < PHASE2.length; i++) {
 check('ar: every step of the result tour found its target',
   arSeen2.length === PHASE2.length, JSON.stringify(arSeen2));
 
-await finish(arabicResult);
+await arabicResult.close();
+
+/*
+  ── Both tours, both languages, both themes, every screen ─────────────────
+
+  Each of those has broken something on its own: Arabic wrapped the card taller
+  and tipped it to the wrong side of the spotlight; a full-width target left
+  the hand nowhere to go but under the card; a small control at the edge of the
+  screen had the hand dragged on top of it by a clamp. None of them was visible
+  from the combination the suite happened to run at.
+
+  Dark is in here because the hand is drawn from two theme colours, and a mark
+  painted in the scrim's own colour is a mark nobody can see.
+*/
+for (const dark of [false, true]) {
+  for (const lang of ['en', 'ar']) {
+    const theme = dark ? 'dark' : 'light';
+
+    // ── The camera tour ──
+    const cam = await openApp({ tour: true, dark, language: lang });
+    await cam.evaluate(`
+      await new Promise(r => setTimeout(r, 2300));
+      const v = document.querySelector('video'); if (v) v.dispatchEvent(new Event('ended'));
+      await new Promise(r => setTimeout(r, 1100));
+      return 'ok';
+    `);
+
+    for (let i = 0; i < PHASE1.length; i++) {
+      for (const size of SIZES) {
+        await cam.setViewport(size.width, size.height);
+        await cam.evaluate(`
+          await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+          await new Promise(r => setTimeout(r, 240));
+          return 'ok';
+        `);
+        checkStep(check, `${lang}/${theme} camera ${PHASE1[i]} on ${size.name}`,
+          await measureStep(cam, PHASE1[i]));
+      }
+      await cam.setViewport(BASE_SIZE.width, BASE_SIZE.height);
+      if (i < PHASE1.length - 1) await advance(cam);
+    }
+    await cam.close();
+
+    // ── The medicine tour ──
+    const med = await openApp({
+      tour: true, dark, language: lang, storage: { tourSeenVersion1: VERSION },
+    });
+    await med.evaluate(`
+      await new Promise(r => setTimeout(r, 2300));
+      const v = document.querySelector('video'); if (v) v.dispatchEvent(new Event('ended'));
+      await new Promise(r => setTimeout(r, 900));
+      return 'ok';
+    `);
+    const got = await searchFor(med, 'Lipitor');
+    check(`${lang}/${theme}: a medicine is reached`, got === 'ok', got);
+    await med.evaluate(`await new Promise(r => setTimeout(r, 1400)); return 'ok';`);
+
+    for (let i = 0; i < PHASE2.length; i++) {
+      for (const size of SIZES) {
+        await med.setViewport(size.width, size.height);
+        await med.evaluate(`
+          await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+          await new Promise(r => setTimeout(r, 240));
+          return 'ok';
+        `);
+        checkStep(check, `${lang}/${theme} medicine ${PHASE2[i]} on ${size.name}`,
+          await measureStep(med, PHASE2[i]));
+      }
+      await med.setViewport(BASE_SIZE.width, BASE_SIZE.height);
+      if (i < PHASE2.length - 1) await advance(med);
+    }
+    await med.close();
+  }
+}
+
+/*
+  ── The page underneath does not move ─────────────────────────────────────
+
+  The scrim was assumed to swallow the gesture because it covers everything. It
+  does not: a fixed overlay is painted over the page, not in the way of it, so
+  a drag anywhere scrolled the medicine underneath and left the spotlight over
+  whatever had taken its place.
+*/
+const locked = await openApp({ tour: true, storage: { tourSeenVersion1: VERSION } });
+await locked.evaluate(`
+  await new Promise(r => setTimeout(r, 2300));
+  const v = document.querySelector('video'); if (v) v.dispatchEvent(new Event('ended'));
+  await new Promise(r => setTimeout(r, 900));
+  return 'ok';
+`);
+check('a medicine is reached for the scroll check', (await searchFor(locked, 'Lipitor')) === 'ok');
+await locked.evaluate(`await new Promise(r => setTimeout(r, 1500)); return 'ok';`);
+
+const gesture = await locked.evaluate(`
+  const tour = document.querySelector('[data-testid="tour"]');
+  if (!tour) return { noTour: true };
+  const before = Math.round(window.scrollY);
+  const wheel = new WheelEvent('wheel', { deltaY: 500, bubbles: true, cancelable: true });
+  const wheelAllowed = tour.dispatchEvent(wheel);
+  const touch = new Event('touchmove', { bubbles: true, cancelable: true });
+  const touchAllowed = tour.dispatchEvent(touch);
+  await new Promise(r => setTimeout(r, 400));
+  return {
+    wheelAllowed,
+    touchAllowed,
+    touchAction: getComputedStyle(tour).touchAction,
+    moved: Math.round(window.scrollY) - before,
+    scrollable: document.documentElement.scrollHeight > innerHeight + 4,
+  };
+`);
+check('the page really could be scrolled, so the check means something',
+  gesture.scrollable, JSON.stringify(gesture));
+check('a wheel over the tour is refused', gesture.wheelAllowed === false, JSON.stringify(gesture));
+check('and a drag is refused', gesture.touchAllowed === false, JSON.stringify(gesture));
+check('and the browser is told not to scroll from it either',
+  gesture.touchAction === 'none', String(gesture.touchAction));
+check('so nothing moved underneath', gesture.moved === 0, String(gesture.moved));
+
+/*
+  ── A step change is one movement, not two ────────────────────────────────
+
+  The page used to glide to the next target while the spotlight animated onto
+  it and the card's words changed immediately — three motions that did not
+  agree. Measured: four hundred milliseconds before anything lined up, against
+  thirty for a step whose target was already on screen.
+*/
+const settle = await locked.evaluate(`
+  const tour = () => document.querySelector('[data-testid="tour"]');
+  const holeOf = () => {
+    const r = document.querySelector('[data-testid="tour"] mask rect[fill="black"]');
+    return r ? r.getAttribute('y') + 'x' + r.getAttribute('height') : null;
+  };
+  const t0 = performance.now();
+  tour().querySelector('[data-testid="tour-next"]').click();
+  let last = null, stableSince = null;
+  for (let i = 0; i < 240; i++) {
+    await new Promise(r => requestAnimationFrame(r));
+    if (!tour()) break;
+    const h = holeOf();
+    if (h !== last) { last = h; stableSince = performance.now(); }
+    else if (stableSince && performance.now() - stableSince > 250) {
+      return { settledAfterMs: Math.round(stableSince - t0) };
+    }
+  }
+  return { settledAfterMs: null };
+`);
+check('moving to the step below the fold settles quickly',
+  settle.settledAfterMs !== null && settle.settledAfterMs < 150,
+  `${settle.settledAfterMs}ms`);
+
+await finish(locked);

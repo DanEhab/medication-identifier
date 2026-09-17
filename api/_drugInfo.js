@@ -136,6 +136,36 @@ const asSeparatedLine = (value) => {
     .trim();
 };
 
+/**
+ * Line breaks that landed in the middle of a sentence, joined back up.
+ *
+ * The screen renders each line of these fields as its own paragraph, which is
+ * right for text that has paragraphs and wrong for a break the model put
+ * inside a clause. Panadol's storage line was stored as
+ *
+ *   Store at room temperature (15-30\nC or 59-86\nF) away from moisture...
+ *
+ * and rendered as three stubs, one of them the single character "F)". The
+ * degree signs had become newlines somewhere between the model and the answer.
+ *
+ * So a digit, a break and a lone C or F is put back as a degree sign — "Call
+ * your doctor" cannot match it, because the letter has to stand alone — and
+ * any other break that is not ending a sentence or starting a list is simply a
+ * space, which is what it was meant to be.
+ *
+ * Applied on the way out as well as on the way in, so the entries already
+ * holding a mangled line are repaired as they are served rather than having to
+ * be regenerated.
+ */
+function tidyProse(text) {
+  if (!text) return text;
+  return text
+    .replace(/(\d)[ \t]*\r?\n[ \t]*([CF])(?![A-Za-z])/g, '$1°$2')
+    .replace(/([^.!?:\n])\r?\n(?![ \t]*[-*•]\s)(?=[^\r\n])/g, '$1 ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
 /** Case- and separator-insensitive key lookup, so DrugName == drug_name. */
 const canonicalise = (key) => key.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -193,9 +223,11 @@ function normalizeDrugInfo(raw) {
 
   const out = {};
   for (const field of TEXT_FIELDS) {
-    out[field] = field === 'neverWith' ? asSeparatedLine(pick(raw, field)) : asText(pick(raw, field));
+    out[field] = field === 'neverWith'
+      ? asSeparatedLine(pick(raw, field))
+      : tidyProse(asText(pick(raw, field)));
   }
-  for (const field of LIST_FIELDS) out[field] = asList(pick(raw, field));
+  for (const field of LIST_FIELDS) out[field] = asList(pick(raw, field)).map(tidyProse);
 
   out.identifiedAs = asText(pick(raw, 'identifiedAs'));
   out.safetyNote = asText(pick(raw, 'safetyNote'));
