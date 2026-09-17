@@ -3,7 +3,9 @@ import type { MedicationSchedule, SavedMedication } from '../lib/medicationStora
 import {
   getMedicationsFor, removeMedication, setSchedule, forgetMedicationsFor, countMedicationsFor,
 } from '../lib/medicationStorage';
-import { findInteractions, displayNameOf, type Interaction } from '../lib/interactions';
+import {
+  findInteractions, findDuplicateIngredients, displayNameOf, type Interaction,
+} from '../lib/interactions';
 import {
   getProfiles, getActiveProfileId, setActiveProfileId, addProfile, removeProfile,
   initialFor, DEFAULT_PROFILE_ID, MAX_PROFILES, MAX_PROFILE_NAME, type Profile,
@@ -91,6 +93,7 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
   }, [profiles, activeId]);
 
   const interactions = useMemo(() => findInteractions(saved), [saved]);
+  const duplicates = useMemo(() => findDuplicateIngredients(saved), [saved]);
 
   const chooseProfile = (id: string) => {
     setActiveProfileId(id);
@@ -345,6 +348,39 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
           </p>
         </div>
       )}
+
+      {/*
+        One medicine on the list twice under two names.
+
+        Above the interaction warning on purpose. An interaction is a question
+        for a pharmacist; this is arithmetic, and it is the commonest accidental
+        overdose there is — two boxes, two names, one drug.
+      */}
+      {duplicates.map((duplicate) => (
+        <div className="px-5 pt-4" key={duplicate.ingredient}>
+          <div
+            role="status"
+            data-testid="duplicate-ingredient"
+            className="w-full bg-surface rounded-[16px] py-3.5 px-4 flex items-start gap-3"
+            style={{ border: '2px solid var(--clay-soft)' }}
+          >
+            <span className="shrink-0 mt-0.5"><DangerIcon /></span>
+            <span className="flex-1 min-w-0">
+              <span className="block font-semibold text-[16px] leading-[1.4] text-clay">
+                {t('sameIngredientTitle')}
+              </span>
+              <span className="block text-[15px] leading-[1.45] text-clay-deep"
+                style={{ textWrap: 'pretty' }}>
+                <bdi>
+                  {t('sameIngredientBody')
+                    .replace('{names}', duplicate.names.join(' + '))
+                    .replace('{ingredient}', duplicate.ingredient)}
+                </bdi>
+              </span>
+            </span>
+          </div>
+        </div>
+      ))}
 
       {/* ── What the list can tell you that one page cannot ── */}
       {interactions.length > 0 && (

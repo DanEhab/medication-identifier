@@ -252,7 +252,9 @@ const DRUG_INFO_SCHEMA = {
         'The generic (INN) active ingredient name, lowercase English, with NO brand name, ' +
         'NO strength, NO dosage form and NO punctuation. This is what the app checks for ' +
         'interactions and for the same ingredient taken twice, so it must be identical for ' +
-        'every product containing it. Examples: "Panadol 500mg" -> "paracetamol"; ' +
+        'every product containing it. Always the INN name, never a national variant: ' +
+        '"paracetamol" and NEVER "acetaminophen"; "salbutamol" and never "albuterol"; ' +
+        '"adrenaline" and never "epinephrine". Examples: "Panadol 500mg" -> "paracetamol"; ' +
         '"Lipitor" -> "atorvastatin"; "Brufen 400" -> "ibuprofen". For a combination product, ' +
         'list the ingredients joined by "+" in alphabetical order, e.g. ' +
         '"amoxicillin+clavulanic acid". Empty string unless recognition is "medication".',
@@ -272,7 +274,9 @@ const DRUG_INFO_SCHEMA = {
         'If the query names a brand, that brand and no other — NEVER a better-known brand ' +
         'that shares the active ingredient. "Abimol" is "Abimol", not "Panadol". ' +
         'If the query is a generic ingredient name, or the medicine is sold only ' +
-        'generically, repeat the generic name rather than naming a brand.',
+        'generically, repeat the generic name rather than naming a brand, capitalised ' +
+        'the way it would be printed on a pack: "Paracetamol", not "paracetamol". ' +
+        'This is the heading the person reads.',
     },
     whatItIsFor: {
       type: 'STRING',
