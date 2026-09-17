@@ -43,6 +43,15 @@ const ShareIcon: React.FC = () => (
   </svg>
 );
 
+/**
+ * Whether a value is short enough to be set as a figure rather than a passage.
+ *
+ * "36-42 hours" is a number. "The elimination half-life is approximately 6-7
+ * days in euthyroid individuals. Steady state is typically reached within 4-6
+ * weeks of consistent dosing." is not, whatever the schema asked for.
+ */
+const isFigure = (value: string) => value.trim().length <= 28 && !value.includes('.');
+
 /** The four parts of ADME, in the order they are taught, plus the half-life. */
 const PK_ROWS = [
   ['halfLife', 'halfLifeLabel'],
@@ -289,13 +298,25 @@ export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({
             <>
               <Heading>{t('pharmacokineticsHeading')}</Heading>
               <Card testid="clinical-pk">
+                {/*
+                  The half-life is set large because it is the number looked
+                  for first — but only when it is a number. Levothyroxine's
+                  came back as two sentences about steady state, and a hundred
+                  and fifty characters at nineteen pixels swamps the card it
+                  is meant to lead. Anything that long is a passage, so it is
+                  set as one.
+                */}
                 {info.pharmacokinetics.halfLife.trim() && (
-                  <div className="flex items-baseline gap-2.5 flex-wrap">
-                    <Label>{t('halfLifeLabel').toUpperCase()}</Label>
-                    <span className="font-semibold text-[19px] text-ink">
-                      <bdi>{info.pharmacokinetics.halfLife}</bdi>
-                    </span>
-                  </div>
+                  isFigure(info.pharmacokinetics.halfLife) ? (
+                    <div className="flex items-baseline gap-2.5 flex-wrap">
+                      <Label>{t('halfLifeLabel').toUpperCase()}</Label>
+                      <span className="font-semibold text-[19px] text-ink">
+                        <bdi>{info.pharmacokinetics.halfLife}</bdi>
+                      </span>
+                    </div>
+                  ) : (
+                    <Row label={t('halfLifeLabel').toUpperCase()} value={info.pharmacokinetics.halfLife} />
+                  )
                 )}
                 {PK_ROWS.filter(([key]) => key !== 'halfLife').map(([key, labelKey]) => (
                   <Row key={key} label={t(labelKey)} value={info.pharmacokinetics[key]} />
