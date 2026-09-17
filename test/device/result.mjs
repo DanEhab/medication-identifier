@@ -221,8 +221,11 @@ if (stubReached === 'ok') {
     return onDetails;
   `);
   check('a chip opens the side effects screen on device',
-    chip.common && chip.serious && chip.missed && chip.storage && chip.share,
-    JSON.stringify(chip));
+    chip.common && chip.serious && chip.share, JSON.stringify(chip));
+  // And only that. The three rows used to open one page scrolled to three
+  // places, so this screen carried all three subjects whichever was asked for.
+  check('and it carries only side effects', !chip.missed && !chip.storage,
+    `missed=${chip.missed} storage=${chip.storage}`);
   check('the urgent list is told apart from the mild one', chip.serious, chip.heading);
   check('the side effects screen does not overflow on device', !chip.overflows);
   check('back returns to the result screen', chip.backToResult);

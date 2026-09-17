@@ -334,7 +334,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
           )}
 
           {(drugInfo.howToTake?.trim() || drugInfo.dosageAdministration) && (
-            <div className="px-5 pt-4">
+            <div className="px-5 pt-4" data-testid="how-to-take">
               <div className="text-[17px] leading-[1.6] text-ink-dim">
                 <bdi><MarkdownText text={drugInfo.howToTake?.trim() || drugInfo.dosageAdministration} /></bdi>
               </div>
@@ -347,7 +347,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             while the tile above says only "with meals" or "not needed".
           */}
           {drugInfo.foodDrinkEffect?.trim() && (
-            <div className="px-5 pt-4">
+            <div className="px-5 pt-4" data-testid="food-and-drink">
               <Eyebrow className="mb-1.5">{t('foodAndDrink')}</Eyebrow>
               <div className="text-[17px] leading-[1.6] text-ink-dim">
                 <bdi><MarkdownText text={drugInfo.foodDrinkEffect} /></bdi>
