@@ -165,7 +165,13 @@ test('a typed space matches the way the key was written', async () => {
 test('no more than eight are returned', async () => {
   const many = [];
   for (let i = 0; i < 20; i++) {
-    many.push(answer(`zeta${i}`, { drugName: `Zeta ${i}`, brandName: `Zeta ${i}`, canonicalName: 'Zeta', strength: '1 mg' }));
+    // Names that differ by more than a number. "Zeta 1" and "Zeta 2" are one
+    // medicine at two strengths as far as a lookup is concerned, so they now
+    // correctly merge into one suggestion and would never reach the cap.
+    const suffix = String.fromCharCode(97 + i);
+    many.push(answer(`zeta${suffix}`, {
+      drugName: `Zeta${suffix}`, brandName: `Zeta${suffix}`, canonicalName: 'Zeta', strength: '1 mg',
+    }));
   }
   await client.db(DB_NAME).collection('medications').insertMany(many);
   const res = await invoke('zeta');
@@ -194,4 +200,36 @@ test('a broken database returns no suggestions rather than an error', async () =
     await require('./db.js').closeDatabase();
     process.env.MONGODB_URI = good;
   }
+});
+
+/*
+  One medicine is one suggestion, however the name reached the list.
+
+  An answer is offered under its own name and a pointer under the name it
+  resolved to, strength and all — so "Panadol" and "Panadol 500mg" used to be
+  two rows of one medicine in a list of eight, one of them carrying a strength
+  nobody typed. They are compared the way a lookup compares them now.
+*/
+test('a pointer does not offer a second row for an answer already listed', async () => {
+  await client.db(DB_NAME).collection('medications').insertOne(
+    answer('anadin', { drugName: 'Anadin 200mg', brandName: 'Anadin', canonicalName: 'ibuprofen', strength: '200 mg' }),
+  );
+  await client.db(DB_NAME).collection('medication_aliases').insertOne({
+    _id: 'anadn', canonicalKey: 'anadin', resolvedName: 'Anadin 200mg', updatedAt: new Date(),
+  });
+
+  const res = await invoke('anad');
+  const names = res.payload.suggestions.map((s) => s.name);
+
+  assert.deepEqual(names, ['Anadin'], `one medicine, one row — got ${JSON.stringify(names)}`);
+});
+
+test('but two genuinely different medicines are still two suggestions', async () => {
+  await client.db(DB_NAME).collection('medications').insertMany([
+    answer('nurofen', { drugName: 'Nurofen 200mg', brandName: 'Nurofen', canonicalName: 'ibuprofen', strength: '200 mg' }),
+    answer('nurofen plus', { drugName: 'Nurofen Plus', brandName: 'Nurofen Plus', canonicalName: 'codeine+ibuprofen', strength: '200 mg / 12.8 mg' }),
+  ]);
+
+  const names = (await invoke('nurofen')).payload.suggestions.map((s) => s.name).sort();
+  assert.deepEqual(names, ['Nurofen', 'Nurofen Plus']);
 });
