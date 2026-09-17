@@ -158,32 +158,60 @@ check('dropping a time drops its alarm', rebuilt.count === 3,
 // question somebody setting a reminder is really asking.
 const before = postedNotifications();
 
+/*
+  Scheduled the way the app schedules, not the way that is easy to test.
+
+  This check used to use `schedule: { at }` — a one-shot at a moment — and
+  passed, while the app uses `schedule: { on: { hour, minute } }` for a daily
+  time. So the thing proven to arrive was not the thing being shipped. The
+  minute has to be the next one to tick over, because `on` matches an hour and
+  a minute and the seconds come from whenever it was scheduled.
+*/
 const fired = await wv.evaluate(`
   const { LocalNotifications } = window.Capacitor.Plugins;
-  const at = new Date(Date.now() + 5000);
+  const when = new Date(Date.now() + 65000);
   await LocalNotifications.schedule({
     notifications: [{
       id: 999001,
       title: 'Time for Lipitor',
       body: 'Your reminder for this time.',
-      schedule: { at: at.toISOString(), allowWhileIdle: true },
-      // Same reason as the app: an exact alarm without the permission opens
-      // the system settings screen and waits, so the call never returns.
+      schedule: { on: { hour: when.getHours(), minute: when.getMinutes() }, allowWhileIdle: true },
+      // An exact alarm without the permission opens the system settings screen
+      // and waits there, so the call never returns. The app says so too.
       isExactNotification: false,
+      channelId: 'medication-reminders-v1',
     }],
   });
-  return at.toISOString();
+  return when.toTimeString().slice(0, 8);
 `);
 
-await new Promise((r) => setTimeout(r, 12000));
+/*
+  Inexact alarms come with a delivery window — about ninety seconds on this
+  emulator, longer on a dozing phone — so the wait has to cover the window and
+  not just the target. Waiting only to the target is how this looked broken.
+*/
+await new Promise((r) => setTimeout(r, 160000));
 const after = postedNotifications();
 
-check('a reminder set for five seconds from now actually arrives',
+check('a reminder scheduled the way the app schedules actually arrives',
   after.count > before.count,
-  `${before.count} -> ${after.count} lines mentioning the app (scheduled for ${fired})`);
-check('and it is the app that posted it',
-  after.lines.some((line) => line.includes(APP_ID)),
-  JSON.stringify(after.lines.slice(0, 2)));
+  `${before.count} -> ${after.count} lines mentioning the app (due ${fired})`);
+
+/*
+  And arrives loudly enough to be noticed.
+
+  Android decides that from the channel, not the notification, and the plugin's
+  own "default" channel is IMPORTANCE_DEFAULT: it lands silently in the shade
+  with no banner. For "take your tablet" that is indistinguishable from never
+  arriving — which is exactly what it was reported as.
+*/
+const posted = shell('dumpsys notification --noredact')
+  .split(/\r?\n/)
+  .find((line) => line.includes('NotificationRecord') && line.includes(APP_ID)) || '';
+check('on the reminders channel', /channel=medication-reminders-v1/.test(posted),
+  posted.slice(0, 140));
+check('at an importance that makes a sound', /importance=4/.test(posted),
+  (posted.match(/importance=\d/) || ['none'])[0]);
 
 // Leave nothing behind for the next suite.
 await wv.evaluate(`
