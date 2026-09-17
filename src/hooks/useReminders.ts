@@ -25,6 +25,8 @@ export function useReminders({ syncOnMount = false }: { syncOnMount?: boolean } 
     body: (person: string | null) => (person
       ? t('reminderBodyFor').replace('{name}', person)
       : t('reminderBody')),
+    channelName: t('reminderChannel'),
+    channelDescription: t('reminderChannelWhat'),
   }), [t]);
 
   const rebuild = useCallback(async () => {
