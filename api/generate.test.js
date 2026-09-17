@@ -69,20 +69,37 @@ const VALID_ANSWER = {
 };
 
 /**
- * What a real model does: several brand names and misspellings of one medicine
- * all resolve to the same generic ingredient. This is the behaviour the cache
- * key now depends on, so the stub has to reproduce it.
+ * A small pharmacy, with the property that actually matters: several distinct
+ * products share one active ingredient.
+ *
+ * Panadol, Abimol and Adol are all paracetamol and all different boxes on a
+ * shelf. The stub has to reproduce that, because collapsing them was the bug —
+ * a search for Abimol was answered with Panadol's record, and the result screen
+ * leads with the brand, so the page said Panadol.
+ *
+ * Misspellings and the Arabic spelling still land on their own product, which
+ * is the deduplication the cache exists for.
  */
 const PHARMACY = {
-  panadol: { drugName: 'Paracetamol (Panadol)', canonicalName: 'paracetamol' },
-  panadooll: { drugName: 'Paracetamol (Panadol)', canonicalName: 'paracetamol' },
-  panadl: { drugName: 'Paracetamol (Panadol)', canonicalName: 'paracetamol' },
-  paracetamol: { drugName: 'Paracetamol', canonicalName: 'paracetamol' },
-  acetaminophen: { drugName: 'Paracetamol (Acetaminophen)', canonicalName: 'paracetamol' },
-  بنادول: { drugName: 'Paracetamol (Panadol)', canonicalName: 'paracetamol' },
-  brufen: { drugName: 'Ibuprofen (Brufen)', canonicalName: 'ibuprofen' },
-  ibuprofin: { drugName: 'Ibuprofen', canonicalName: 'ibuprofen' },
-  ibuprofen: { drugName: 'Ibuprofen', canonicalName: 'ibuprofen' },
+  panadol: { drugName: 'Panadol 500mg', brandName: 'Panadol', canonicalName: 'paracetamol' },
+  panadooll: { drugName: 'Panadol 500mg', brandName: 'Panadol', canonicalName: 'paracetamol' },
+  panadl: { drugName: 'Panadol 500mg', brandName: 'Panadol', canonicalName: 'paracetamol' },
+  بنادول: { drugName: 'Panadol 500mg', brandName: 'Panadol', canonicalName: 'paracetamol' },
+  // Same ingredient, different box. Neither may ever be served for the other.
+  abimol: { drugName: 'Abimol 500mg', brandName: 'Abimol', canonicalName: 'paracetamol' },
+  أبيمول: { drugName: 'Abimol 500mg', brandName: 'Abimol', canonicalName: 'paracetamol' },
+  adol: { drugName: 'Adol 500mg', brandName: 'Adol', canonicalName: 'paracetamol' },
+  // Same brand family, different formula: this one also contains caffeine.
+  'panadol extra': {
+    drugName: 'Panadol Extra', brandName: 'Panadol Extra', canonicalName: 'caffeine+paracetamol',
+  },
+  // Generic names name no brand, so they key on the ingredient.
+  paracetamol: { drugName: 'Paracetamol 500mg', brandName: 'Paracetamol', canonicalName: 'paracetamol' },
+  باراسيتامول: { drugName: 'Paracetamol 500mg', brandName: 'Paracetamol', canonicalName: 'paracetamol' },
+  acetaminophen: { drugName: 'Paracetamol 500mg', brandName: 'Paracetamol', canonicalName: 'paracetamol' },
+  brufen: { drugName: 'Brufen 400mg', brandName: 'Brufen', canonicalName: 'ibuprofen' },
+  ibuprofin: { drugName: 'Ibuprofen 400mg', brandName: 'Ibuprofen', canonicalName: 'ibuprofen' },
+  ibuprofen: { drugName: 'Ibuprofen 400mg', brandName: 'Ibuprofen', canonicalName: 'ibuprofen' },
 };
 
 /** Pulls the requested drug out of the prompt, the way the handler does. */
@@ -96,9 +113,9 @@ function requestedDrug(body) {
 }
 
 /**
- * The default answer describes whatever was asked for, resolving known brands
- * and typos to their ingredient. Anything unknown echoes the search term, so a
- * test that looks up "Aspirin" gets an entry keyed "aspirin".
+ * The default answer describes whatever was asked for, resolving known typos to
+ * the product they name. Anything unknown echoes the search term, so a test
+ * that looks up "Aspirin" gets an entry keyed "aspirin".
  */
 function defaultAnswerFor(drug) {
   const key = String(drug).toLowerCase().replace(/[^a-z0-9؀-ۿ]+/g, ' ').trim();
@@ -107,6 +124,7 @@ function defaultAnswerFor(drug) {
   return {
     ...VALID_ANSWER,
     drugName: drug || 'Stub Drug',
+    brandName: drug || 'Stub Drug',
     canonicalName: key || 'stub drug',
     recognition: 'medication',
   };
@@ -136,10 +154,15 @@ function installGeminiStub(payload) {
     // The cheap resolution step. Counted separately because the whole point of
     // it is that it costs a fraction of a full answer, so a test that says
     // "one Gemini call" must not be satisfied by a resolution.
-    if (promptText.includes('generic active ingredient')) {
+    //
+    // It answers with the product, not the ingredient. Asking it for the
+    // ingredient is what let one brand's spelling resolve onto another brand's
+    // entry, so the stub must not be more helpful than the real thing is now
+    // asked to be.
+    if (promptText.includes('does this name refer to')) {
       resolveCalls++;
-      const drug = requestedDrug({ contents: promptText.replace(/.*medicine:/, 'drug:') });
-      return reply({ canonicalName: defaultAnswerFor(drug).canonicalName });
+      const drug = requestedDrug({ contents: promptText.replace(/.*refer to:/, 'drug:') });
+      return reply({ productName: defaultAnswerFor(drug).brandName });
     }
 
     geminiCalls++;
@@ -609,7 +632,9 @@ test('a real medication is unaffected and still caches', async () => {
 
 test('entries cached before classification existed are still served', async () => {
   // Backwards compatibility: no recognition field, but a complete drug record.
-  const legacy = { ...VALID_ANSWER };
+  const legacy = {
+    ...VALID_ANSWER, drugName: 'LegacyDrug', brandName: 'LegacyDrug', canonicalName: 'legacydrug',
+  };
   delete legacy.recognition;   // the only thing this fixture is missing
   await client.db(DB_NAME).collection('medications').insertOne({
     _id: 'legacydrug',
@@ -628,11 +653,15 @@ test('entries cached before classification existed are still served', async () =
   assert.equal(JSON.parse(res.payload.text).recognition, 'medication');
 });
 
-// ── One medicine, one entry ──────────────────────────────────────────────────
+// ── One medicine, one entry — and one medicine only ──────────────────────────
 // The cache used to be keyed on whatever was typed, so "panadooll", "Panadol
-// 500mg" and "paracetamol" were three rows, three Gemini calls and three
-// differently worded answers for one drug. Answers are now keyed on the generic
-// ingredient the model resolves the query to, and search terms point at them.
+// 500mg" and "Panadol" were three rows, three Gemini calls and three
+// differently worded answers for one drug. Answers are now keyed on the product
+// the model names, and search terms point at them.
+//
+// Keying them on the *ingredient* instead, which is what this file used to
+// assert, went one step too far and is what made the app wrong: it put every
+// brand of paracetamol in one row carrying one brand's name.
 
 const aliases = () => client.db(DB_NAME).collection('medication_aliases');
 const medications = () => client.db(DB_NAME).collection('medications');
@@ -641,13 +670,116 @@ test('every spelling of one medicine lands on a single entry', async () => {
   await invoke({ contents: patientPrompt('Panadol') });
   await invoke({ contents: patientPrompt('panadooll') });
   await invoke({ contents: patientPrompt('PANADOL 500mg tablets') });
-  await invoke({ contents: patientPrompt('Acetaminophen') });
+  await invoke({ contents: patientPrompt('بنادول') });
 
   const docs = await medications().find({}).toArray();
   assert.equal(docs.length, 1, 'four spellings must not create four rows');
-  assert.equal(docs[0]._id, 'paracetamol', 'stored under the ingredient, not the typo');
+  assert.equal(docs[0]._id, 'panadol', 'stored under the product, not the typo');
 
   assert.equal(geminiCalls, 1, 'the full answer is generated exactly once');
+});
+
+/*
+  The bug this file exists to prevent from coming back.
+
+  Abimol and Panadol are both paracetamol, and the cache used to file them
+  together under "paracetamol". Whichever was searched first owned the row, and
+  because the result screen leads with the brand, the second person was shown a
+  page headed with the first person's medicine.
+
+  Someone who believes Abimol and Panadol are different medicines can take both.
+  They are the same drug, and that is a paracetamol overdose.
+*/
+test('two brands of one ingredient never share an entry', async () => {
+  const panadol = await invoke({ contents: patientPrompt('Panadol') });
+  const abimol = await invoke({ contents: patientPrompt('Abimol') });
+
+  assert.equal(JSON.parse(panadol.payload.text).brandName, 'Panadol');
+  assert.equal(JSON.parse(abimol.payload.text).brandName, 'Abimol',
+    'searching Abimol must never answer with Panadol');
+
+  const ids = (await medications().find({}).toArray()).map((d) => d._id).sort();
+  assert.deepEqual(ids, ['abimol', 'panadol']);
+
+  // Both still record the shared ingredient, which is what the interaction
+  // check reads to notice the same drug arriving twice under two names.
+  const docs = await medications().find({}).toArray();
+  assert.ok(docs.every((d) => d.data.canonicalName === 'paracetamol'),
+    'the ingredient is still recorded, it is just not the key');
+});
+
+test('a third brand of the same ingredient is its own entry too', async () => {
+  await invoke({ contents: patientPrompt('Panadol') });
+  await invoke({ contents: patientPrompt('Abimol') });
+  const adol = await invoke({ contents: patientPrompt('Adol') });
+
+  assert.equal(adol.payload.cached, false, 'a new brand is never answered from another');
+  assert.equal(JSON.parse(adol.payload.text).brandName, 'Adol');
+  assert.equal(await medications().countDocuments({}), 3);
+});
+
+/*
+  And a brand is not its own variant. Panadol Extra is paracetamol *and*
+  caffeine, so answering a Panadol Extra query from the Panadol entry would drop
+  an ingredient — and answering a Panadol query from the Panadol Extra entry
+  would invent one.
+*/
+test('a variant with an extra ingredient is not the plain product', async () => {
+  await invoke({ contents: patientPrompt('Panadol') });
+  const extra = await invoke({ contents: patientPrompt('Panadol Extra') });
+
+  assert.equal(extra.payload.cached, false);
+  const info = JSON.parse(extra.payload.text);
+  assert.equal(info.brandName, 'Panadol Extra');
+  assert.equal(info.canonicalName, 'caffeine+paracetamol');
+
+  const ids = (await medications().find({}).toArray()).map((d) => d._id).sort();
+  assert.deepEqual(ids, ['panadol', 'panadol extra']);
+});
+
+test('a generic name keys on the ingredient, not on somebody else\'s brand', async () => {
+  await invoke({ contents: patientPrompt('Panadol') });
+  const generic = await invoke({ contents: patientPrompt('Paracetamol') });
+
+  assert.equal(generic.payload.cached, false, 'the brand entry must not answer for the generic');
+  assert.equal(JSON.parse(generic.payload.text).brandName, 'Paracetamol');
+
+  const ids = (await medications().find({}).toArray()).map((d) => d._id).sort();
+  assert.deepEqual(ids, ['panadol', 'paracetamol']);
+});
+
+/*
+  An answer is filed under the name it actually describes.
+
+  The key used to be taken from the cheap resolution call while the contents
+  came from the full one, and nobody checked the two agreed. In the live
+  database that produced a row filed under "fusidic acid" — an antibiotic —
+  holding the record for fluocinolone acetonide, a steroid.
+*/
+test('an answer is stored under what it describes, not what was resolved', async () => {
+  // The resolver is confidently wrong: it says this term means Panadol.
+  const working = global.fetch;
+  global.fetch = async (url, init) => {
+    const promptText = String(init.body || '');
+    if (promptText.includes('does this name refer to')) {
+      resolveCalls++;
+      return {
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: JSON.stringify({ productName: 'Panadol' }) }] } }],
+        }),
+      };
+    }
+    return working(url, init);
+  };
+
+  // ...but the full answer describes Brufen, which is what was stored.
+  const res = await invoke({ contents: patientPrompt('Brufen') });
+
+  assert.equal(JSON.parse(res.payload.text).brandName, 'Brufen');
+  const docs = await medications().find({}).toArray();
+  assert.deepEqual(docs.map((d) => d._id), ['brufen'],
+    'the record decides where it is filed, not the resolver');
 });
 
 test('a spelling nobody has used before costs a resolution, not a full answer', async () => {
@@ -689,14 +821,15 @@ test('search terms are recorded as pointers, not as copies', async () => {
   await invoke({ contents: patientPrompt('panadooll') });
 
   const rows = await aliases().find({}).sort({ _id: 1 }).toArray();
-  assert.deepEqual(rows.map((r) => r._id), ['panadol', 'panadooll']);
-  assert.ok(rows.every((r) => r.canonicalKey === 'paracetamol'), 'both point at the ingredient');
+  // "panadol" is the entry's own key, so a pointer for it would be dead weight.
+  assert.deepEqual(rows.map((r) => r._id), ['panadooll']);
+  assert.ok(rows.every((r) => r.canonicalKey === 'panadol'), 'it points at the product');
   assert.ok(rows.every((r) => r.resolvedName), 'each records what it resolved to, for auditing');
 
   // The point of a pointer is that it is small. A real answer runs to about
   // 2.5 KB; the stub's is much shorter, so this asserts a fixed budget rather
   // than a ratio against it.
-  const answerBytes = JSON.stringify(await medications().findOne({ _id: 'paracetamol' })).length;
+  const answerBytes = JSON.stringify(await medications().findOne({ _id: 'panadol' })).length;
   const aliasBytes = JSON.stringify(rows[0]).length;
   assert.ok(aliasBytes < 300, `an alias should be a couple of hundred bytes, got ${aliasBytes}B`);
   assert.ok(aliasBytes < answerBytes, 'and always smaller than the answer it points at');
@@ -718,13 +851,21 @@ test('an Arabic brand name reaches the same entry as the English one', async () 
   assert.equal(res.payload.cached, true, 'Arabic speakers hit the shared cache too');
   assert.equal(geminiCalls, 1);
   const alias = await aliases().findOne({ _id: 'بنادول' });
-  assert.equal(alias.canonicalKey, 'paracetamol');
+  assert.equal(alias.canonicalKey, 'panadol');
+});
+
+test('an Arabic brand name still does not reach a different brand', async () => {
+  await invoke({ contents: patientPrompt('Panadol') });
+  const res = await invoke({ contents: patientPrompt('أبيمول') });
+
+  assert.equal(res.payload.cached, false, 'Arabic for Abimol is still Abimol');
+  assert.equal(JSON.parse(res.payload.text).brandName, 'Abimol');
 });
 
 test('everyone gets byte-identical text however they spelled it', async () => {
   const a = await invoke({ contents: patientPrompt('Panadol') });
   const b = await invoke({ contents: patientPrompt('panadooll') });
-  const c = await invoke({ contents: patientPrompt('Acetaminophen') });
+  const c = await invoke({ contents: patientPrompt('بنادول') });
 
   assert.equal(a.payload.text, b.payload.text);
   assert.equal(b.payload.text, c.payload.text);
@@ -735,7 +876,7 @@ test('different medicines still get their own entries', async () => {
   await invoke({ contents: patientPrompt('Brufen') });
 
   const ids = (await medications().find({}).toArray()).map((d) => d._id).sort();
-  assert.deepEqual(ids, ['ibuprofen', 'paracetamol'], 'merging must not go too far');
+  assert.deepEqual(ids, ['brufen', 'panadol'], 'merging must not go too far');
   assert.equal(geminiCalls, 2);
 });
 
@@ -746,7 +887,7 @@ test('the professional view reuses the mapping the patient lookup built', async 
 
   const prof = await client.db(DB_NAME).collection('professional_medications').find({}).toArray();
   assert.equal(prof.length, 1);
-  assert.equal(prof[0]._id, 'paracetamol', 'keyed by ingredient, via the shared alias table');
+  assert.equal(prof[0]._id, 'panadol', 'keyed by product, via the shared alias table');
 
   // A different spelling now hits the professional entry as well.
   const res = await invoke({ contents: professionalPrompt('panadooll') });
@@ -756,16 +897,17 @@ test('the professional view reuses the mapping the patient lookup built', async 
 
 test('a professional lookup does not blank what a pointer already recorded', async () => {
   await invoke({ contents: patientPrompt('Panadol') });
-  const before = await aliases().findOne({ _id: 'panadol' });
-  assert.equal(before.resolvedName, 'Paracetamol (Panadol)');
+  await invoke({ contents: patientPrompt('panadooll') });
+  const before = await aliases().findOne({ _id: 'panadooll' });
+  assert.equal(before.resolvedName, 'Panadol 500mg');
 
   // The professional answer has no drug record of its own, so it must leave
   // the name alone rather than overwriting it with nothing.
-  await invoke({ contents: professionalPrompt('Panadol') });
+  await invoke({ contents: professionalPrompt('panadooll') });
 
-  const after = await aliases().findOne({ _id: 'panadol' });
-  assert.equal(after.resolvedName, 'Paracetamol (Panadol)', 'the recorded name must survive');
-  assert.equal(after.canonicalKey, 'paracetamol');
+  const after = await aliases().findOne({ _id: 'panadooll' });
+  assert.equal(after.resolvedName, 'Panadol 500mg', 'the recorded name must survive');
+  assert.equal(after.canonicalKey, 'panadol');
 });
 
 test('a non-medication never gets an alias either', async () => {
@@ -786,7 +928,7 @@ test('a failed resolution falls back to generating the answer', async () => {
   const working = global.fetch;
   global.fetch = async (url, init) => {
     const promptText = String(init.body || '');
-    if (promptText.includes('generic active ingredient')) throw new Error('resolver unavailable');
+    if (promptText.includes('does this name refer to')) throw new Error('resolver unavailable');
     return working(url, init);
   };
 
@@ -804,7 +946,7 @@ test('expiry still works through an alias', async () => {
   assert.equal(geminiCalls, 1);
 
   const sevenMonthsAgo = new Date(Date.now() - 210 * 24 * 60 * 60 * 1000);
-  await medications().updateOne({ _id: 'paracetamol' }, { $set: { updatedAt: sevenMonthsAgo } });
+  await medications().updateOne({ _id: 'panadol' }, { $set: { updatedAt: sevenMonthsAgo } });
 
   const res = await invoke({ contents: patientPrompt('panadooll') });
 

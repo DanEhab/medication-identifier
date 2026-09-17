@@ -23,7 +23,7 @@ import { createRequire } from 'node:module';
 import { MongoClient } from 'mongodb';
 
 const require = createRequire(import.meta.url);
-const { normalizeKey } = require('../api/_cacheKey.js');
+const { normalizeKey, storageKeyFor, aliasIsSafe } = require('../api/_cacheKey.js');
 const { normalizeDrugInfo, isCacheableDrugInfo, hasResultFields } = require('../api/_drugInfo.js');
 const {
   normalizeProfessionalInfo, isCacheableProfessionalInfo, hasProfessionalFields,
@@ -93,6 +93,7 @@ for (const [collection, normalize, cacheable, hasFields] of [
   const notNormalised = [];
   const stringData = [];
   const unservable = [];
+  const misfiled = [];
   const willRefetch = [];
   const stale = [];
   const languages = new Map();
@@ -109,6 +110,25 @@ for (const [collection, normalize, cacheable, hasFields] of [
     const normalized = normalize(doc.data);
     if (!cacheable(normalized)) unservable.push(doc._id);
     else if (!hasFields(normalized)) willRefetch.push(doc._id);
+
+    /*
+      Whether the document is the medicine it is filed as.
+
+      This is the check that was missing, and the one that matters most. An
+      answer filed under a name it does not describe is served to everybody who
+      searches that name — the entry under "paracetamol" held Panadol's record,
+      so searching "Abimol" returned a page headed "Panadol", and the entry
+      under "fusidic acid" held fluocinolone acetonide's.
+
+      Only the patient records carry an identity to check. A clinical record has
+      no brand of its own and is keyed from the term that fetched it.
+    */
+    if (collection === 'medications' && cacheable(normalized)) {
+      const belongsAt = storageKeyFor(normalized);
+      if (belongsAt && belongsAt !== String(doc._id)) {
+        misfiled.push(`${doc._id} holds ${belongsAt}`);
+      }
+    }
   }
 
   report(notNormalised.length === 0, 'every key is in the form lookups use',
@@ -117,11 +137,23 @@ for (const [collection, normalize, cacheable, hasFields] of [
     keyMismatch.slice(0, 5).join(', '));
   report(unservable.length === 0, 'every document can be rendered',
     unservable.slice(0, 5).join(', '));
+  report(misfiled.length === 0, 'every document is the medicine it is filed as',
+    misfiled.slice(0, 6).join(', '));
 
   if (FIX && unservable.length > 0) {
     const { deletedCount } = await db.collection(collection).deleteMany({ _id: { $in: unservable } });
     console.log(`  fix   removed ${deletedCount} unservable document(s): ${unservable.join(', ')}`);
     // They were not being served anyway; the next lookup writes a good one.
+    problems--;
+  }
+
+  if (FIX && misfiled.length > 0) {
+    // The server already refuses to serve these, so removing them changes
+    // nothing a person would see except the wrong answer going away. Each
+    // costs one model call to rebuild, under the right name this time.
+    const ids = misfiled.map((entry) => entry.slice(0, entry.indexOf(' holds ')));
+    const { deletedCount } = await db.collection(collection).deleteMany({ _id: { $in: ids } });
+    console.log(`  fix   removed ${deletedCount} misfiled document(s): ${ids.join(', ')}`);
     problems--;
   }
   // Not a fault: the code refetches these on first use rather than serving a
@@ -154,11 +186,39 @@ for (const [collection, normalize, cacheable, hasFields] of [
   const noKey = aliases.filter((a) => !a.canonicalKey).map((a) => a._id);
   const noName = aliases.filter((a) => !a.resolvedName).map((a) => a._id);
   const notNormalised = aliases.filter((a) => a._id !== normalizeKey(a._id)).map((a) => a._id);
+  /*
+    A pointer nobody would write today.
+
+    The shape this catches is one ingredient claiming to be a combination
+    containing it: "calcium" pointed at a four-ingredient supplement, so
+    everybody typing "calcium" was shown that supplement.
+  */
+  const unsafe = aliases
+    .filter((a) => a.canonicalKey && a._id !== a.canonicalKey && !aliasIsSafe(a._id, a.canonicalKey))
+    .map((a) => `${a._id} -> ${a.canonicalKey}`);
 
   report(notNormalised.length === 0, 'every alias key is in the form lookups use', notNormalised.slice(0, 5).join(', '));
   report(noKey.length === 0, 'every alias points at a canonical key', noKey.slice(0, 5).join(', '));
   report(selfAliases.length === 0, 'no alias points at itself', selfAliases.slice(0, 5).join(', '));
   report(orphans.length === 0, 'every alias resolves to an answer that exists', orphans.slice(0, 6).join(', '));
+  report(unsafe.length === 0, 'no alias claims to be a medicine it is only part of', unsafe.slice(0, 6).join(', '));
+
+  if (FIX) {
+    // Pointers are derived data: deleting one costs the cheap resolution call
+    // that created it, and nothing else. Wrong ones are served to everybody.
+    const doomed = [
+      ...selfAliases,
+      ...orphans.map((entry) => entry.slice(0, entry.indexOf(' -> '))),
+      ...unsafe.map((entry) => entry.slice(0, entry.indexOf(' -> '))),
+      ...noKey,
+    ];
+    if (doomed.length > 0) {
+      const { deletedCount } = await db.collection('medication_aliases')
+        .deleteMany({ _id: { $in: [...new Set(doomed)] } });
+      console.log(`  fix   removed ${deletedCount} bad pointer(s)`);
+      problems -= [selfAliases, orphans, unsafe, noKey].filter((list) => list.length > 0).length;
+    }
+  }
   // Only used by the type-ahead, so a missing one costs a suggestion, not a lookup.
   report(true, `${noName.length} carry no resolvedName, so they cannot be suggested`,
     noName.slice(0, 6).join(', '));

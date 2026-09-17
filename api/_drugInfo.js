@@ -23,9 +23,11 @@ const RECOGNITION = {
 
 const TEXT_FIELDS = [
   'drugName',
-  // The generic ingredient name. Not shown to the user — it is what the cache
-  // is keyed on, so every brand and spelling of the same medicine lands on one
-  // entry instead of one per spelling. See api/_cacheKey.js.
+  // The generic ingredient name. Shown under the brand, and read by the
+  // interaction check to notice the same ingredient arriving twice under two
+  // brands. It is deliberately NOT what the cache is keyed on: keying on it
+  // made every brand of paracetamol one entry, carrying one brand's name.
+  // See api/_cacheKey.js.
   'canonicalName',
   'strength',
   'commonUse',
@@ -248,9 +250,9 @@ const DRUG_INFO_SCHEMA = {
       type: 'STRING',
       description:
         'The generic (INN) active ingredient name, lowercase English, with NO brand name, ' +
-        'NO strength, NO dosage form and NO punctuation. This is used to group every brand ' +
-        'and spelling of the same medicine together, so it must be identical for every query ' +
-        'that resolves to this medicine. Examples: "Panadol 500mg" -> "paracetamol"; ' +
+        'NO strength, NO dosage form and NO punctuation. This is what the app checks for ' +
+        'interactions and for the same ingredient taken twice, so it must be identical for ' +
+        'every product containing it. Examples: "Panadol 500mg" -> "paracetamol"; ' +
         '"Lipitor" -> "atorvastatin"; "Brufen 400" -> "ibuprofen". For a combination product, ' +
         'list the ingredients joined by "+" in alphabetical order, e.g. ' +
         '"amoxicillin+clavulanic acid". Empty string unless recognition is "medication".',
@@ -266,8 +268,11 @@ const DRUG_INFO_SCHEMA = {
     brandName: {
       type: 'STRING',
       description:
-        'The best-known brand name on its own, with no strength or form, e.g. "Lipitor". ' +
-        'If the medicine is only sold generically, repeat the generic name.',
+        'The brand of THIS product, on its own, with no strength or form, e.g. "Lipitor". ' +
+        'If the query names a brand, that brand and no other — NEVER a better-known brand ' +
+        'that shares the active ingredient. "Abimol" is "Abimol", not "Panadol". ' +
+        'If the query is a generic ingredient name, or the medicine is sold only ' +
+        'generically, repeat the generic name rather than naming a brand.',
     },
     whatItIsFor: {
       type: 'STRING',
