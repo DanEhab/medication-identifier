@@ -587,4 +587,43 @@ check('the tabs are Arabic', arabic.tabs.every((tab) => /[؀-ۿ]/.test(tab)), JS
 check('nothing overflows in Arabic', !arabic.overflows);
 await screenshot(browser, 'medicines-ar', import.meta.url);
 
+/*
+  The duplicate warning in Arabic.
+
+  Its sentence starts with a Latin brand name, and a <bdi> takes its direction
+  from the first strong character it holds — so wrapping the whole sentence in
+  one laid the Arabic out left to right and put the clauses in the wrong order.
+  The names are isolated individually now, and the sentence keeps the page's
+  direction. The check is that the Arabic ends up on the correct side of them.
+*/
+await seed([
+  med('Panadol', { canonicalName: 'paracetamol', strength: '500 mg' }),
+  med('Abimol', { canonicalName: 'paracetamol', strength: '500 mg' }),
+]);
+await browser.goto(BASE);
+await openMedicines();
+
+const arabicWarning = await browser.evaluate(`
+  const card = document.querySelector('[data-testid="duplicate-ingredient"]');
+  if (!card) return null;
+  const body = card.querySelectorAll('span')[1];
+  return {
+    text: card.innerText.split(String.fromCharCode(10)).join(' | '),
+    // The sentence itself must run right to left; only the names are isolated.
+    bodyDirection: body ? getComputedStyle(body).direction : null,
+    isolated: [...card.querySelectorAll('bdi')].map(b => b.textContent),
+    overflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  };
+`);
+check('the duplicate warning appears in Arabic', arabicWarning !== null);
+check('and is written in Arabic',
+  /[؀-ۿ]/.test(arabicWarning?.text || ''), (arabicWarning?.text || '').slice(0, 80));
+check('the sentence runs right to left, so its clauses are in order',
+  arabicWarning?.bodyDirection === 'rtl', String(arabicWarning?.bodyDirection));
+check('only the medicine names are isolated from it',
+  JSON.stringify(arabicWarning?.isolated) === JSON.stringify(['Panadol + Abimol', 'paracetamol']),
+  JSON.stringify(arabicWarning?.isolated));
+check('and nothing overflows', !arabicWarning?.overflows);
+await screenshot(browser, 'duplicate-ingredient-ar', import.meta.url);
+
 await finish(browser);
