@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { SearchScreen } from './components/SearchScreen';
 import { ResultScreen } from './components/ResultScreen';
 import { SideEffectsScreen } from './components/SideEffectsScreen';
@@ -319,9 +319,55 @@ const App: React.FC = () => {
   const [settingsFrom, setSettingsFrom] = useState<View>('home');
 
   const openSettings = () => {
+    rememberWhereWeWere();
     setSettingsFrom(view);
     setView('settings');
   };
+
+  /*
+    A new screen starts at its top.
+
+    Every screen is rendered into the same scrolling document, so moving
+    between them left the scroll position exactly where it was. The chips are
+    near the foot of a medicine page, which means you had scrolled to reach
+    them — and the side effects then opened part of the way down, with its own
+    heading above the fold. It looked like the page had opened at the bottom,
+    because it had.
+
+    Coming back to a medicine is the exception. That is a return, not an
+    arrival: the position is the one you left, and dropping somebody at the top
+    of a page they were halfway down — to make them scroll back to the chips
+    they were using — is its own small rudeness.
+  */
+  const resultScroll = useRef(0);
+  const previousView = useRef<View>(view);
+
+  /*
+    Noted as the tap happens, not as the next screen arrives.
+
+    Reading window.scrollY from the effect that runs after the new view is
+    committed gives the wrong number: the document has already become a
+    different length, so the browser has clamped the position to fit it. A
+    medicine read six hundred pixels down came back as a hundred and seventy.
+  */
+  const rememberWhereWeWere = () => {
+    if (view === 'results') resultScroll.current = window.scrollY;
+  };
+
+  useLayoutEffect(() => {
+    const from = previousView.current;
+    if (from === view) return;
+    previousView.current = view;
+
+    const returningToMedicine = view === 'results'
+      && (from === 'sideEffects' || from === 'professional' || from === 'settings');
+
+    window.scrollTo(0, returningToMedicine ? resultScroll.current : 0);
+  }, [view]);
+
+  // A different medicine is a fresh page, so the remembered position goes with
+  // the old one rather than being applied to something it was never measured on.
+  useEffect(() => { resultScroll.current = 0; }, [drugInfo]);
 
   /*
     Runs the tour again from the beginning.
@@ -409,11 +455,15 @@ const App: React.FC = () => {
   const [detailSection, setDetailSection] = useState<DetailSection>('sideEffects');
 
   const handleShowDetails = (section: DetailSection) => {
+    rememberWhereWeWere();
     setDetailSection(section);
     setView('sideEffects');
   };
 
-  const handleShowProfessionalView = () => setView('professional');
+  const handleShowProfessionalView = () => {
+    rememberWhereWeWere();
+    setView('professional');
+  };
   const handleBackToPatientView = () => setView('results');
 
   const renderContent = () => {

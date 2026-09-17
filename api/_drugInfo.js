@@ -342,7 +342,17 @@ const DRUG_INFO_SCHEMA = {
     missedDose: { type: 'STRING', description: 'What to do after a missed dose' },
     commonSideEffects: { type: 'ARRAY', items: { type: 'STRING' }, description: 'At least three common side effects' },
     seriousSideEffects: { type: 'ARRAY', items: { type: 'STRING' }, description: 'At least three side effects needing urgent care' },
-    consultDoctorWhen: { type: 'ARRAY', items: { type: 'STRING' }, description: 'At least three situations to contact a doctor' },
+    consultDoctorWhen: {
+      type: 'ARRAY',
+      items: { type: 'STRING' },
+      description:
+        'At least three situations to ring a doctor about soon, which are NOT emergencies ' +
+        'and are NOT already in seriousSideEffects. The two lists are shown side by side, ' +
+        'so repeating an urgent effect here as a longer sentence makes the reader work out ' +
+        'whether it means something different the second time. Use this for the things that ' +
+        'belong nowhere else: a symptom that is not improving, a new rash, becoming pregnant ' +
+        'or breastfeeding, a dose that no longer seems to work.',
+    },
     storage: { type: 'STRING', description: 'How to store it' },
   },
   required: [

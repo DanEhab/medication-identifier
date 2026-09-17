@@ -4,6 +4,7 @@ import { MarkdownText } from './MarkdownText';
 import { useLocalization } from '../context/LanguageContext';
 import { isMedicationSaved, toggleMedication } from '../lib/medicationStorage';
 import { useReportExport } from '../lib/useReportExport';
+import { withoutUrgentRepeats } from '../lib/sideEffects';
 
 /**
  * Mild and urgent, told apart.
@@ -54,6 +55,14 @@ const BookmarkIcon: React.FC<{ color?: string; filled?: boolean }> = ({ color = 
   </svg>
 );
 
+/* Ring somebody, rather than go somewhere — the gentler of the two warnings. */
+const CallIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-saffron-mid shrink-0">
+    <path d="M6.5 3.5h3l1.5 4-2 1.4a12 12 0 0 0 6.1 6.1l1.4-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7a2 2 0 0 1 2-2.2z" />
+  </svg>
+);
+
 const DangerIcon: React.FC = () => (
   <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
     strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" className="text-clay shrink-0">
@@ -63,21 +72,52 @@ const DangerIcon: React.FC = () => (
   </svg>
 );
 
+/**
+ * The small label that names a block.
+ *
+ * Fifteen pixels, not thirteen. At thirteen it was smaller than the body text
+ * it introduced, so the heading of a list was quieter than the list — which is
+ * backwards, and made the page read as one undifferentiated column.
+ */
 const Eyebrow: React.FC<{ children: React.ReactNode; color?: string; className?: string }> = ({
   children,
   color = 'var(--ink-soft)',
   className = '',
 }) => (
-  <div className={`font-mono font-semibold text-[13px] tracking-[0.06em] ${className}`} style={{ color }}>
+  <div className={`font-mono font-semibold text-[15px] tracking-[0.06em] ${className}`} style={{ color }}>
     {children}
   </div>
 );
 
-/** One entry in either list. The dot carries the card's colour. */
+/**
+ * The heading on each of the three lists, so they look like three of a kind.
+ *
+ * "Call your doctor if" used to be a label outside its card while the other
+ * two were headings inside theirs, which made it read as a caption for the
+ * whole rest of the page rather than for the list under it.
+ */
+const ListHeading: React.FC<{ icon?: React.ReactNode; color: string; children: React.ReactNode }> = ({
+  icon, color, children,
+}) => (
+  <div className="flex items-center gap-[9px] pt-3.5 pb-2">
+    {icon}
+    <h3 className="font-mono font-semibold text-[15px] tracking-[0.06em] m-0" style={{ color }}>
+      {children}
+    </h3>
+  </div>
+);
+
+/**
+ * One entry in any of the lists. The dot carries the card's colour.
+ *
+ * The gap used to be eleven pixels above and below every item, so a list of
+ * seven was twenty-two pixels of nothing between each pair of short lines and
+ * ran off the bottom of the screen for no reason.
+ */
 const Bullet: React.FC<{ text: string; color: string }> = ({ text, color }) => (
-  <div className="flex gap-[11px] items-start py-[11px]">
+  <div className="flex gap-[11px] items-start py-[5px]">
     <span
-      className="w-1.5 h-1.5 rounded-full shrink-0 mt-2"
+      className="w-1.5 h-1.5 rounded-full shrink-0 mt-[9px]"
       style={{ background: color }}
       aria-hidden="true"
     />
@@ -108,7 +148,10 @@ export const SideEffectsScreen: React.FC<SideEffectsScreenProps> = ({
 
   const common = drugInfo.commonSideEffects.filter((effect) => effect.trim());
   const serious = drugInfo.seriousSideEffects.filter((effect) => effect.trim());
-  const consult = drugInfo.consultDoctorWhen.filter((reason) => reason.trim());
+  const consult = withoutUrgentRepeats(
+    drugInfo.consultDoctorWhen.filter((reason) => reason.trim()),
+    serious,
+  );
 
   /*
     The heading is the subject, so it changes with it. The screen used to open
@@ -158,24 +201,41 @@ export const SideEffectsScreen: React.FC<SideEffectsScreenProps> = ({
         you back in a section you had not asked for. A screen that answers one
         question can be read to the end.
       */}
+      {/*
+        The top of the page, in the order of importance it actually has: which
+        subject this is, the sentence that answers it, and the qualifier.
+
+        The three used to be 13, 24 and 16 pixels, so the subject label — the
+        thing that says which of the three screens you are on — was the
+        smallest text on it, smaller even than the qualifier beneath the
+        headline.
+      */}
       <div className="px-5 pt-[22px]">
-        <Eyebrow className="mb-1">{eyebrow}</Eyebrow>
-        <h2 className="font-semibold text-[24px] leading-[1.25] text-ink m-0 mb-1">{headline}</h2>
-        {subhead && <p className="text-[16px] leading-[1.55] text-ink-soft m-0">{subhead}</p>}
+        <Eyebrow className="mb-1.5">{eyebrow}</Eyebrow>
+        <h2 className="font-semibold text-[26px] leading-[1.2] tracking-[-0.015em] text-ink m-0 mb-1.5">
+          {headline}
+        </h2>
+        {subhead && <p className="text-[17px] leading-[1.5] text-ink-soft m-0">{subhead}</p>}
       </div>
 
+      {/*
+        Three lists, told apart by how urgently they need acting on and by
+        nothing else. Same card, same heading, same spacing — only the colour
+        and the border change, so the difference between them is the one thing
+        that carries meaning.
+      */}
       {anchor === 'sideEffects' && (
         <>
           {/* ── Common, usually mild ── */}
           <div className="px-5 pt-[18px]">
             <div className="bg-surface border border-paper-sand rounded-[16px] px-[18px] py-1.5">
-              <Eyebrow className="pt-3 pb-1">{t('commonUsuallyMild')}</Eyebrow>
+              <ListHeading color="var(--ink-soft)">{t('commonUsuallyMild')}</ListHeading>
               {common.length > 0 ? (
                 common.map((effect, i) => <Bullet key={i} text={effect} color="var(--ink-soft)" />)
               ) : (
-                <p className="text-[17px] leading-[1.5] text-ink-soft m-0 py-[11px]">{t('noneListed')}</p>
+                <p className="text-[17px] leading-[1.5] text-ink-soft m-0 py-[5px]">{t('noneListed')}</p>
               )}
-              <div className="h-1.5" />
+              <div className="h-3" />
             </div>
           </div>
 
@@ -183,24 +243,29 @@ export const SideEffectsScreen: React.FC<SideEffectsScreenProps> = ({
           {serious.length > 0 && (
             <div className="px-5 pt-3">
               <div className="bg-surface rounded-[16px] px-[18px] py-1.5" style={{ border: '2px solid var(--clay-soft)' }}>
-                <div className="flex items-center gap-[9px] pt-3.5 pb-1.5">
-                  <DangerIcon />
-                  <span className="font-semibold text-[16px] text-clay">{t('stopAndGetHelp')}</span>
-                </div>
+                <ListHeading icon={<DangerIcon />} color="var(--clay)">{t('stopAndGetHelp')}</ListHeading>
                 {serious.map((effect, i) => <Bullet key={i} text={effect} color="var(--clay)" />)}
-                <div className="h-1.5" />
+                <div className="h-3" />
               </div>
             </div>
           )}
 
-          {/* Not a side effect, but the same "act on this" register, so it keeps
-              the plain-list shape rather than borrowing the clay border. */}
+          {/*
+            Not an emergency, and not a repeat of one either.
+
+            The model fills both lists from the same knowledge, so the urgent
+            items came back here as well, written out as sentences — "Chest
+            pain" in the list above and "You experience chest pain or a very
+            fast heart rate" in this one. The repeats are removed; what is left
+            is the things this list exists for, like being pregnant, which is
+            not an emergency and needs saying somewhere.
+          */}
           {consult.length > 0 && (
-            <div className="px-5 pt-[22px]">
-              <Eyebrow className="mb-1">{t('callYourDoctorIf')}</Eyebrow>
-              <div className="bg-surface border border-paper-sand rounded-[16px] px-[18px] py-1.5 mt-2">
-                {consult.map((reason, i) => <Bullet key={i} text={reason} color="var(--ink-soft)" />)}
-                <div className="h-1.5" />
+            <div className="px-5 pt-3">
+              <div className="bg-surface border border-paper-sand rounded-[16px] px-[18px] py-1.5">
+                <ListHeading icon={<CallIcon />} color="var(--saffron)">{t('callYourDoctorIf')}</ListHeading>
+                {consult.map((reason, i) => <Bullet key={i} text={reason} color="var(--saffron-mid)" />)}
+                <div className="h-3" />
               </div>
             </div>
           )}
