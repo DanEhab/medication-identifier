@@ -56,6 +56,13 @@ export interface DrugInfo {
   // still open rather than crash.
   canonicalName?: string;
   brandName?: string;
+  /**
+   * One of the words in DOSAGE_FORMS. Chooses the picture beside the name and
+   * is never shown as text, so it is deliberately left untranslated. Absent on
+   * anything cached or saved before it existed, which dosageFormOf handles by
+   * reading the strength instead.
+   */
+  dosageForm?: string;
   whatItIsFor?: string;
   howToTake?: string;
   tellYourDoctorIf?: string;

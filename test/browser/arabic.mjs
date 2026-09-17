@@ -168,7 +168,19 @@ const bidi = await browser.evaluate(`
   };
 `);
 check('the Latin strength is kept in one piece', bidi.strength === '20 mg film-coated tablet', String(bidi.strength));
-check('and so is the never-with line', /^Grapefruit juice ·/.test(bidi.neverWith || ''), String(bidi.neverWith));
+// The never-with line is a list now, so each item is isolated on its own
+// rather than the whole ·-separated run being one bdi.
+check('and so is each thing it must not be taken with',
+  bidi.neverWith === 'Grapefruit juice', String(bidi.neverWith));
+
+const neverWithList = await browser.evaluate(`
+  const items = [...document.querySelectorAll('li bdi')].map(b => b.textContent.trim());
+  return { items, joined: items.join(' | ') };
+`);
+check('the never-with items are separate lines, not a run-on',
+  neverWithList.items.length >= 3, neverWithList.joined);
+check('and none of them still carries the separator',
+  neverWithList.items.every((item) => !item.includes('·')), neverWithList.joined);
 
 await screenshot(browser, 'ar-result', import.meta.url);
 

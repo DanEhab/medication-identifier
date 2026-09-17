@@ -6,7 +6,7 @@
 // is a line of state that already worked, so what needs proving is not the
 // state but the control: that tapping it reaches the state, and that the screen
 // reports back what is actually in effect.
-import { openApp, check, finish, screenshot, reachCamera, BASE } from './_harness.mjs';
+import { openApp, check, finish, screenshot, reachCamera, searchFor, BASE } from './_harness.mjs';
 
 const ground = (browser) => browser.evaluate(`
   return getComputedStyle(document.body).backgroundColor;
@@ -286,5 +286,63 @@ const about = await browser.evaluate(`
 check('it says which version this is', about.version);
 check('and what it does not collect', about.noTracking);
 check('nothing overflows sideways', !about.overflows);
+
+/*
+  ── From a medicine ───────────────────────────────────────────────────────
+
+  Everything behind the gear — the language, the theme, the tour — applies to
+  the page somebody is reading, and the only way to reach it was to leave that
+  page, change the setting, and search for the medicine all over again.
+*/
+await browser.goto(BASE);
+await browser.evaluate(`
+  localStorage.setItem('tourSeenVersion1', '1.4.0');
+  localStorage.setItem('tourSeenVersion2', '1.4.0');
+  return 'ok';
+`);
+await browser.goto(BASE);
+await reachCamera(browser);
+check('a medicine is reached', (await searchFor(browser, 'Lipitor')) === 'ok');
+check('settings opens from the medicine', (await openSettings(browser)) === 'ok');
+
+const backToMedicine = await browser.evaluate(`
+  document.querySelector('[data-testid="settings"] header button').click();
+  await new Promise(r => setTimeout(r, 600));
+  return {
+    onResult: !!document.querySelector('[data-tutorial="quick-facts"]'),
+    name: (document.querySelector('h1') || {}).textContent,
+  };
+`);
+check('and closing it returns to the same medicine', backToMedicine.onResult, backToMedicine.name);
+check('with the medicine still on screen', /Lipitor/.test(backToMedicine.name || ''), backToMedicine.name);
+
+/*
+  And the tour replayed from here is this page's tour.
+
+  Asking to be shown around from a medicine means the four steps about the
+  medicine. Sending somebody to the camera to find their medicine again is an
+  answer to a different question.
+*/
+const replayedFromMedicine = await browser.evaluate(`
+  document.querySelector('[data-testid="open-settings"]').click();
+  await new Promise(r => setTimeout(r, 600));
+  const replay = [...document.querySelectorAll('[data-testid="settings"] button')]
+    .find(b => /Show me around again/i.test(b.innerText));
+  if (!replay) return { error: 'no replay control' };
+  replay.click();
+  await new Promise(r => setTimeout(r, 1200));
+  const tour = document.querySelector('[data-testid="tour"]');
+  return {
+    tourOpen: !!tour,
+    stillOnMedicine: !!document.querySelector('[data-tutorial="quick-facts"]'),
+    onCamera: !!document.querySelector('[data-tutorial="shutter"]'),
+    title: tour ? (tour.querySelector('h2, h3') || {}).textContent : null,
+    steps: tour ? (tour.innerText.match(/OF (\\d)/) || [])[1] : null,
+  };
+`);
+check('replaying the tour from a medicine stays on the medicine',
+  replayedFromMedicine.stillOnMedicine && !replayedFromMedicine.onCamera, JSON.stringify(replayedFromMedicine));
+check('and runs the medicine page’s own four steps',
+  replayedFromMedicine.tourOpen && replayedFromMedicine.steps === '4', JSON.stringify(replayedFromMedicine));
 
 await finish(browser);
