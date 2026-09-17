@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
-import type { DrugInfo, PatientInfo } from '../types';
+import type { DrugInfo, PatientInfo, ProfessionalDrugInfo } from '../types';
 import { useLocalization } from '../context/LanguageContext';
-import { renderReportHTML, renderReportText } from './report';
+import { buildClinicalSections, renderReportHTML, renderReportText } from './report';
 import { exportAsDocument, exportAsPdf } from './exportReport';
 import { PatientDetailsDialog, hasPatientDetails, EMPTY_PATIENT_INFO } from '../components/PatientDetailsDialog';
 
@@ -50,6 +50,13 @@ export const useReportExport = (
   drugInfo: DrugInfo,
   patientInfo: PatientInfo,
   onPatientInfoChange: (info: Partial<PatientInfo>) => void,
+  /**
+   * The clinical screen passes its own sections, so sharing from there
+   * exports what is on that screen. It used to export the patient record —
+   * a clinician reading the professional view and tapping share got a page
+   * that said none of what they had just read.
+   */
+  clinical?: ProfessionalDrugInfo | null,
 ): ReportExport => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   /** Which export is waiting on the dialog, if any. */
@@ -60,17 +67,18 @@ export const useReportExport = (
   // because an export can start in the same tick the dialog saves new ones.
   const run = useCallback(
     (kind: 'pdf' | 'doc', info: PatientInfo) => {
-      const html = renderReportHTML(drugInfo, info, t, language);
+      const sections = clinical ? buildClinicalSections(clinical, t) : undefined;
+      const html = renderReportHTML(drugInfo, info, t, language, sections);
       if (kind === 'pdf') {
-        return exportAsPdf(drugInfo.drugName, html, renderReportText(drugInfo, info, t));
+        return exportAsPdf(drugInfo.drugName, html, renderReportText(drugInfo, info, t, { override: sections }));
       }
       return exportAsDocument(
         drugInfo.drugName,
         html,
-        renderReportText(drugInfo, info, t, { width: 60, numbered: true }),
+        renderReportText(drugInfo, info, t, { width: 60, numbered: true, override: sections }),
       );
     },
-    [drugInfo, language, t],
+    [clinical, drugInfo, language, t],
   );
 
   const requestExport = useCallback(

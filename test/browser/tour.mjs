@@ -621,7 +621,10 @@ for (const dark of [false, true]) {
         await cam.setViewport(size.width, size.height);
         await cam.evaluate(`
           await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-          await new Promise(r => setTimeout(r, 240));
+          // Longer than the hand's .34s position transition: measuring inside it
+          // catches the hand in flight, which once reported it a sub-pixel past
+          // the right edge on the narrowest screen.
+          await new Promise(r => setTimeout(r, 420));
           return 'ok';
         `);
         checkStep(check, `${lang}/${theme} camera ${PHASE1[i]} on ${size.name}`,
@@ -651,7 +654,10 @@ for (const dark of [false, true]) {
         await med.setViewport(size.width, size.height);
         await med.evaluate(`
           await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-          await new Promise(r => setTimeout(r, 240));
+          // Longer than the hand's .34s position transition: measuring inside it
+          // catches the hand in flight, which once reported it a sub-pixel past
+          // the right edge on the narrowest screen.
+          await new Promise(r => setTimeout(r, 420));
           return 'ok';
         `);
         checkStep(check, `${lang}/${theme} medicine ${PHASE2[i]} on ${size.name}`,

@@ -12,16 +12,42 @@ const PATIENT = {
   consultDoctorWhen: ['Dark urine'], storage: 'Cool', recognition: 'medication',
 };
 
+/*
+  The clinical answer, in the shape the screen renders.
+
+  It used to be flat prose per heading, which is what the screen had room for:
+  ADME was one sentence and the adverse effects were absent entirely. An
+  earlier build of this app showed both in full, and this is the merge — the
+  new view's ATC code, contraindications and monitoring, with the old one's
+  four-part kinetics, grouped effects and grouped interactions.
+*/
 const CLINICAL = {
   genericName: 'Atorvastatin',
   atcCode: 'C10AA05',
   formAndStrength: 'calcium trihydrate · 20 mg f/c tab',
   drugClass: 'HMG-CoA reductase inhibitor (statin)',
+  indications: 'Primary hypercholesterolaemia; secondary prevention of cardiovascular events.',
   mechanism: 'Competitively inhibits HMG-CoA reductase, the rate-limiting step of hepatic cholesterol synthesis.',
-  pharmacokinetics: 'Oral bioavailability ~14%. First-pass metabolism via CYP3A4. t½ 14 h. Biliary excretion.',
-  contraindications: 'Active hepatic disease, pregnancy and lactation.',
+  pharmacokinetics: {
+    absorption: 'Oral bioavailability ~14% after extensive first-pass extraction.',
+    distribution: 'Highly protein-bound (>98%); Vd 381 L.',
+    metabolism: 'Hepatic, via CYP3A4, to active hydroxylated metabolites.',
+    excretion: 'Biliary; renal clearance is negligible.',
+    halfLife: '14 h',
+  },
+  contraindications: ['Active hepatic disease', 'Pregnancy and lactation'],
   majorInteractions: ['Strong CYP3A4 inhibitors', 'Ciclosporin', 'Gemfibrozil', 'Colchicine'],
+  interactions: [
+    { group: 'Increased exposure', detail: 'Strong CYP3A4 inhibitors raise plasma levels; cap the dose.' },
+  ],
+  adverseEffects: [
+    { system: 'Musculoskeletal', effects: ['Myalgia', 'Rhabdomyolysis (rare)'] },
+    { system: 'Hepatic', effects: ['Transaminase rise'] },
+  ],
   monitoring: 'Lipid panel at 4-12 weeks after initiation or dose change.',
+  chemistry: 'Calcium trihydrate salt.',
+  bcsClass: 'II (low solubility, high permeability)',
+  references: ['SmPC', 'DailyMed'],
 };
 
 const browser = await openApp({ patient: PATIENT, clinical: CLINICAL });
@@ -64,7 +90,7 @@ const screen = await browser.evaluate(`
   const text = document.body.innerText;
   const h1 = document.querySelector('h1');
   const rows = [...document.querySelectorAll('[data-testid="clinical-card"] .font-mono')].map(r => r.textContent.trim());
-  const chips = [...document.querySelectorAll('[data-testid="clinical-card"] span')].map(s => s.textContent.trim());
+  const chips = [...document.querySelectorAll('[data-testid="clinical-interactions"] span')].map(s => s.textContent.trim());
   return {
     title: h1.textContent.trim(),
     titleSize: getComputedStyle(h1).fontSize,
@@ -72,8 +98,14 @@ const screen = await browser.evaluate(`
     form: /calcium trihydrate · 20 mg f\\/c tab/.test(text),
     rows,
     chips,
+    text,
+    headings: [...document.querySelectorAll('h2')].map(h => h.textContent.trim()),
+    headingSize: parseFloat(getComputedStyle(document.querySelector('h2')).fontSize),
+    labelSize: parseFloat(getComputedStyle(document.querySelector('[data-testid="clinical-card"] .font-mono')).fontSize),
     mechanism: /rate-limiting step of hepatic cholesterol synthesis/.test(text),
     kinetics: /Oral bioavailability ~14%/.test(text),
+    indications: /secondary prevention of cardiovascular events/.test(text),
+    references: /SmPC/.test(text),
     monitoring: /Lipid panel at 4-12 weeks/.test(text),
     spcNote: /Verify against the current SPC before prescribing/.test(text),
     overflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
@@ -83,16 +115,41 @@ check('the generic name is the headline', screen.title === 'Atorvastatin' && scr
   `${screen.title} @${screen.titleSize}`);
 check('the ATC code sits above it', screen.atc);
 check('the salt and presentation sit below it', screen.form);
-check('every clinical row from the design is present',
-  ['CLASS', 'MECHANISM', 'PHARMACOKINETICS', 'CONTRAINDICATIONS', 'MAJOR INTERACTIONS', 'MONITORING']
+/*
+  The page has section headings above its labels now.
+
+  It used to be one card of eight mono labels over eight paragraphs, so the
+  parts that have parts — ADME, adverse effects by system, interactions by
+  mechanism — had nowhere to go and arrived flattened into a sentence each.
+*/
+check('every section the design calls for is present',
+  ['Mechanism of action', 'Pharmacokinetics', 'Contraindications', 'Interactions',
+    'Adverse effects', 'Monitoring']
+    .every((heading) => screen.headings.includes(heading)),
+  JSON.stringify(screen.headings));
+check('and the labels inside them name the parts',
+  ['CLASS', 'INDICATIONS', 'HALF-LIFE', 'ABSORPTION', 'DISTRIBUTION', 'METABOLISM', 'EXCRETION']
     .every((label) => screen.rows.includes(label)),
   JSON.stringify(screen.rows));
+check('a heading is larger than the labels under it',
+  screen.headingSize > screen.labelSize, `${screen.headingSize} vs ${screen.labelSize}`);
+check('the adverse effects keep the system they belong to',
+  screen.rows.includes('MUSCULOSKELETAL') && /Rhabdomyolysis/.test(screen.text),
+  JSON.stringify(screen.rows));
+check('and the interactions keep the mechanism they are grouped under',
+  screen.rows.includes('INCREASED EXPOSURE') && /cap the dose/.test(screen.text),
+  JSON.stringify(screen.rows));
+check('the four parts of the kinetics are separate',
+  /Vd 381 L/.test(screen.text) && /renal clearance is negligible/.test(screen.text),
+  screen.text.slice(0, 120));
 check('the interactions are chips, not a sentence',
   screen.chips.includes('Strong CYP3A4 inhibitors') && screen.chips.includes('Gemfibrozil'),
   JSON.stringify(screen.chips));
 check('mechanism, kinetics and monitoring all render',
   screen.mechanism && screen.kinetics && screen.monitoring,
   JSON.stringify({ m: screen.mechanism, k: screen.kinetics, mo: screen.monitoring }));
+check('what it is licensed for is there, which it never used to be', screen.indications);
+check('and the sources to check it against', screen.references);
 check('it says to verify against the SPC', screen.spcNote);
 check('nothing overflows sideways', !screen.overflows);
 
@@ -140,15 +197,17 @@ const nested = await browser.evaluate(`
     if (document.querySelector('[data-testid="clinical-card"]')) {
       const text = document.body.innerText;
       return {
-        flattened: /Absorption: Rapid/.test(text) && /Metabolism: CYP3A4/.test(text),
+        kept: /Rapid, peak at 1-2 h/.test(text) && /CYP3A4/.test(text),
         noObjectText: !/\\[object Object\\]/.test(text),
-        chip: [...document.querySelectorAll('[data-testid="clinical-card"] span')].map(s => s.textContent.trim()),
+        chip: [...document.querySelectorAll('[data-testid="clinical-interactions"] span')]
+          .map(s => s.textContent.trim()).filter(Boolean),
       };
     }
   }
   return { error: document.body.innerText.slice(0, 200) };
 `);
-check('a nested kinetics object is flattened with its labels kept', nested.flattened, JSON.stringify(nested));
+// Kept as parts rather than flattened: the screen has a subheading for each.
+check('a nested kinetics object keeps its parts', nested.kept, JSON.stringify(nested));
 check('and nothing renders as [object Object]', nested.noObjectText);
 check('one interaction given as a string still becomes a chip',
   (nested.chip || []).includes('Ciclosporin'), JSON.stringify(nested.chip));

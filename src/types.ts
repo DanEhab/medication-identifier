@@ -88,6 +88,13 @@ export interface DrugInfo {
  * server flattens whatever shape the model used, so nothing here is `any` and
  * the screen cannot be handed a nested object to render.
  */
+/** A heading with its entries — how the grouped clinical sections arrive. */
+export interface ClinicalGroup {
+    /** May be empty when the model gave a list with no grouping. */
+    heading: string;
+    items: string[];
+}
+
 export interface ProfessionalDrugInfo {
     genericName: string;
     /** WHO ATC code, e.g. "C10AA05". Empty when there is no single one. */
@@ -95,12 +102,35 @@ export interface ProfessionalDrugInfo {
     /** Salt and presentation, e.g. "calcium trihydrate · 20 mg f/c tab". */
     formAndStrength: string;
     drugClass: string;
+    /** What it is licensed for, in clinical terms. */
+    indications: string;
     mechanism: string;
-    pharmacokinetics: string;
-    contraindications: string;
+    /**
+     * ADME as its four parts rather than one paragraph, plus the half-life on
+     * its own because it is the number looked for first. An entry written
+     * before this was structured has a string here; hasProfessionalFields
+     * treats that as stale so it is fetched again.
+     */
+    pharmacokinetics: {
+        absorption: string;
+        distribution: string;
+        metabolism: string;
+        excretion: string;
+        halfLife: string;
+    };
+    contraindications: string[];
     /** Short labels, not sentences: "Strong CYP3A4 inhibitors". */
     majorInteractions: string[];
+    /** The same interactions grouped by mechanism, with what to do about each. */
+    interactions: ClinicalGroup[];
+    /** Grouped by organ system. */
+    adverseEffects: ClinicalGroup[];
     monitoring: string;
+    /** Both often empty; shown only when the model filled them. */
+    chemistry: string;
+    bcsClass: string;
+    /** Named sources only — never a fabricated citation. */
+    references: string[];
 }
 
 export interface PatientInfo {
