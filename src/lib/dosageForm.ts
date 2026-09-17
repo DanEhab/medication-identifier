@@ -116,6 +116,20 @@ export interface FormSource {
 }
 
 /**
+ * Whether this is something a person swallows.
+ *
+ * "How to take it" is the wrong heading over a cream, an inhaler or a patch —
+ * nobody takes a cream. The forms are already known, so the heading can simply
+ * be right. Anything unrecognised keeps "take", which is what the majority of
+ * medicines are and reads as neutral rather than wrong.
+ */
+const NOT_SWALLOWED: DosageForm[] = [
+  'cream', 'inhaler', 'injection', 'suppository', 'patch', 'spray', 'drops',
+];
+
+export const isSwallowed = (form: DosageForm): boolean => !NOT_SWALLOWED.includes(form);
+
+/**
  * The form to draw for a medicine. Never throws and never returns nothing:
  * an unreadable answer is 'unknown', which has a mark of its own.
  */
