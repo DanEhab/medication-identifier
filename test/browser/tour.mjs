@@ -13,6 +13,26 @@ import { openApp, check, finish, screenshot, searchFor, BASE } from './_harness.
 const VERSION = '1.4.0';
 
 /*
+  The screens this has to work on, the same spread the layout suite uses.
+
+  A tour is placed from measurements, so it is only right for the sizes it was
+  measured at — and the phone sizes are where it goes wrong, because that is
+  where the card and the thing it describes compete for the same space.
+*/
+const SIZES = [
+  { name: 'small (Galaxy A03, 5")', width: 320, height: 568 },
+  { name: 'common budget (Redmi 9A)', width: 360, height: 640 },
+  { name: 'mid (Galaxy A54)', width: 384, height: 854 },
+  { name: 'Pixel 7', width: 412, height: 892 },
+  { name: 'large (Galaxy S24 Ultra)', width: 428, height: 926 },
+  { name: 'fold, open', width: 674, height: 842 },
+  { name: 'tablet (Galaxy Tab A9)', width: 800, height: 1280 },
+];
+
+/** What the rest of the suite runs at, restored after each sweep. */
+const BASE_SIZE = { width: 428, height: 926 };
+
+/*
   Reading the tour's state out of the DOM.
 
   The spotlight is an SVG mask, so the cutout is a <rect> inside <mask>, and
@@ -267,6 +287,77 @@ for (let i = 0; i < PHASE2.length; i++) {
     state.cardBox.top >= 0 && state.cardBox.bottom <= state.viewport.h,
     JSON.stringify(state.cardBox));
 
+  /*
+    And the hand, which this tour was never asked about.
+
+    Phase one had the same bug found and fixed, and the checks that found it
+    were only ever pointed at phase one — so the medicine page went on drawing
+    its first step's hand underneath the card, where a wide target leaves
+    nowhere on either side for it to go.
+  */
+  const hand2 = await second.evaluate(`
+    const h = document.querySelector('[data-testid="tour"] .tour-hand');
+    const card = document.querySelector('.tour-card');
+    if (!h || !card) return null;
+    const b = h.getBoundingClientRect();
+    const c = card.getBoundingClientRect();
+    const overlapW = Math.max(0, Math.min(b.right, c.right) - Math.max(b.left, c.left));
+    const overlapH = Math.max(0, Math.min(b.bottom, c.bottom) - Math.max(b.top, c.top));
+    return {
+      box: { top: Math.round(b.top), left: Math.round(b.left), w: Math.round(b.width), h: Math.round(b.height) },
+      onScreen: b.top >= 0 && b.left >= 0 && b.bottom <= window.innerHeight && b.right <= window.innerWidth,
+      hiddenByCard: (overlapW * overlapH) / (b.width * b.height),
+    };
+  `);
+  check(`result step ${i + 1}'s hand is on screen`, hand2 && hand2.onScreen, JSON.stringify(hand2));
+  check(`and result step ${i + 1}'s hand is not buried under the card`,
+    hand2 && hand2.hiddenByCard < 0.2,
+    `${Math.round((hand2?.hiddenByCard ?? 1) * 100)}% covered`);
+
+  /*
+    The same step on every screen it might be read on.
+
+    A placement is chosen from measurements, so it is only ever right for the
+    measurements it was checked at. The step that failed here was fine on a
+    tablet and buried on a phone. The tour re-measures on an animation frame,
+    so the viewport can be changed underneath it and read back without
+    starting the tour again.
+  */
+  for (const size of SIZES) {
+    await second.setViewport(size.width, size.height);
+    const atSize = await second.evaluate(`
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await new Promise(r => setTimeout(r, 260));
+      const h = document.querySelector('[data-testid="tour"] .tour-hand');
+      const card = document.querySelector('.tour-card');
+      if (!h || !card) return null;
+      const b = h.getBoundingClientRect();
+      const c = card.getBoundingClientRect();
+      const ow = Math.max(0, Math.min(b.right, c.right) - Math.max(b.left, c.left));
+      const oh = Math.max(0, Math.min(b.bottom, c.bottom) - Math.max(b.top, c.top));
+      const holeRect = document.querySelector('[data-testid="tour"] mask rect[fill="black"]');
+      return {
+        onScreen: b.top >= 0 && b.left >= 0 && b.bottom <= innerHeight && b.right <= innerWidth,
+        covered: (ow * oh) / (b.width * b.height),
+        cardOnScreen: c.top >= 0 && c.bottom <= innerHeight,
+        overflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        // Printed so a failure says where things were, not just that it failed.
+        hand: { t: Math.round(b.top), l: Math.round(b.left), b: Math.round(b.bottom), r: Math.round(b.right) },
+        card: { t: Math.round(c.top), b: Math.round(c.bottom) },
+        hole: holeRect ? {
+          t: Math.round(+holeRect.getAttribute('y')), h: Math.round(+holeRect.getAttribute('height')),
+        } : null,
+        viewport: [innerWidth, innerHeight],
+      };
+    `);
+    check(`result step ${i + 1} on ${size.name}: the hand is visible`,
+      atSize && atSize.onScreen && atSize.covered < 0.2,
+      JSON.stringify(atSize));
+    check(`result step ${i + 1} on ${size.name}: the card fits and nothing overflows`,
+      atSize && atSize.cardOnScreen && !atSize.overflows, JSON.stringify(atSize));
+  }
+  await second.setViewport(BASE_SIZE.width, BASE_SIZE.height);
+
   seen2.push(expected);
   if (i === 0) await screenshot(second, 'tour-result-facts', import.meta.url);
   await advance(second);
@@ -357,4 +448,75 @@ check('ar: the whole tour runs', arabicSeen.length === PHASE1.length, JSON.strin
 check('ar: nothing overflows sideways',
   !(await arabic.evaluate(`return document.documentElement.scrollWidth > document.documentElement.clientWidth;`)));
 
-await finish(arabic);
+await arabic.close();
+
+/*
+  ── The medicine page's tour, in Arabic, on every screen ──────────────────
+
+  The camera tour was walked in Arabic and swept for size; the medicine page's
+  was walked in neither. Its first step then shipped with the hand entirely
+  behind the card, because the row it points at runs the full width of the
+  screen and every placement that keeps clear of the card sits off the edge of
+  it — a shape none of the camera tour's targets have.
+
+  Arabic mirrors which side the hand comes in from and wraps the card to a
+  different height, so it is a different layout, not the same one translated.
+*/
+const arabicResult = await openApp({
+  tour: true, language: 'ar', storage: { tourSeenVersion1: VERSION },
+});
+await arabicResult.evaluate(`
+  await new Promise(r => setTimeout(r, 2200));
+  const v = document.querySelector('video'); if (v) v.dispatchEvent(new Event('ended'));
+  await new Promise(r => setTimeout(r, 900));
+  return 'ok';
+`);
+
+const arReached = await searchFor(arabicResult, 'Lipitor');
+check('ar: a result screen is reached', arReached === 'ok', arReached);
+await arabicResult.evaluate(`await new Promise(r => setTimeout(r, 1400)); return 'ok';`);
+
+const arSeen2 = [];
+for (let i = 0; i < PHASE2.length; i++) {
+  const state = await readTour(arabicResult);
+  if (!state.present) break;
+  arSeen2.push(PHASE2[i]);
+
+  check(`ar: result step ${i + 1} is written in Arabic`,
+    /[؀-ۿ]/.test(state.title || ''), state.title);
+
+  for (const size of SIZES) {
+    await arabicResult.setViewport(size.width, size.height);
+    const atSize = await arabicResult.evaluate(`
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await new Promise(r => setTimeout(r, 260));
+      const h = document.querySelector('[data-testid="tour"] .tour-hand');
+      const c = document.querySelector('.tour-card');
+      if (!h || !c) return null;
+      const b = h.getBoundingClientRect();
+      const r = c.getBoundingClientRect();
+      const ow = Math.max(0, Math.min(b.right, r.right) - Math.max(b.left, r.left));
+      const oh = Math.max(0, Math.min(b.bottom, r.bottom) - Math.max(b.top, r.top));
+      return {
+        onScreen: b.top >= 0 && b.left >= 0 && b.bottom <= innerHeight && b.right <= innerWidth,
+        covered: (ow * oh) / (b.width * b.height),
+        cardOnScreen: r.top >= 0 && r.bottom <= innerHeight,
+        overflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        hand: { t: Math.round(b.top), l: Math.round(b.left), b: Math.round(b.bottom), r: Math.round(b.right) },
+        viewport: [innerWidth, innerHeight],
+      };
+    `);
+    check(`ar: result step ${i + 1} on ${size.name}: the hand is visible`,
+      atSize && atSize.onScreen && atSize.covered < 0.2, JSON.stringify(atSize));
+    check(`ar: result step ${i + 1} on ${size.name}: the card fits and nothing overflows`,
+      atSize && atSize.cardOnScreen && !atSize.overflows, JSON.stringify(atSize));
+  }
+  await arabicResult.setViewport(BASE_SIZE.width, BASE_SIZE.height);
+
+  if (i === 0) await screenshot(arabicResult, 'tour-result-facts-ar', import.meta.url);
+  await advance(arabicResult);
+}
+check('ar: every step of the result tour found its target',
+  arSeen2.length === PHASE2.length, JSON.stringify(arSeen2));
+
+await finish(arabicResult);

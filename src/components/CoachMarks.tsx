@@ -231,15 +231,61 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
   */
   useEffect(() => {
     if (!step) return;
-    const el = document.querySelector(`[data-tutorial="${step.target}"]`);
-    if (!el) return;
-    const box = el.getBoundingClientRect();
-    const comfortable = box.top > 72 && box.bottom < window.innerHeight - 200;
-    if (!comfortable) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+
+    const bringIntoView = (behavior: ScrollBehavior) => {
+      const el = document.querySelector(`[data-tutorial="${step.target}"]`);
+      if (!el) return;
+      const box = el.getBoundingClientRect();
+      const comfortable = box.top > 72 && box.bottom < window.innerHeight - 200;
+      if (!comfortable) el.scrollIntoView({ block: 'center', behavior });
+    };
+
+    bringIntoView('smooth');
+
+    /*
+      And again whenever the viewport changes under it.
+
+      The scroll used to happen once, when the step opened. Everything after
+      that — turning the phone, unfolding it, a keyboard appearing — moves the
+      target without moving the page, so the thing being described slides out
+      of view and the hand follows it off the screen, while the card stays put
+      describing something nobody can see. The activity handles orientation
+      changes itself rather than restarting, so nothing else would put it back.
+
+      Instantly rather than smoothly: a rotation is already a large movement,
+      and a second animation on top of it reads as the page lurching.
+    */
+    const onResize = () => bringIntoView('auto');
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
   }, [step]);
 
+  /*
+    The card's height, which decides where the card and the hand both go.
+
+    Measured with an observer rather than once per step, because the height
+    depends on the width: the same sentence that takes three lines on a large
+    phone takes five on a small one, and Arabic wraps differently again. It
+    used to be read only when the step changed, so anything that altered the
+    width afterwards — a rotation, a fold, a keyboard — left the layout being
+    calculated from a height the card no longer had, and the card could be
+    placed running off the bottom of the screen.
+  */
   useLayoutEffect(() => {
-    if (cardRef.current) setCardHeight(cardRef.current.getBoundingClientRect().height);
+    const el = cardRef.current;
+    if (!el) return;
+
+    const measure = () => setCardHeight(el.getBoundingClientRect().height);
+    measure();
+
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [index, step?.title, step?.body]);
 
   /*
@@ -333,12 +379,20 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
 
     const candidates = [
       /*
-        Inside the control, near its lower edge — but only for something the
-        size of the viewfinder, where the hand reads as "tap in here". On a
-        shutter button barely larger than the hand it covers the very control
-        it is pointing at, so a generous threshold, not a tight one.
+        Inside the control, near its lower edge, whenever the control has room
+        to hold a hand without swallowing it.
+
+        The threshold used to be the size of the viewfinder, which is far more
+        than "room for a hand" — so a wide, shallow target like the dose row on
+        a medicine page was excluded from the one placement that suits it best,
+        and fell all the way through to the last resort, underneath the card.
+
+        Measured against the hand rather than against a number: comfortably
+        wider and taller than it is, so a shutter button barely bigger than the
+        hand is still excluded. On something this size the hand reads as "tap
+        in here", which is the instruction.
       */
-      hole.height > 150 && hole.width > 150
+      hole.height >= HAND_H + 24 && hole.width >= HAND_W + 40
         ? { top: hole.top + hole.height - HAND_H - 10, left: insideX }
         : null,
       // Just below it, the way a thumb comes up to a button.
@@ -350,7 +404,22 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
       { top: hole.top + (hole.height - HAND_H) / 2, left: rtl ? hole.left + hole.width + 4 : hole.left - HAND_W - 4 },
       // Centred under it, when the sides are what is blocked.
       { top: hole.top + hole.height + 6, left: centreX },
-    ].filter(Boolean) as { top: number; left: number }[];
+    ]
+      .filter(Boolean)
+      /*
+        Pulled back inside the screen before being judged, rather than thrown
+        away for being outside it.
+
+        Every placement above puts the hand near an edge of the control, which
+        is off the screen when the control runs the full width of it — so all
+        of them failed at once and the only survivor was the last resort under
+        the card. For a control that wide the screen's edge *is* the control's
+        edge, so clamping says the same thing the placement meant.
+      */
+      .map((p) => ({
+        top: p!.top,
+        left: Math.max(0, Math.min(p!.left, viewportW - HAND_W)),
+      })) as { top: number; left: number }[];
 
     const onScreen = (p: { top: number; left: number }) =>
       p.top >= 0 && p.left >= 0
@@ -429,11 +498,27 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
     };
   })();
 
-  // A pixel of margin, because the corners are rotated in floating point and
-  // landing exactly on the edge rounds to a hair outside it.
+  /*
+    A margin that covers the tap, not just the hand at rest.
+
+    The hand is animated: it scales to 1.02 and drops seven pixels as it taps,
+    so the box it occupies at rest is not the box it occupies at every moment.
+    Clamped to the resting box it sat flush against the edge and then pushed a
+    sliver past it once a cycle — visible as the fingertip clipping on a narrow
+    screen, where there is no slack anywhere else to absorb it.
+
+    A pixel on top of that, because the corners are rotated in floating point
+    and landing exactly on the edge rounds to a hair outside it.
+  */
+  const TAP_GROWTH = 2;
+  const TAP_DROP = 7;
   const MARGIN = 1;
-  const handTop = Math.max(MARGIN - spread.top, Math.min(rawHandTop, viewportH - spread.bottom - MARGIN));
-  const handLeft = Math.max(MARGIN - spread.left, Math.min(rawHandLeft, viewportW - spread.right - MARGIN));
+  const inset = TAP_GROWTH + MARGIN;
+
+  const handTop = Math.max(inset - spread.top,
+    Math.min(rawHandTop, viewportH - spread.bottom - TAP_DROP - inset));
+  const handLeft = Math.max(inset - spread.left,
+    Math.min(rawHandLeft, viewportW - spread.right - inset));
 
   const isLast = index === steps.length - 1;
 
