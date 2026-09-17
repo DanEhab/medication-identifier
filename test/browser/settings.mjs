@@ -317,6 +317,64 @@ check('and closing it returns to the same medicine', backToMedicine.onResult, ba
 check('with the medicine still on screen', /Lipitor/.test(backToMedicine.name || ''), backToMedicine.name);
 
 /*
+  ── Changing the language from a medicine translates the medicine ─────────
+
+  The answer is generated in English and translated on the way to the screen,
+  so the words on this page are not reactive the way the app's own labels are:
+  something has to fetch it again. That something only ran while the medicine
+  was the screen being looked at — which was true of every way of changing the
+  language until the gear arrived on this page. From here the change happens
+  while settings is on top, so it was skipped, and the remembered language was
+  updated anyway, so coming back there was nothing left to notice.
+
+  What that looked like: a right-to-left page with Arabic headings around an
+  answer still in English. Exactly what it was reported as.
+*/
+const switched = await browser.evaluate(`
+  document.querySelector('[data-testid="open-settings"]').click();
+  await new Promise(r => setTimeout(r, 600));
+  const arabic = [...document.querySelectorAll('[role="radio"]')]
+    .find(r => /العربية|Arabic/i.test(r.textContent || ''));
+  if (!arabic) return { error: 'no language control' };
+  arabic.click();
+  await new Promise(r => setTimeout(r, 900));
+  document.querySelector('[data-testid="settings"] header button').click();
+  await new Promise(r => setTimeout(r, 2500));
+
+  const wash = document.querySelector('[data-tutorial="what-it-is-for"]');
+  const purpose = wash ? wash.innerText.split(String.fromCharCode(10)).slice(1).join(' ').trim() : '';
+  const facts = [...document.querySelectorAll('[data-tutorial="quick-facts"] > div')]
+    .map(f => f.innerText.replace(new RegExp(String.fromCharCode(10), 'g'), ' '));
+  return {
+    dir: document.documentElement.dir,
+    onResult: !!document.querySelector('[data-tutorial="quick-facts"]'),
+    purpose,
+    purposeTranslated: /[؀-ۿ]/.test(purpose),
+    facts,
+    factsTranslated: facts.every(f => /[؀-ۿ]/.test(f)),
+  };
+`);
+check('switching language from a medicine keeps you on it',
+  switched.onResult && switched.dir === 'rtl', JSON.stringify(switched).slice(0, 140));
+check('and the sentence that says what it does is translated',
+  switched.purposeTranslated, String(switched.purpose).slice(0, 90));
+check('and so are the dose, timing and food tiles',
+  switched.factsTranslated, JSON.stringify(switched.facts));
+
+// Back to English so the checks after this run in the language they expect.
+await browser.evaluate(`
+  document.querySelector('[data-testid="open-settings"]').click();
+  await new Promise(r => setTimeout(r, 600));
+  const english = [...document.querySelectorAll('[role="radio"]')]
+    .find(r => /English/i.test(r.textContent || ''));
+  if (english) english.click();
+  await new Promise(r => setTimeout(r, 900));
+  document.querySelector('[data-testid="settings"] header button').click();
+  await new Promise(r => setTimeout(r, 2000));
+  return 'ok';
+`);
+
+/*
   And the tour replayed from here is this page's tour.
 
   Asking to be shown around from a medicine means the four steps about the

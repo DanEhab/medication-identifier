@@ -215,6 +215,28 @@ export async function openApp({
           return new Response(JSON.stringify({ text: JSON.stringify(body), cached: false }),
             { status: 200, headers: { 'Content-Type': 'application/json' } });
         }
+        /*
+          Translation, which used to fall through to a real request.
+
+          There is no API behind the preview server, so it 404'd, the service
+          swallowed the error and returned the English — and every Arabic suite
+          was quietly asserting against an untranslated page. That is how a bug
+          where the translation never ran at all went unnoticed here.
+
+          The marker is Arabic so the usual "is this Arabic" checks mean
+          something, and the original is kept after it so a test can still see
+          which field it is looking at.
+        */
+        if (url.includes('/api/translate')) {
+          const body = JSON.parse(init.body);
+          window.__translateCalls = (window.__translateCalls || 0) + 1;
+          const mark = (s) => (s ? 'تر ' + s : s);
+          const payload = Array.isArray(body.text)
+            ? { translations: body.text.map(mark) }
+            : { translation: mark(body.text) };
+          return new Response(JSON.stringify(payload),
+            { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
         return realFetch(input, init);
       };
     `,
