@@ -329,9 +329,21 @@ const App: React.FC = () => {
     Both phases are cleared, not just the camera one: somebody asking to be
     shown around again means the whole app, and the result screen's four steps
     are the half that explains the answer they came for.
+
+    Except when settings was opened from a medicine. Asking to be shown around
+    from there means this page — the four steps that explain the answer on
+    screen — and sending somebody back to the camera to find their medicine
+    again is answering a different question. So that case replays the medicine
+    page's half in place, and leaves the camera's half alone.
   */
   const replayTutorial = () => {
     resetTour();
+    if (settingsFrom === 'results') {
+      setShowPhase1(false);
+      setShowPhase2(true);
+      setView('results');
+      return;
+    }
     setShowPhase1(true);
     setShowPhase2(false);
     setError(null);
@@ -418,6 +430,7 @@ const App: React.FC = () => {
               onShowMyMedications={handleShowMyMedications}
               onShowDetails={handleShowDetails}
               onPatientInfoChange={handlePatientInfoChange}
+              onOpenSettings={openSettings}
             />
           )
         );

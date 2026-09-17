@@ -114,6 +114,7 @@ const callBackend = async (prompt: string, language: 'en' | 'ar' = 'en', image?:
 const FIELD_ALIASES: Record<keyof DrugInfo, string[]> = {
     drugName: ['drug_name', 'name', 'medication_name'],
     strength: ['dose', 'dosage_strength'],
+    dosageForm: ['dosage_form', 'form', 'pharmaceutical_form', 'presentation'],
     canonicalName: ['canonical_name', 'generic_name', 'genericName', 'active_ingredient', 'inn'],
     brandName: ['brand_name', 'brand', 'trade_name'],
     commonUse: ['common_use', 'common_uses', 'uses', 'indications'],

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { DrugInfo, PatientInfo, DetailSection } from '../types';
 import { MarkdownText } from './MarkdownText';
 import { useLocalization } from '../context/LanguageContext';
@@ -14,15 +14,18 @@ import { useReportExport } from '../lib/useReportExport';
  * with its own heading, so the difference survives being skimmed in a
  * pharmacy queue.
  *
- * Everything that is reference rather than answer — a missed dose, food, how
- * to store it — lives here too, off the result screen.
+ * It also serves the missed-dose and storage screens, which are the same
+ * furniture around a different subject: the same header naming the medicine,
+ * the same way back, the same save and share at the foot. They were one page
+ * scrolled to three places, which meant arriving under somebody else's heading
+ * with two other subjects a flick away.
  */
 
 interface SideEffectsScreenProps {
   drugInfo: DrugInfo;
   patientInfo: PatientInfo;
   originalDrugName: string;
-  /** Which section to open at. The chips on the result screen each pick one. */
+  /** Which of the three subjects this screen is about. */
   anchor: DetailSection;
   onBack: () => void;
   onPatientInfoChange: (info: Partial<PatientInfo>) => void;
@@ -84,19 +87,6 @@ const Bullet: React.FC<{ text: string; color: string }> = ({ text, color }) => (
   </div>
 );
 
-/** A plain labelled paragraph, the shape the design uses below the two lists. */
-const Passage: React.FC<{ label: string; text: string; id?: string }> = ({ label, text, id }) => {
-  if (!text || !text.trim()) return null;
-  return (
-    <div className="px-5 pt-[22px]" id={id}>
-      <Eyebrow className="mb-2">{label}</Eyebrow>
-      <div className="text-[17px] leading-[1.6] text-ink-dim">
-        <bdi><MarkdownText text={text} /></bdi>
-      </div>
-    </div>
-  );
-};
-
 export const SideEffectsScreen: React.FC<SideEffectsScreenProps> = ({
   drugInfo,
   patientInfo,
@@ -108,24 +98,9 @@ export const SideEffectsScreen: React.FC<SideEffectsScreenProps> = ({
   const { t, language } = useLocalization();
   const [isSaved, setIsSaved] = useState(false);
   const { requestExport, dialog } = useReportExport(drugInfo, patientInfo, onPatientInfoChange);
-  const missedRef = useRef<HTMLDivElement | null>(null);
-  const storageRef = useRef<HTMLDivElement | null>(null);
-
   useEffect(() => {
     setIsSaved(isMedicationSaved(drugInfo.drugName));
   }, [drugInfo.drugName]);
-
-  // Arriving from the "Missed dose" or "Storage" chip should land on that
-  // section rather than making the user scroll past the side effects to it.
-  useEffect(() => {
-    const target = anchor === 'missedDose' ? missedRef.current : anchor === 'storage' ? storageRef.current : null;
-    if (!target) return;
-    // After paint, or the sticky header measures against a half-built page.
-    const id = requestAnimationFrame(() => {
-      target.scrollIntoView({ behavior: 'auto', block: 'start' });
-    });
-    return () => cancelAnimationFrame(id);
-  }, [anchor]);
 
   const title = [drugInfo.brandName?.trim() || drugInfo.drugName, drugInfo.strength?.trim()]
     .filter(Boolean)
@@ -134,6 +109,32 @@ export const SideEffectsScreen: React.FC<SideEffectsScreenProps> = ({
   const common = drugInfo.commonSideEffects.filter((effect) => effect.trim());
   const serious = drugInfo.seriousSideEffects.filter((effect) => effect.trim());
   const consult = drugInfo.consultDoctorWhen.filter((reason) => reason.trim());
+
+  /*
+    The heading is the subject, so it changes with it. The screen used to open
+    with "Side effects — not everyone gets these" whichever chip had been
+    pressed, which is how it read as one page with three entrances rather than
+    three pages.
+  */
+  const heading = {
+    sideEffects: {
+      eyebrow: t('sideEffectsEyebrow'),
+      headline: t('sideEffectsHeadline'),
+      subhead: t('sideEffectsSubhead'),
+    },
+    missedDose: {
+      eyebrow: t('missedDoseChip'),
+      headline: t('missedDoseHeadline'),
+      subhead: t('missedDoseSubhead'),
+    },
+    storage: {
+      eyebrow: t('storageChip'),
+      headline: t('storageHeadline'),
+      subhead: t('storageSubhead'),
+    },
+  }[anchor];
+
+  const { eyebrow, headline, subhead } = heading;
 
   return (
     <div className="flex flex-col bg-paper" style={{ minHeight: '100dvh' }}>
@@ -148,58 +149,83 @@ export const SideEffectsScreen: React.FC<SideEffectsScreenProps> = ({
         <span className="font-semibold text-[17px] text-ink truncate"><bdi>{title}</bdi></span>
       </div>
 
+      {/*
+        ── One subject per screen ──
+
+        All three chips used to open this page and scroll it to a different
+        point, so "Storage" landed you halfway down a list of side effects with
+        somebody else's heading above you, and a flick in either direction put
+        you back in a section you had not asked for. A screen that answers one
+        question can be read to the end.
+      */}
       <div className="px-5 pt-[22px]">
-        <Eyebrow className="mb-1">{t('sideEffectsEyebrow')}</Eyebrow>
-        <h2 className="font-semibold text-[24px] leading-[1.25] text-ink m-0 mb-1">{t('sideEffectsHeadline')}</h2>
-        <p className="text-[16px] leading-[1.55] text-ink-soft m-0">{t('sideEffectsSubhead')}</p>
+        <Eyebrow className="mb-1">{eyebrow}</Eyebrow>
+        <h2 className="font-semibold text-[24px] leading-[1.25] text-ink m-0 mb-1">{headline}</h2>
+        {subhead && <p className="text-[16px] leading-[1.55] text-ink-soft m-0">{subhead}</p>}
       </div>
 
-      {/* ── Common, usually mild ── */}
-      <div className="px-5 pt-[18px]">
-        <div className="bg-surface border border-paper-sand rounded-[16px] px-[18px] py-1.5">
-          <Eyebrow className="pt-3 pb-1">{t('commonUsuallyMild')}</Eyebrow>
-          {common.length > 0 ? (
-            common.map((effect, i) => <Bullet key={i} text={effect} color="var(--ink-soft)" />)
-          ) : (
-            <p className="text-[17px] leading-[1.5] text-ink-soft m-0 py-[11px]">{t('noneListed')}</p>
-          )}
-          <div className="h-1.5" />
-        </div>
-      </div>
-
-      {/* ── The ones worth acting on today ── */}
-      {serious.length > 0 && (
-        <div className="px-5 pt-3">
-          <div className="bg-surface rounded-[16px] px-[18px] py-1.5" style={{ border: '2px solid var(--clay-soft)' }}>
-            <div className="flex items-center gap-[9px] pt-3.5 pb-1.5">
-              <DangerIcon />
-              <span className="font-semibold text-[16px] text-clay">{t('stopAndGetHelp')}</span>
+      {anchor === 'sideEffects' && (
+        <>
+          {/* ── Common, usually mild ── */}
+          <div className="px-5 pt-[18px]">
+            <div className="bg-surface border border-paper-sand rounded-[16px] px-[18px] py-1.5">
+              <Eyebrow className="pt-3 pb-1">{t('commonUsuallyMild')}</Eyebrow>
+              {common.length > 0 ? (
+                common.map((effect, i) => <Bullet key={i} text={effect} color="var(--ink-soft)" />)
+              ) : (
+                <p className="text-[17px] leading-[1.5] text-ink-soft m-0 py-[11px]">{t('noneListed')}</p>
+              )}
+              <div className="h-1.5" />
             </div>
-            {serious.map((effect, i) => <Bullet key={i} text={effect} color="var(--clay)" />)}
-            <div className="h-1.5" />
+          </div>
+
+          {/* ── The ones worth acting on today ── */}
+          {serious.length > 0 && (
+            <div className="px-5 pt-3">
+              <div className="bg-surface rounded-[16px] px-[18px] py-1.5" style={{ border: '2px solid var(--clay-soft)' }}>
+                <div className="flex items-center gap-[9px] pt-3.5 pb-1.5">
+                  <DangerIcon />
+                  <span className="font-semibold text-[16px] text-clay">{t('stopAndGetHelp')}</span>
+                </div>
+                {serious.map((effect, i) => <Bullet key={i} text={effect} color="var(--clay)" />)}
+                <div className="h-1.5" />
+              </div>
+            </div>
+          )}
+
+          {/* Not a side effect, but the same "act on this" register, so it keeps
+              the plain-list shape rather than borrowing the clay border. */}
+          {consult.length > 0 && (
+            <div className="px-5 pt-[22px]">
+              <Eyebrow className="mb-1">{t('callYourDoctorIf')}</Eyebrow>
+              <div className="bg-surface border border-paper-sand rounded-[16px] px-[18px] py-1.5 mt-2">
+                {consult.map((reason, i) => <Bullet key={i} text={reason} color="var(--ink-soft)" />)}
+                <div className="h-1.5" />
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {anchor === 'missedDose' && (
+        <div className="px-5 pt-[18px]">
+          <div className="bg-surface border border-paper-sand rounded-[16px] px-[18px] py-[18px]">
+            <div className="text-[17px] leading-[1.6] text-ink-dim">
+              <bdi><MarkdownText text={drugInfo.missedDose || t('noneListed')} /></bdi>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Not a side effect, but the same "act on this" register, so it keeps
-          the plain-list shape rather than borrowing the clay border. */}
-      {consult.length > 0 && (
-        <div className="px-5 pt-[22px]">
-          <Eyebrow className="mb-1">{t('callYourDoctorIf')}</Eyebrow>
-          <div className="bg-surface border border-paper-sand rounded-[16px] px-[18px] py-1.5 mt-2">
-            {consult.map((reason, i) => <Bullet key={i} text={reason} color="var(--ink-soft)" />)}
-            <div className="h-1.5" />
+      {anchor === 'storage' && (
+        <div className="px-5 pt-[18px]">
+          <div className="bg-surface border border-paper-sand rounded-[16px] px-[18px] py-[18px]">
+            <div className="text-[17px] leading-[1.6] text-ink-dim">
+              <bdi><MarkdownText text={drugInfo.storage || t('noneListed')} /></bdi>
+            </div>
           </div>
         </div>
       )}
-
-      <div ref={missedRef} style={{ scrollMarginTop: 64 }}>
-        <Passage label={t('ifYouMissADose')} text={drugInfo.missedDose} />
-      </div>
-      <Passage label={t('foodAndDrink')} text={drugInfo.foodDrinkEffect} />
-      <div ref={storageRef} style={{ scrollMarginTop: 64 }}>
-        <Passage label={t('storageLabel')} text={drugInfo.storage} />
-      </div>
 
       {/* ── Hand it to someone who knows ── */}
       <div className="px-5 pt-6">

@@ -54,9 +54,18 @@ check('the urgent list is separate, behind a clay border',
   screen.hasSerious && screen.hasDarkUrine && screen.seriousBorder === 'rgb(231, 189, 180)',
   screen.seriousBorder);
 check('when to call a doctor is not lost', screen.hasConsult);
-check('missed dose is here', screen.hasMissed);
-check('food and drink is not lost', screen.hasFood);
-check('storage is here', screen.hasStorage);
+/*
+  And nothing else, which is the point of it.
+
+  All three chips used to open this page and scroll it to a different place, so
+  "Storage" landed you in the middle of the side effects with two other
+  subjects a flick away in either direction. A screen about side effects that
+  also contains the storage advice is not a screen about side effects.
+*/
+check('the side effects screen carries only side effects',
+  !screen.hasMissed && !screen.hasStorage,
+  `missed=${screen.hasMissed} storage=${screen.hasStorage}`);
+check('and food is not buried in it either', !screen.hasFood);
 check('the share card and the AI note are present', screen.hasStillUnsure && screen.hasAiNote);
 check('nothing overflows sideways', !screen.overflows);
 
@@ -65,21 +74,43 @@ check('and it is the result screen', await browser.evaluate(`
   return !!document.querySelector('[data-tutorial="quick-facts"]');
 `));
 
-// ── The other two chips land on their own section ─────────────────────────
-for (const [index, label, marker] of [[1, 'Missed dose', 'IF YOU MISS A DOSE'], [2, 'Storage', 'STORAGE']]) {
+/*
+  ── Each of the other two opens its own screen ────────────────────────────
+
+  Not a scroll position on a shared page. What that looked like: tapping
+  "Storage" put you partway down the side effects with the heading "Not
+  everyone gets these" above you and the storage paragraph somewhere below,
+  and scrolling either way left the subject you asked for.
+*/
+const SUBJECTS = [
+  {
+    index: 1,
+    label: 'Missed dose',
+    testid: 'chip-missedDose',
+    headline: 'If you forget one',
+    own: /twelve hours/,
+    others: [/COMMON — USUALLY MILD/, /original pack/],
+  },
+  {
+    index: 2,
+    label: 'Storage',
+    testid: 'chip-storage',
+    headline: 'Keeping it safe',
+    own: /original pack/,
+    others: [/COMMON — USUALLY MILD/, /twelve hours/],
+  },
+];
+
+for (const subject of SUBJECTS) {
   const landed = await browser.evaluate(`
-    document.querySelectorAll('[data-tutorial="detail-chips"] button')[${index}].click();
+    document.querySelector('[data-testid=${JSON.stringify(subject.testid)}]').click();
     await new Promise(r => setTimeout(r, 700));
-    const target = [...document.querySelectorAll('.font-mono')]
-      .find(l => l.textContent.trim() === ${JSON.stringify(marker)});
-    const box = target ? target.getBoundingClientRect() : null;
+    const text = document.body.innerText;
     const result = {
-      found: !!target,
-      // This fixture's page only scrolls a few hundred pixels, so both anchors
-      // bottom out and the section ends up visible rather than pinned to the
-      // top. What matters either way: the screen scrolled, and the asked-for
-      // section is on it.
-      inView: box ? box.top >= 40 && box.top < window.innerHeight : false,
+      headline: (document.querySelector('h2') || {}).textContent.trim(),
+      header: (document.querySelector('.sticky') || {}).innerText,
+      text,
+      // Nothing to scroll past: the subject is the top of the screen.
       scrolled: Math.round(window.scrollY),
     };
     [...document.querySelectorAll('button')]
@@ -87,8 +118,17 @@ for (const [index, label, marker] of [[1, 'Missed dose', 'IF YOU MISS A DOSE'], 
     await new Promise(r => setTimeout(r, 500));
     return result;
   `);
-  check(`the ${label} chip scrolls to its own section`,
-    landed.found && landed.inView && landed.scrolled > 0, JSON.stringify(landed));
+
+  check(`the ${subject.label} row opens a screen titled for it`,
+    landed.headline === subject.headline, landed.headline);
+  check(`and it still names the medicine`, /Lipitor/.test(landed.header || ''), landed.header);
+  check(`and it answers the question that was asked`,
+    subject.own.test(landed.text), landed.text.slice(0, 120));
+  check(`and carries none of the other two subjects`,
+    subject.others.every((pattern) => !pattern.test(landed.text)),
+    landed.text.slice(0, 200));
+  check(`and opens at the top, with nothing to scroll past`, landed.scrolled === 0,
+    String(landed.scrolled));
 }
 
 // ── Saving works from here too ────────────────────────────────────────────
@@ -116,18 +156,42 @@ check('Arabic reaches the result screen', (await reachCamera(browser)) === 'ok')
 check('and a medicine', (await searchFor(browser, 'Lipitor')) === 'ok');
 
 const arabic = await browser.evaluate(`
-  document.querySelectorAll('[data-tutorial="detail-chips"] button')[0].click();
+  document.querySelector('[data-testid="chip-sideEffects"]').click();
   await new Promise(r => setTimeout(r, 700));
   return {
     dir: document.documentElement.dir,
-    heading: (document.querySelector('h2') || {}).textContent,
+    heading: (document.querySelector('h2') || {}).textContent.trim(),
+    // The screen's own label, not a neighbouring subject's: "common — usually
+    // mild" is what this page is, and it has to be in Arabic.
+    hasArabicLabels: /\\u0634\\u0627\\u0626\\u0639\\u0629/.test(document.body.innerText),
     overflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
-    hasArabicLabels: /\\u0625\\u0630\\u0627 \\u0641\\u0627\\u062a\\u062a\\u0643 \\u062c\\u0631\\u0639\\u0629/.test(document.body.innerText),
   };
 `);
 check('the side effects screen is right to left', arabic.dir === 'rtl', arabic.dir);
+check('its heading is Arabic', /[؀-ۿ]/.test(arabic.heading), arabic.heading);
 check('its labels are Arabic', arabic.hasArabicLabels, arabic.heading);
 check('nothing overflows in Arabic', !arabic.overflows);
+
+/*
+  And the other two subjects are Arabic screens of their own, not one page in
+  Arabic reached three ways.
+*/
+for (const [testid, expected] of [['chip-missedDose', 'لو نسيت جرعة'], ['chip-storage', 'طريقة الحفظ']]) {
+  const other = await browser.evaluate(`
+    // The back control by position rather than by its label, which is Arabic
+    // here: it is the first button in the screen's own sticky header.
+    document.querySelector('.sticky button').click();
+    await new Promise(r => setTimeout(r, 600));
+    document.querySelector('[data-testid=${JSON.stringify(testid)}]').click();
+    await new Promise(r => setTimeout(r, 700));
+    return {
+      heading: (document.querySelector('h2') || {}).textContent.trim(),
+      overflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    };
+  `);
+  check(`ar: ${testid} opens its own screen`, other.heading === expected, other.heading);
+  check(`ar: and nothing overflows on it`, !other.overflows);
+}
 
 await screenshot(browser, 'sideeffects-ar', import.meta.url);
 await finish(browser);

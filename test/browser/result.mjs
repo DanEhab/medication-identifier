@@ -105,6 +105,59 @@ check('offering PDF, a document, and patient details',
 
 await browser.evaluate(`document.querySelector('[role="dialog"]').parentElement.click(); await new Promise(r => setTimeout(r, 300));`);
 await browser.evaluate(`window.scrollTo(0, 0); await new Promise(r => setTimeout(r, 200));`);
+/*
+  ── The page has a structure, and it says so ─────────────────────────────
+
+  It used to have no headings at all: a teal card, three tiles, a mono label, a
+  warning card, another warning card, a row of pills. Every block a different
+  shape at a different weight, with nothing saying which of them were peers.
+*/
+const structure = await browser.evaluate(`
+  const headings = [...document.querySelectorAll('h2')].map(h => h.textContent.trim());
+  const icon = document.querySelector('[data-testid="dosage-form-icon"]');
+  return {
+    headings,
+    // The dose row and the instructions answer one question and now sit under
+    // one heading, which has to come before the warnings.
+    takeBeforeWarnings: headings.indexOf('How to take it') >= 0
+      && headings.indexOf('How to take it') < headings.indexOf('Warnings'),
+    iconForm: icon ? icon.getAttribute('data-form') : null,
+    settings: !!document.querySelector('[data-testid="open-settings"]'),
+    // Save and share were in the top bar as well as the bar at the foot.
+    topBarButtons: document.querySelectorAll('header button, .flex.items-center.justify-between > button').length,
+  };
+`);
+check('the page is divided into named sections',
+  structure.headings.includes('How to take it')
+  && structure.headings.includes('Warnings')
+  && structure.headings.includes('More about this medicine'),
+  JSON.stringify(structure.headings));
+check('and they run in the order somebody reads them', structure.takeBeforeWarnings,
+  JSON.stringify(structure.headings));
+
+/*
+  The tile beside the name is a picture of the form, not a dark square. It was
+  a placeholder that never became anything — and it carried `rtl:hidden`, so an
+  Arabic reader saw a name with nothing beside it at all.
+*/
+check('the name has a picture of the form beside it', structure.iconForm === 'tablet',
+  String(structure.iconForm));
+
+/*
+  Settings is reachable from the medicine. Changing the language, the theme or
+  replaying the tour used to mean leaving the page, changing the setting, and
+  searching for the medicine again.
+*/
+check('settings can be reached without leaving the medicine', structure.settings);
+
+const neverWith = await browser.evaluate(`
+  const items = [...document.querySelectorAll('li')].map(li => li.innerText.trim());
+  return { items, anyRunOn: items.some(i => i.includes('·')) };
+`);
+check('the things it must not be taken with are a list, not a paragraph',
+  neverWith.items.length >= 3, JSON.stringify(neverWith.items));
+check('and no item still holds the separator', !neverWith.anyRunOn, JSON.stringify(neverWith.items));
+
 await screenshot(browser, 'result-en', import.meta.url);
 
 // ── Arabic, where the bidi algorithm gets a say ───────────────────────────
@@ -127,6 +180,16 @@ check('its section labels are Arabic', arabic.hasArabicLabel);
 check('nothing overflows in Arabic', !arabic.overflows);
 check('the Latin strength is not reordered by the bidi algorithm',
   arabic.strength === '20 mg film-coated tablet', String(arabic.strength));
+
+// The tile was `rtl:hidden`, so this side of the app had no picture at all.
+const arabicIcon = await browser.evaluate(`
+  const icon = document.querySelector('[data-testid="dosage-form-icon"]');
+  if (!icon) return null;
+  const box = icon.getBoundingClientRect();
+  return { form: icon.getAttribute('data-form'), width: Math.round(box.width) };
+`);
+check('ar: the form picture is shown here too', arabicIcon !== null, 'it used to be rtl:hidden');
+check('ar: and it is the same form', arabicIcon?.form === 'tablet', String(arabicIcon?.form));
 
 await screenshot(browser, 'result-ar', import.meta.url);
 await finish(browser);

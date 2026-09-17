@@ -30,6 +30,15 @@ const TEXT_FIELDS = [
   // See api/_cacheKey.js.
   'canonicalName',
   'strength',
+  /*
+    The physical shape, as one word from a fixed list.
+
+    Not shown as text — it chooses the picture beside the medicine's name. It
+    can usually be read out of `strength` instead, but not reliably once that
+    field has been translated for display, so the model is asked for it plainly
+    here and the reading is kept as the fallback. See src/lib/dosageForm.ts.
+  */
+  'dosageForm',
   'commonUse',
   // The result screen leads with an answer and weights the warnings, so it
   // needs a few things the old flat record never carried: a single-sentence
@@ -62,6 +71,7 @@ const ALIASES = {
     'active_ingredient', 'inn', 'ingredient',
   ],
   strength: ['dose', 'dosage_strength', 'strengths'],
+  dosageForm: ['dosage_form', 'form', 'pharmaceutical_form', 'presentation'],
   commonUse: ['common_use', 'common_uses', 'commonUses', 'uses', 'indication', 'indications'],
   brandName: ['brand_name', 'brand', 'tradeName', 'trade_name'],
   whatItIsFor: ['what_it_is_for', 'whatItsFor', 'purpose', 'summary'],
@@ -267,6 +277,19 @@ const DRUG_INFO_SCHEMA = {
         '"100 mcg inhaler". Never a sentence, and never a list of every strength ' +
         'the medicine is sold in — this sits under the name on a phone screen.',
     },
+    dosageForm: {
+      type: 'STRING',
+      enum: [
+        'tablet', 'capsule', 'liquid', 'drops', 'cream', 'inhaler',
+        'injection', 'suppository', 'patch', 'spray', 'sachet', 'unknown',
+      ],
+      description:
+        'The physical form, as ONE of the listed words. "liquid" covers syrups, ' +
+        'suspensions and oral solutions; "cream" covers ointments, gels and anything ' +
+        'else rubbed on; "sachet" covers powders, granules and effervescent packets. ' +
+        'Use "unknown" if the medicine comes in several forms and the query does not ' +
+        'say which, or if you are not sure — never guess a form.',
+    },
     brandName: {
       type: 'STRING',
       description:
@@ -324,7 +347,7 @@ const DRUG_INFO_SCHEMA = {
   },
   required: [
     'recognition', 'identifiedAs', 'safetyNote',
-    'drugName', 'canonicalName', 'brandName', 'strength', 'whatItIsFor', 'commonUse',
+    'drugName', 'canonicalName', 'brandName', 'strength', 'dosageForm', 'whatItIsFor', 'commonUse',
     'howToTake', 'dosageAdministration', 'foodDrinkEffect', 'missedDose',
     'tellYourDoctorIf', 'neverWith',
     'quickDose', 'quickDoseNote', 'quickTiming', 'quickTimingNote', 'quickFood', 'quickFoodNote',
@@ -332,7 +355,7 @@ const DRUG_INFO_SCHEMA = {
   ],
   propertyOrdering: [
     'recognition', 'identifiedAs', 'safetyNote',
-    'drugName', 'canonicalName', 'brandName', 'strength', 'whatItIsFor', 'commonUse',
+    'drugName', 'canonicalName', 'brandName', 'strength', 'dosageForm', 'whatItIsFor', 'commonUse',
     'howToTake', 'dosageAdministration', 'foodDrinkEffect', 'missedDose',
     'tellYourDoctorIf', 'neverWith',
     'quickDose', 'quickDoseNote', 'quickTiming', 'quickTimingNote', 'quickFood', 'quickFoodNote',
