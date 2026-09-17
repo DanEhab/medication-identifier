@@ -11,7 +11,7 @@ const { IDENTIFY_SCHEMA, isIdentifyPrompt, normalizeIdentification } = require('
 const {
   normalizeProfessionalInfo, isCacheableProfessionalInfo, hasProfessionalFields, PROFESSIONAL_SCHEMA,
 } = require('./_professional');
-const { queryKeyFor } = require('./_cacheKey');
+const { queryKeyFor, storageKeyFor } = require('./_cacheKey');
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
 
@@ -95,43 +95,51 @@ const callGeminiAPI = async (formattedContents, config, schema) => {
 };
 
 /**
- * Asks the model one question: what is this term's generic ingredient?
+ * Asks the model one question: which product is this term a way of writing?
  *
  * An alias only helps once a spelling has been seen before, so without this a
  * brand-new misspelling of an already-cached medicine would still pay for a
  * full answer. This call returns a handful of tokens instead of the ~800 a full
  * answer costs — roughly 2% of the price — and usually turns that miss into a
  * hit on an entry that is already there.
+ *
+ * It used to ask for the generic ingredient, which is how "abimol" was answered
+ * with Panadol's record. Sharing an ingredient is not being the same product,
+ * and the question now says so in as many words: the model is asked to
+ * normalise a spelling, not to find a substitute.
  */
 const RESOLVE_SCHEMA = {
   type: 'OBJECT',
   properties: {
-    canonicalName: {
+    productName: {
       type: 'STRING',
       description:
-        'The generic (INN) active ingredient for this search term, lowercase English, ' +
-        'no brand, no strength, no dosage form. "Panadol 500mg" -> "paracetamol". ' +
-        '"Lipitor" -> "atorvastatin". Combinations join ingredients with "+" in ' +
-        'alphabetical order. Empty string if this is not a medicine, or if you cannot ' +
-        'confidently resolve it — never guess.',
+        'The standard spelling of the medicine this search term names. If the term names ' +
+        'a branded product, the brand exactly as its manufacturer writes it, without ' +
+        'strength or dosage form: "panadooll" -> "Panadol"; "بنادول" -> "Panadol"; ' +
+        '"Panadol Extra 500mg" -> "Panadol Extra". If the term is a generic ingredient ' +
+        'name, that ingredient in lowercase English: "باراسيتامول" -> "paracetamol". ' +
+        'NEVER answer with a different brand that happens to share an active ingredient: ' +
+        '"Abimol" is Abimol, not Panadol. Empty string if this is not a medicine, or if ' +
+        'you cannot confidently resolve the spelling — never guess.',
     },
   },
-  required: ['canonicalName'],
+  required: ['productName'],
 };
 
-const resolveCanonicalKey = async (searchTerm) => {
+const resolveProductKey = async (searchTerm) => {
   try {
     const text = await callGeminiAPI(
-      [{ parts: [{ text: `What is the generic active ingredient of the medicine: ${searchTerm}` }] }],
+      [{ parts: [{ text: `Which medicine does this name refer to: ${searchTerm}` }] }],
       { temperature: 0, maxOutputTokens: 200 },
       RESOLVE_SCHEMA,
     );
     const parsed = JSON.parse(extractJSON(text));
-    return queryKeyFor(parsed?.canonicalName) || null;
+    return queryKeyFor(parsed?.productName) || null;
   } catch (error) {
     // Never fatal. A failed resolution simply means the full answer is
     // generated, which is exactly what used to happen every time.
-    console.warn('[resolve] could not resolve a canonical name:', error.message);
+    console.warn('[resolve] could not resolve a product name:', error.message);
     return null;
   }
 };
@@ -151,7 +159,20 @@ const normalizeContents = (contents) => {
 
 /**
  * Returns the JSON text to serve for a cached document, or null when the
- * stored shape is not something the UI can render.
+ * stored shape is not something the UI can render, or when the document does
+ * not match the name it is filed under.
+ *
+ * That last check is the one that matters. Every entry written under the old
+ * ingredient key holds one brand's identity — the entry for "paracetamol"
+ * holds Panadol's name and Panadol's strength — so serving it to somebody who
+ * searched for a different brand of paracetamol is how "Abimol" came back as
+ * "Panadol". Refusing them makes the cache correct itself: the first lookup
+ * after this ships regenerates the entry under the product it describes, and
+ * every one after that is a hit again.
+ *
+ * It also catches the entries that were simply wrong, like the one filed under
+ * "fusidic acid" holding the record for fluocinolone acetonide, and it keeps
+ * catching anything that drifts this way later.
  */
 const servableCachedPayload = (cached, collectionName) => {
   const data = cached.data;
@@ -171,6 +192,8 @@ const servableCachedPayload = (cached, collectionName) => {
   // An entry written before the result screen's fields existed would render as
   // a page of empty cards, so it is refetched once rather than served.
   if (!hasResultFields(normalized)) return null;
+  // And it must be the medicine it is filed as.
+  if (storageKeyFor(normalized) !== String(cached._id)) return null;
   return JSON.stringify(normalized);
 };
 
@@ -262,7 +285,7 @@ module.exports = async (req, res) => {
       const connection = await connectToDatabase();
       if (connection) {
         try {
-          const resolvedKey = await resolveCanonicalKey(searchTerm);
+          const resolvedKey = await resolveProductKey(searchTerm);
           if (resolvedKey && resolvedKey !== queryKey) {
             knownCanonicalKey = resolvedKey;
             const doc = await findByCanonicalKey(connection.db, collectionName, resolvedKey);

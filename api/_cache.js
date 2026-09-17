@@ -5,9 +5,10 @@
 //   medications               patient-facing answers
 //   professional_medications  clinical answers
 //
-// Both are keyed by the *canonical* key — the generic ingredient the model
-// resolved the query to — so one medicine is one document however it was
-// spelled. A third collection maps search terms onto those keys:
+// Both are keyed by the *storage* key — the product the model named — so one
+// medicine is one document however it was spelled, and two medicines are never
+// one document because they share an ingredient. A third collection maps
+// search terms onto those keys:
 //
 //   medication_aliases        _id: "panadooll"  ->  canonicalKey: "paracetamol"
 //
@@ -15,7 +16,7 @@
 // costs nothing to create because it is written alongside an answer that was
 // being generated anyway.
 
-const { queryKeyFor, canonicalKeyFor } = require('./_cacheKey');
+const { queryKeyFor, storageKeyFor, aliasIsSafe } = require('./_cacheKey');
 
 const ALIAS_COLLECTION = 'medication_aliases';
 
@@ -92,7 +93,7 @@ async function findByCanonicalKey(db, collectionName, canonicalKey) {
  * answer was already there, only the pointer to it was missing.
  */
 async function saveAlias(db, queryKey, canonicalKey, resolvedName) {
-  if (!queryKey || !canonicalKey || queryKey === canonicalKey) return;
+  if (!aliasIsSafe(queryKey, canonicalKey)) return;
   await ensureIndexes(db);
   const now = new Date();
 
@@ -112,12 +113,17 @@ async function saveAlias(db, queryKey, canonicalKey, resolvedName) {
 /**
  * Stores an answer under its canonical key and points the search term at it.
  *
- * `drugInfo` is the normalised patient record, whose canonicalName decides the
- * key. Professional answers have no such field, so the caller passes the key it
- * already resolved — usually from an alias a patient lookup created earlier.
+ * `drugInfo` is the normalised patient record, and it decides the key. The
+ * resolution step's answer is only a fallback, for a professional record that
+ * has no identity of its own to key on.
+ *
+ * That order matters and used to be the other way round. Preferring the
+ * resolved key meant an answer could be filed under a name it did not match,
+ * because the key came from one model call and the contents from another. The
+ * record is the thing being stored, so the record decides where it goes.
  */
 async function saveCachedAnswer(db, collectionName, { queryKey, canonicalKey, data, drugInfo }) {
-  const key = canonicalKey || canonicalKeyFor(drugInfo) || queryKey;
+  const key = storageKeyFor(drugInfo) || canonicalKey || queryKey;
   if (!key) return null;
 
   await ensureIndexes(db);
@@ -137,11 +143,9 @@ async function saveCachedAnswer(db, collectionName, { queryKey, canonicalKey, da
     { upsert: true },
   );
 
-  // Only a term that differs from the key needs an alias. "paracetamol" finds
-  // its own entry directly, so storing a self-alias would be dead weight.
-  if (queryKey && queryKey !== key) {
-    await saveAlias(db, queryKey, key, drugInfo?.drugName);
-  }
+  // Only a term that differs from the key needs an alias, and only one that is
+  // genuinely a name for the same product. saveAlias decides both.
+  await saveAlias(db, queryKey, key, drugInfo?.drugName);
 
   return key;
 }
