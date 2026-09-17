@@ -180,7 +180,7 @@ function installGeminiStub(payload) {
   };
 }
 
-/** The clinical counterpart of defaultAnswerFor. */
+/** The clinical counterpart of defaultAnswerFor, in the shape the screen reads. */
 function professionalAnswerFor(drug) {
   const patient = defaultAnswerFor(drug);
   return {
@@ -188,11 +188,23 @@ function professionalAnswerFor(drug) {
     atcCode: 'N02BE01',
     formAndStrength: patient.strength,
     drugClass: 'A pharmacological class long enough to count as substantive.',
+    indications: 'What it is licensed for, in a sentence long enough to count.',
     mechanism: 'A mechanism of action sentence long enough to count as substantive.',
-    pharmacokinetics: 'Kinetics text long enough to count as substantive, with a half-life in it.',
-    contraindications: 'Nothing absolute.',
+    pharmacokinetics: {
+      absorption: 'Absorbed well enough to count as substantive text.',
+      distribution: 'Distributed widely, protein-bound.',
+      metabolism: 'Hepatic, via a named enzyme.',
+      excretion: 'Renal, mostly unchanged.',
+      halfLife: '6 h',
+    },
+    contraindications: ['Nothing absolute.'],
     majorInteractions: ['Warfarin'],
+    interactions: [{ group: 'Enzyme induction', detail: 'Clears faster; watch the dose.' }],
+    adverseEffects: [{ system: 'Gastrointestinal', effects: ['Nausea'] }],
     monitoring: 'Nothing routine.',
+    chemistry: '',
+    bcsClass: '',
+    references: ['SmPC'],
   };
 }
 

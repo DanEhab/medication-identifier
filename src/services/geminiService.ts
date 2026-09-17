@@ -1,4 +1,4 @@
-import type { DrugInfo, PackReading, ProfessionalDrugInfo, Recognition } from '../types';
+import type { ClinicalGroup, DrugInfo, PackReading, ProfessionalDrugInfo, Recognition } from '../types';
 import { NotAMedicationError, RateLimitedError } from '../types';
 import { API_BASE_URL } from '../config';
 import { translateDrugInfo } from './translationService';
@@ -350,51 +350,89 @@ const flattenLabelled = (value: any): string[] => {
     return [String(value)];
 };
 
-/** Field names the model has been seen to substitute in the clinical answer. */
-const PROFESSIONAL_ALIASES: Record<keyof ProfessionalDrugInfo, string[]> = {
-    genericName: ['generic_name', 'inn', 'active_ingredient', 'drug_name'],
-    atcCode: ['atc_code', 'atc'],
-    formAndStrength: ['form_and_strength', 'form', 'strength', 'presentation'],
-    drugClass: ['drug_class', 'class', 'pharmacological_class'],
-    mechanism: ['mechanism_of_action', 'moa', 'pharmacodynamics'],
-    pharmacokinetics: ['pk', 'adme', 'pharmacology'],
-    contraindications: ['contraindication', 'cautions'],
-    majorInteractions: ['major_interactions', 'drug_interactions', 'interactions'],
-    monitoring: ['monitoring_requirements', 'monitoring_parameters'],
+/**
+ * Guarantees the shape the clinical screen renders.
+ *
+ * The server normalises this answer properly — it pins the schema, maps the
+ * names the model substitutes, and rescues the shapes it invents. This end
+ * only has to make sure every field exists, because a cached answer written
+ * before a field was added arrives without it and the screen maps over it.
+ *
+ * It deliberately does NOT flatten any more. It used to reduce everything to
+ * strings, which was right while the schema was flat prose and is exactly
+ * wrong now: pharmacokinetics is four named parts and the adverse effects are
+ * grouped, and flattening those turns the structure the screen renders back
+ * into one paragraph.
+ */
+/**
+ * A list of strings, including when the model sent exactly one and did not
+ * wrap it in an array. Dropping that case loses the whole section rather than
+ * showing its single entry.
+ */
+const asStringList = (value: any): string[] => {
+    if (value === null || value === undefined) return [];
+    const entries = Array.isArray(value) ? value : [value];
+    return entries
+        .map((entry) => (typeof entry === 'object' ? '' : String(entry ?? '').trim()))
+        .filter(Boolean);
 };
 
-const PROFESSIONAL_LISTS: (keyof ProfessionalDrugInfo)[] = ['majorInteractions'];
-
 /**
- * Guarantees the shape the clinical screen renders. The server normalises too,
- * but this one used to JSON.parse the raw answer straight into a typed object
- * whose fields were `any` -- a nested object then reached the screen and React
- * threw rather than rendering it.
+ * A grouped section, however it arrives.
+ *
+ * The server hands these over as { heading, items } — but it also accepts the
+ * two shapes the model uses, { system, effects } and { group, detail }, and an
+ * answer that reaches this end without having passed through it should not
+ * silently become an empty section. Cheap to accept all three; expensive to
+ * find out later that a whole section vanished.
  */
+const asGroups = (value: any): ClinicalGroup[] =>
+    (Array.isArray(value) ? value : [])
+        .map((entry) => ({
+            heading: String(entry?.heading ?? entry?.system ?? entry?.group ?? '').trim(),
+            items: entry?.detail
+                ? asStringList([entry.detail])
+                : asStringList(entry?.items ?? entry?.effects),
+        }))
+        .filter((group) => group.items.length > 0);
+
 const normalizeProfessional = (raw: any): ProfessionalDrugInfo => {
     const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
-    const out = {} as ProfessionalDrugInfo;
+    const text = (key: string) => String(source[key] ?? '').trim();
+    const pk = source.pharmacokinetics;
+    // An entry written before the kinetics were split arrives as one string.
+    const pkPart = (key: string) =>
+        (pk && typeof pk === 'object' && !Array.isArray(pk) ? String(pk[key] ?? '') : '').trim();
 
-    (Object.keys(PROFESSIONAL_ALIASES) as (keyof ProfessionalDrugInfo)[]).forEach((field) => {
-        const wanted = [field as string, ...PROFESSIONAL_ALIASES[field]].map(loose);
-        let value: any;
-        for (const [key, candidate] of Object.entries(source)) {
-            if (wanted.includes(loose(key))) { value = candidate; break; }
-        }
-        if (PROFESSIONAL_LISTS.includes(field)) {
-            (out[field] as unknown as string[]) = flattenLabelled(value).map((s) => s.trim()).filter(Boolean);
-        } else {
-            (out[field] as unknown as string) = flattenLabelled(value).map((s) => s.trim()).filter(Boolean).join(' ');
-        }
-    });
-
-    return out;
+    return {
+        genericName: text('genericName'),
+        atcCode: text('atcCode'),
+        formAndStrength: text('formAndStrength'),
+        drugClass: text('drugClass'),
+        indications: text('indications'),
+        mechanism: text('mechanism'),
+        pharmacokinetics: {
+            absorption: pkPart('absorption') || (typeof pk === 'string' ? pk.trim() : ''),
+            distribution: pkPart('distribution'),
+            metabolism: pkPart('metabolism'),
+            excretion: pkPart('excretion'),
+            halfLife: pkPart('halfLife'),
+        },
+        contraindications: asStringList(source.contraindications),
+        majorInteractions: asStringList(source.majorInteractions),
+        interactions: asGroups(source.interactions),
+        adverseEffects: asGroups(source.adverseEffects),
+        monitoring: text('monitoring'),
+        chemistry: text('chemistry'),
+        bcsClass: text('bcsClass'),
+        references: asStringList(source.references),
+    };
 };
 
 export const fetchProfessionalDrugInformation = async (drugName: string): Promise<ProfessionalDrugInfo> => {
     // The server pins the exact response schema; this says what the fields are
     // for, so the two do not drift apart.
-    const prompt = `Provide detailed technical information for the drug: ${drugName}, intended for a healthcare professional. Give the generic name and ATC code, the salt and usual presentation, the pharmacological class, the mechanism of action, ADME with the enzymes and half-life a clinician would want, absolute contraindications, the clinically significant interactions as short labels rather than sentences, and what to monitor and when. Use reliable medical sources. Return ONLY the JSON object, no additional text.`;
+    const prompt = `Provide detailed technical information for the drug: ${drugName}, intended for a healthcare professional. Give the generic name and ATC code, the salt and usual presentation, the pharmacological class, what it is licensed for, and the mechanism of action. Give ADME as its four separate parts with the enzymes named and the elimination half-life on its own. Give absolute contraindications, the significant interactions both as short labels and grouped by mechanism with what to do about each, the adverse effects grouped by organ system, and what to monitor and when. Name the standard sources only - never invent a citation, page number or URL. Use reliable medical sources. Return ONLY the JSON object, no additional text.`;
 
     const text = await callBackend(prompt, 'en');
 

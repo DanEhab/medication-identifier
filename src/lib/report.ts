@@ -1,4 +1,4 @@
-import type { DrugInfo, PatientInfo } from '../types';
+import type { DrugInfo, PatientInfo, ProfessionalDrugInfo } from '../types';
 import type { translations } from './translations';
 
 type TranslateFn = (key: keyof typeof translations.en) => string;
@@ -20,7 +20,51 @@ const escapeHtml = (value: string) =>
     .replace(/'/g, '&#39;');
 
 /**
- * The single source of truth for report content. All three export formats
+ * The clinical summary, as the same sections a patient report is built from.
+ *
+ * Sharing from the clinical screen used to export the patient record — the
+ * comment said that was deliberate, "the thing a clinician hands to somebody",
+ * but it means a clinician who reads the professional view and taps share gets
+ * a page that says none of what they were just reading. The two views export
+ * what they show.
+ */
+export const buildClinicalSections = (
+  info: ProfessionalDrugInfo,
+  t: TranslateFn,
+): ReportSection[] => {
+  const pk = info.pharmacokinetics;
+  const kinetics = [
+    pk.halfLife && `${t('halfLifeLabel')}: ${pk.halfLife}`,
+    pk.absorption && `${t('absorptionLabel')}: ${pk.absorption}`,
+    pk.distribution && `${t('distributionLabel')}: ${pk.distribution}`,
+    pk.metabolism && `${t('metabolismLabel')}: ${pk.metabolism}`,
+    pk.excretion && `${t('excretionLabel')}: ${pk.excretion}`,
+  ].filter(Boolean) as string[];
+
+  // A group's heading has to survive into a flat report, or the entries under
+  // three different systems arrive as one undifferentiated list.
+  const flattenGroups = (groups: { heading: string; items: string[] }[]): string[] =>
+    groups.flatMap((group) =>
+      group.items.map((item) => (group.heading ? `${group.heading}: ${item}` : item)));
+
+  return [
+    { title: t('classLabel'), body: info.drugClass },
+    { title: t('indicationsLabel'), body: info.indications },
+    { title: t('mechanismHeading'), body: info.mechanism },
+    { title: t('pharmacokineticsHeading'), body: kinetics },
+    { title: t('contraindicationsHeading'), body: info.contraindications },
+    { title: t('atAGlanceLabel'), body: info.majorInteractions },
+    { title: t('interactionsHeading'), body: flattenGroups(info.interactions) },
+    { title: t('adverseEffectsHeading'), body: flattenGroups(info.adverseEffects) },
+    { title: t('monitoringHeading'), body: info.monitoring },
+    { title: t('chemistryLabel'), body: info.chemistry },
+    { title: t('bcsLabel'), body: info.bcsClass },
+    { title: t('referencesHeading'), body: info.references },
+  ].filter((section) => (Array.isArray(section.body) ? section.body.length > 0 : Boolean(section.body?.trim())));
+};
+
+/**
+ * The single source of truth for the patient report. All three export formats
  * (print/HTML, plain text, document) render from this, so they can no longer
  * drift apart the way the three hand-written generators did.
  */
@@ -68,8 +112,10 @@ export const renderReportHTML = (
   patientInfo: PatientInfo,
   t: TranslateFn,
   language: 'en' | 'ar',
+  /** Supplied by the clinical screen, which exports what it shows. */
+  override?: ReportSection[],
 ): string => {
-  const sections = buildReportSections(drugInfo, t);
+  const sections = override ?? buildReportSections(drugInfo, t);
   const isRtl = language === 'ar';
 
   const renderBody = (section: ReportSection) => {
@@ -128,7 +174,8 @@ export const renderReportText = (
   drugInfo: DrugInfo,
   patientInfo: PatientInfo,
   t: TranslateFn,
-  { width = 50, numbered = false }: { width?: number; numbered?: boolean } = {},
+  { width = 50, numbered = false, override }:
+    { width?: number; numbered?: boolean; override?: ReportSection[] } = {},
 ): string => {
   const lines: string[] = [
     t('report').toUpperCase(),
@@ -140,7 +187,7 @@ export const renderReportText = (
     '='.repeat(width),
   ];
 
-  for (const section of buildReportSections(drugInfo, t)) {
+  for (const section of override ?? buildReportSections(drugInfo, t)) {
     lines.push('', section.title.toUpperCase(), '-'.repeat(width));
     if (section.warning) lines.push(`⚠️ ${section.warning}`);
     if (Array.isArray(section.body)) {

@@ -156,10 +156,23 @@ for (const [collection, normalize, cacheable, hasFields] of [
     console.log(`  fix   removed ${deletedCount} misfiled document(s): ${ids.join(', ')}`);
     problems--;
   }
-  // Not a fault: the code refetches these on first use rather than serving a
-  // page of empty cards. Worth naming so the number is known.
+  /*
+    Not a fault: the code refetches these on first use rather than serving a
+    page of empty cards. Worth naming so the number is known.
+
+    --fix removes them all the same. An entry the server will never serve is
+    an entry that already guarantees the model call its replacement costs, so
+    deleting it changes nothing except the space it was holding — and it is the
+    only way the rows written against an older schema ever leave, since nothing
+    looks for them.
+  */
   report(true, `${willRefetch.length} will be refetched on first use (written before the current fields)`,
     willRefetch.slice(0, 6).join(', '));
+
+  if (FIX && willRefetch.length > 0) {
+    const { deletedCount } = await db.collection(collection).deleteMany({ _id: { $in: willRefetch } });
+    console.log(`  fix   removed ${deletedCount} entry/entries written against an older shape`);
+  }
   report(true, `${stringData.length} store data as a JSON string rather than an object`,
     stringData.slice(0, 6).join(', '));
   report(true, `${stale.length} are past the ${MAX_AGE_DAYS}-day refresh window`,

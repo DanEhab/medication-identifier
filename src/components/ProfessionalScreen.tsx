@@ -43,20 +43,87 @@ const ShareIcon: React.FC = () => (
   </svg>
 );
 
-/** One labelled row of the clinical card. */
-const Row: React.FC<{ label: string; value: string; last?: boolean }> = ({ label, value, last }) => {
+/** The four parts of ADME, in the order they are taught, plus the half-life. */
+const PK_ROWS = [
+  ['halfLife', 'halfLifeLabel'],
+  ['absorption', 'absorptionLabel'],
+  ['distribution', 'distributionLabel'],
+  ['metabolism', 'metabolismLabel'],
+  ['excretion', 'excretionLabel'],
+] as const;
+
+/**
+ * The three levels this screen is read at.
+ *
+ * It had one: a mono label at twelve pixels over a paragraph, repeated eight
+ * times down a single card. Everything looked equally important, so nothing
+ * did, and the sections that actually have parts — ADME, adverse effects by
+ * system, interactions by mechanism — had nowhere to put them and arrived as
+ * one flattened sentence each.
+ *
+ * Heading names a section. Label names one value inside it. Body is the text.
+ */
+const Heading: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <h2 className="font-semibold text-[20px] leading-[1.3] tracking-[-0.01em] text-ink px-5 m-0 mb-3 mt-7">
+    {children}
+  </h2>
+);
+
+const Label: React.FC<{ children: React.ReactNode; color?: string; className?: string }> = ({
+  children, color = 'var(--ink-soft)', className = '',
+}) => (
+  <div className={`font-mono font-semibold text-[13px] tracking-[0.06em] ${className}`} style={{ color }}>
+    {children}
+  </div>
+);
+
+const Body: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <p className="text-[17px] leading-[1.55] text-ink-dim m-0"><bdi>{children}</bdi></p>
+);
+
+/** The card every section sits in, so the page has one rhythm. */
+const Card: React.FC<{ children: React.ReactNode; testid?: string }> = ({ children, testid }) => (
+  <div className="px-5">
+    <div
+      className="bg-surface border border-paper-sand rounded-[16px] px-[18px] py-[16px] flex flex-col gap-4"
+      data-testid={testid}
+    >
+      {children}
+    </div>
+  </div>
+);
+
+/** One labelled value inside a card. */
+const Row: React.FC<{ label: string; value: string }> = ({ label, value }) => {
   if (!value || !value.trim()) return null;
   return (
-    <div className={`py-3.5 ${last ? '' : 'border-b border-paper-deep'}`}>
-      <div className="font-mono font-semibold text-[12px] tracking-[0.06em] text-ink-soft mb-[5px]">
-        {label}
-      </div>
-      <div className="text-[17px] leading-[1.55] text-ink">
-        <bdi>{value}</bdi>
-      </div>
+    <div>
+      <Label className="mb-1.5">{label}</Label>
+      <Body>{value}</Body>
     </div>
   );
 };
+
+/** A heading with its entries, as the grouped sections arrive. */
+const Group: React.FC<{ heading: string; items: string[]; color?: string }> = ({
+  heading, items, color = 'var(--ink-soft)',
+}) => (
+  <div>
+    {heading && <Label className="mb-1.5" color={color}>{heading.toUpperCase()}</Label>}
+    <ul className="m-0 p-0 list-none flex flex-col gap-[6px]">
+      {items.map((item, index) => (
+        <li key={index} className="flex gap-2.5 items-start">
+          <span
+            className="w-[5px] h-[5px] rounded-full shrink-0 mt-[9px]"
+            style={{ background: color }}
+            aria-hidden="true"
+          />
+          <span className="text-[17px] leading-[1.5] text-ink-dim"><bdi>{item}</bdi></span>
+        </li>
+      ))}
+    </ul>
+  </div>
+);
 
 /** A skeleton in the shape of the card, so the wait does not read as a hang. */
 const LoadingCard: React.FC = () => (
@@ -83,13 +150,24 @@ export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Sharing exports the patient record, which is the thing a clinician hands
-  // to somebody. There is no patient record when this was opened cold.
+  /*
+    Sharing from here exports the clinical summary.
+
+    It used to export the patient record, on the reasoning that that is what a
+    clinician hands to somebody — but somebody reading the professional view
+    and tapping share expects the professional view. The patient record is one
+    tap away on the other tab and exports itself from there.
+
+    The patient record is still passed in, because the header of any report
+    names the medicine and its strength, and there is none when this screen was
+    opened cold from a saved link.
+  */
   const { requestExport, dialog } = useReportExport(
     drugInfo ?? ({ drugName, strength: '', commonUse: '', dosageAdministration: '', foodDrinkEffect: '',
       missedDose: '', storage: '', commonSideEffects: [], seriousSideEffects: [], consultDoctorWhen: [] } as DrugInfo),
     patientInfo,
     onPatientInfoChange,
+    info,
   );
 
   useEffect(() => {
@@ -172,45 +250,143 @@ export const ProfessionalScreen: React.FC<ProfessionalScreenProps> = ({
         )}
       </div>
 
-      <div className="px-5 pt-[18px]">
-        {isLoading && <LoadingCard />}
+      <div className="pt-[18px]">
+        {isLoading && <div className="px-5"><LoadingCard /></div>}
 
         {error && (
-          <div className="bg-surface rounded-[16px] py-4 px-[18px]" style={{ border: '2px solid var(--clay-soft)' }} role="alert">
-            <p className="font-semibold text-[17px] text-clay m-0 mb-1.5">{t('professionalLoadFailed')}</p>
-            <p className="text-[16px] leading-[1.55] text-clay-deep m-0">{error}</p>
-          </div>
-        )}
-
-        {info && !isLoading && !error && (
-          <div className="bg-surface border border-paper-sand rounded-[16px] px-[18px] py-1" data-testid="clinical-card">
-            <Row label={t('classLabel')} value={info.drugClass} />
-            <Row label={t('mechanismLabel')} value={info.mechanism} />
-            <Row label={t('pharmacokineticsLabel')} value={info.pharmacokinetics} />
-            <Row label={t('contraindicationsLabel')} value={info.contraindications} />
-
-            {info.majorInteractions.length > 0 && (
-              <div className="py-3.5 border-b border-paper-deep">
-                <div className="font-mono font-semibold text-[12px] tracking-[0.06em] text-clay mb-2">
-                  {t('majorInteractionsLabel')}
-                </div>
-                <div className="flex flex-wrap gap-[7px]">
-                  {info.majorInteractions.map((interaction) => (
-                    <span
-                      key={interaction}
-                      className="font-medium text-[14px] text-clay-deep bg-clay-wash rounded-lg py-1.5 px-2.5"
-                    >
-                      <bdi>{interaction}</bdi>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <Row label={t('monitoringLabel')} value={info.monitoring} last />
+          <div className="px-5">
+            <div className="bg-surface rounded-[16px] py-4 px-[18px]" style={{ border: '2px solid var(--clay-soft)' }} role="alert">
+              <p className="font-semibold text-[17px] text-clay m-0 mb-1.5">{t('professionalLoadFailed')}</p>
+              <p className="text-[16px] leading-[1.55] text-clay-deep m-0">{error}</p>
+            </div>
           </div>
         )}
       </div>
+
+      {info && !isLoading && !error && (
+        <div data-testid="clinical-card">
+          {/* Class and what it is for: the two lines read before anything else. */}
+          {(info.drugClass.trim() || info.indications.trim()) && (
+            <Card testid="clinical-overview">
+              <Row label={t('classLabel')} value={info.drugClass} />
+              <Row label={t('indicationsLabel').toUpperCase()} value={info.indications} />
+            </Card>
+          )}
+
+          {info.mechanism.trim() && (
+            <>
+              <Heading>{t('mechanismHeading')}</Heading>
+              <Card><Body>{info.mechanism}</Body></Card>
+            </>
+          )}
+
+          {/*
+            ADME as its four parts, which is how it is taught and how it is
+            read. It used to be one sentence, because the schema asked for one.
+            The half-life sits above them: it is the number looked for first.
+          */}
+          {PK_ROWS.some(([key]) => info.pharmacokinetics[key].trim()) && (
+            <>
+              <Heading>{t('pharmacokineticsHeading')}</Heading>
+              <Card testid="clinical-pk">
+                {info.pharmacokinetics.halfLife.trim() && (
+                  <div className="flex items-baseline gap-2.5 flex-wrap">
+                    <Label>{t('halfLifeLabel').toUpperCase()}</Label>
+                    <span className="font-semibold text-[19px] text-ink">
+                      <bdi>{info.pharmacokinetics.halfLife}</bdi>
+                    </span>
+                  </div>
+                )}
+                {PK_ROWS.filter(([key]) => key !== 'halfLife').map(([key, labelKey]) => (
+                  <Row key={key} label={t(labelKey)} value={info.pharmacokinetics[key]} />
+                ))}
+              </Card>
+            </>
+          )}
+
+          {info.contraindications.length > 0 && (
+            <>
+              <Heading>{t('contraindicationsHeading')}</Heading>
+              <Card testid="clinical-contraindications">
+                <Group heading="" items={info.contraindications} color="var(--clay)" />
+              </Card>
+            </>
+          )}
+
+          {/*
+            Both shapes, because they answer different questions. The labels
+            are for "is the drug in front of me on this list"; the groups are
+            for "what happens, and what do I do about it". The screen had only
+            the labels, which is a list of names with no reason attached.
+          */}
+          {(info.majorInteractions.length > 0 || info.interactions.length > 0) && (
+            <>
+              <Heading>{t('interactionsHeading')}</Heading>
+              <Card testid="clinical-interactions">
+                {info.majorInteractions.length > 0 && (
+                  <div>
+                    <Label className="mb-2" color="var(--clay)">{t('atAGlanceLabel')}</Label>
+                    <div className="flex flex-wrap gap-[7px]">
+                      {info.majorInteractions.map((interaction) => (
+                        <span
+                          key={interaction}
+                          className="font-medium text-[14px] text-clay-deep bg-clay-wash rounded-lg py-1.5 px-2.5"
+                        >
+                          <bdi>{interaction}</bdi>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {info.interactions.map((group, index) => (
+                  <div key={index}>
+                    {group.heading && <Label className="mb-1.5">{group.heading.toUpperCase()}</Label>}
+                    {group.items.map((item, i) => <Body key={i}>{item}</Body>)}
+                  </div>
+                ))}
+              </Card>
+            </>
+          )}
+
+          {info.adverseEffects.length > 0 && (
+            <>
+              <Heading>{t('adverseEffectsHeading')}</Heading>
+              <Card testid="clinical-adverse">
+                {info.adverseEffects.map((group, index) => (
+                  <Group key={index} heading={group.heading} items={group.items} />
+                ))}
+              </Card>
+            </>
+          )}
+
+          {info.monitoring.trim() && (
+            <>
+              <Heading>{t('monitoringHeading')}</Heading>
+              <Card><Body>{info.monitoring}</Body></Card>
+            </>
+          )}
+
+          {/* Niche, and empty for most medicines, so it sits at the end. */}
+          {(info.chemistry.trim() || info.bcsClass.trim()) && (
+            <>
+              <Heading>{t('chemistryHeading')}</Heading>
+              <Card testid="clinical-chemistry">
+                <Row label={t('chemistryLabel')} value={info.chemistry} />
+                <Row label={t('bcsLabel')} value={info.bcsClass} />
+              </Card>
+            </>
+          )}
+
+          {info.references.length > 0 && (
+            <>
+              <Heading>{t('referencesHeading')}</Heading>
+              <Card testid="clinical-references">
+                <Group heading="" items={info.references} />
+              </Card>
+            </>
+          )}
+        </div>
+      )}
 
       {/* ── What this is, and is not ── */}
       <div className="px-5 pt-4 pb-7">
