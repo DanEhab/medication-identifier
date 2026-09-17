@@ -97,10 +97,18 @@ module.exports = async (req, res) => {
     const seen = new Set();
     const suggestions = [];
 
+    /*
+      Compared the way a lookup would compare them, not as raw text.
+
+      A pointer records the name it resolved to, strength and all, so "Panadol"
+      from the answer and "Panadol 500mg" from a pointer to it are two rows of
+      one medicine, one of them with a strength nobody typed. Both lead to the
+      same answer, so offering both is only noise in a list of eight.
+    */
     const add = (name, detail) => {
       const cleaned = (name || '').trim();
       if (!cleaned) return;
-      const key = cleaned.toLowerCase();
+      const key = queryKeyFor(cleaned) || cleaned.toLowerCase();
       if (seen.has(key)) return;
       seen.add(key);
       suggestions.push({ name: cleaned, detail: detail || '' });
