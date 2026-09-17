@@ -158,6 +158,72 @@ const selfMatch = await browser.evaluate(`
 `);
 check('one medicine saved under two names does not warn about itself', !selfMatch);
 
+/*
+  ── Two brands of one medicine ────────────────────────────────────────────
+
+  The list can only hold both because answers are filed by product now. It used
+  to be impossible by accident: Abimol and Panadol shared one cached entry, so
+  the app was wrong about which one somebody had and could never show two.
+
+  Two paracetamols do not interact, so the interaction check is silent on
+  exactly the case that matters most. Paracetamol is the commonest accidental
+  overdose there is.
+*/
+await seed([
+  med('Panadol', { canonicalName: 'paracetamol', strength: '500 mg', neverWith: '' }),
+  med('Abimol', { canonicalName: 'paracetamol', strength: '500 mg', neverWith: '' }),
+]);
+await browser.goto(BASE);
+await openMedicines();
+
+const doubled = await browser.evaluate(`
+  const card = document.querySelector('[data-testid="duplicate-ingredient"]');
+  return {
+    shown: !!card,
+    text: card ? card.innerText.replace(/\\n/g, ' | ') : null,
+    interaction: !!document.querySelector('[data-testid="interaction-warning"]'),
+  };
+`);
+check('two brands of one ingredient are called out', doubled.shown, String(doubled.text));
+check('and it names both of them',
+  /Panadol/.test(doubled.text || '') && /Abimol/.test(doubled.text || ''), doubled.text);
+check('and names the ingredient they share',
+  /paracetamol/i.test(doubled.text || ''), doubled.text);
+check('and says what taking both would mean',
+  /double dose/i.test(doubled.text || ''), doubled.text);
+check('the interaction check stays silent, which is why this exists',
+  !doubled.interaction, 'two paracetamols do not interact, they add up');
+
+await screenshot(browser, 'duplicate-ingredient', import.meta.url);
+
+// A combination counts: Panadol Extra is paracetamol with caffeine on top.
+await seed([
+  med('Panadol', { canonicalName: 'paracetamol', strength: '500 mg' }),
+  med('Panadol Extra', { canonicalName: 'caffeine+paracetamol', strength: '500 mg / 65 mg' }),
+]);
+await browser.goto(BASE);
+await openMedicines();
+const withCombination = await browser.evaluate(`
+  const card = document.querySelector('[data-testid="duplicate-ingredient"]');
+  return card ? card.innerText.replace(/\\n/g, ' | ') : null;
+`);
+check('a combination sharing an ingredient is caught too',
+  /paracetamol/i.test(withCombination || ''), String(withCombination));
+check('and the ingredient only one of them has is not claimed',
+  !/caffeine/i.test(withCombination || ''), String(withCombination));
+
+// Two different medicines must not trip it, or the warning means nothing.
+await seed([
+  med('Panadol', { canonicalName: 'paracetamol', strength: '500 mg' }),
+  med('Brufen', { canonicalName: 'ibuprofen', strength: '400 mg' }),
+]);
+await browser.goto(BASE);
+await openMedicines();
+const unrelated = await browser.evaluate(`
+  return !!document.querySelector('[data-testid="duplicate-ingredient"]');
+`);
+check('two different medicines do not trip it', !unrelated);
+
 // ── Profiles ───────────────────────────────────────────────────────────────
 await browser.evaluate(`
   localStorage.removeItem('profiles');

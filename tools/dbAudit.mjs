@@ -197,11 +197,78 @@ for (const [collection, normalize, cacheable, hasFields] of [
     .filter((a) => a.canonicalKey && a._id !== a.canonicalKey && !aliasIsSafe(a._id, a.canonicalKey))
     .map((a) => `${a._id} -> ${a.canonicalKey}`);
 
+  /*
+    A pointer to an answer that is not about the thing that was typed.
+
+    The request path refuses an answer filed under a name it does not match, but
+    a pointer is a second way to reach one, and it can be wrong on its own: the
+    alias "rigix" pointed at the cetirizine record, which is the right
+    ingredient under the wrong name — Rigix is a brand of it. "abimol" pointing
+    at the paracetamol record was the same mistake, one step worse.
+
+    A good pointer is a *spelling*, so the answer it reaches names something
+    close to what was typed: "panadooll" reaches an answer that says Panadol,
+    "flagel" reaches one that says Flagyl. Edit distance rather than equality,
+    because a spelling that was already right would not need a pointer.
+  */
+  const answersByKey = new Map([
+    // Clinical records first, so a patient record wins where both exist: it is
+    // the one with a brand on it. A pointer reachable only from the clinical
+    // collection still has to be checked, or it sits waiting to mis-route the
+    // patient lookup the moment an answer appears under that key — which is
+    // how "liptor" came to reach the generic atorvastatin record instead of
+    // Lipitor's.
+    ...(await db.collection('professional_medications').find({}).toArray()),
+    ...(await db.collection('medications').find({}).toArray()),
+  ].map((doc) => [String(doc._id), doc]));
+
+  const editDistance = (a, b) => {
+    let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      const current = [i];
+      for (let j = 1; j <= b.length; j++) {
+        current[j] = Math.min(
+          previous[j] + 1,
+          current[j - 1] + 1,
+          previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+        );
+      }
+      previous = current;
+    }
+    return previous[b.length];
+  };
+
+  // A clinical record carries no brand, only a generic name, so that is all
+  // there is to compare a spelling against.
+  const answerNames = (doc) => [
+    doc?.data?.brandName, doc?.data?.drugName, doc?.data?.canonicalName, doc?.data?.genericName,
+  ]
+    .filter(Boolean)
+    .flatMap((name) => normalizeKey(name).split(/[\s+]+/))
+    .filter((word) => word.length >= 4);
+
+  const strays = aliases
+    .filter((a) => {
+      const doc = answersByKey.get(a.canonicalKey);
+      if (!doc) return false;            // already counted as an orphan
+      const typed = normalizeKey(a._id);
+      // Non-Latin spellings are a transliteration, not a misspelling, so edit
+      // distance says nothing useful about them. They are left to the request
+      // path, which refuses a mismatched answer anyway.
+      if (!/^[a-z0-9 +]+$/.test(typed)) return false;
+      return !answerNames(doc).some((word) => word.includes(typed)
+        || typed.includes(word)
+        || editDistance(typed, word) <= 2);
+    })
+    .map((a) => `${a._id} -> ${a.canonicalKey} (${answersByKey.get(a.canonicalKey)?.data?.drugName})`);
+
   report(notNormalised.length === 0, 'every alias key is in the form lookups use', notNormalised.slice(0, 5).join(', '));
   report(noKey.length === 0, 'every alias points at a canonical key', noKey.slice(0, 5).join(', '));
   report(selfAliases.length === 0, 'no alias points at itself', selfAliases.slice(0, 5).join(', '));
   report(orphans.length === 0, 'every alias resolves to an answer that exists', orphans.slice(0, 6).join(', '));
   report(unsafe.length === 0, 'no alias claims to be a medicine it is only part of', unsafe.slice(0, 6).join(', '));
+  report(strays.length === 0, 'every alias reaches an answer that names what was typed',
+    strays.slice(0, 6).join(', '));
 
   if (FIX) {
     // Pointers are derived data: deleting one costs the cheap resolution call
@@ -210,13 +277,15 @@ for (const [collection, normalize, cacheable, hasFields] of [
       ...selfAliases,
       ...orphans.map((entry) => entry.slice(0, entry.indexOf(' -> '))),
       ...unsafe.map((entry) => entry.slice(0, entry.indexOf(' -> '))),
+      ...strays.map((entry) => entry.slice(0, entry.indexOf(' -> '))),
       ...noKey,
     ];
     if (doomed.length > 0) {
       const { deletedCount } = await db.collection('medication_aliases')
         .deleteMany({ _id: { $in: [...new Set(doomed)] } });
       console.log(`  fix   removed ${deletedCount} bad pointer(s)`);
-      problems -= [selfAliases, orphans, unsafe, noKey].filter((list) => list.length > 0).length;
+      problems -= [selfAliases, orphans, unsafe, strays, noKey]
+        .filter((list) => list.length > 0).length;
     }
   }
   // Only used by the type-ahead, so a missing one costs a suggestion, not a lookup.
