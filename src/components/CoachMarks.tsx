@@ -196,6 +196,7 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
   const [index, setIndex] = useState(0);
   const [cardHeight, setCardHeight] = useState(220);
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const scrimRef = useRef<HTMLDivElement | null>(null);
 
   const steps = stepsFor(phase, t);
   const step = steps[index];
@@ -221,6 +222,31 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
   }, [finish]);
 
   /*
+    The page underneath does not move while the tour is running.
+
+    The scrim was assumed to swallow the gesture because it covers everything,
+    and it does not: a fixed overlay is painted over the page, not in the way
+    of it, so a drag anywhere still scrolled the medicine underneath. The
+    spotlight then sat over whatever had scrolled into its place, pointing at
+    the wrong thing entirely.
+
+    The tour still scrolls itself — a step brings its own target into view —
+    and that goes through scrollTo and scrollIntoView, which these listeners
+    never see.
+  */
+  useEffect(() => {
+    const scrim = scrimRef.current;
+    if (!scrim) return;
+    const swallow = (event: Event) => event.preventDefault();
+    scrim.addEventListener('touchmove', swallow, { passive: false });
+    scrim.addEventListener('wheel', swallow, { passive: false });
+    return () => {
+      scrim.removeEventListener('touchmove', swallow);
+      scrim.removeEventListener('wheel', swallow);
+    };
+  }, []);
+
+  /*
     Bring the step's target into view before pointing at it.
 
     Three of the four result-screen steps start below the fold on a phone, and a
@@ -240,7 +266,20 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
       if (!comfortable) el.scrollIntoView({ block: 'center', behavior });
     };
 
-    bringIntoView('smooth');
+    /*
+      Instantly, not smoothly.
+
+      The spotlight, the card and the hand already animate into place over a
+      third of a second. Gliding the page as well meant two motions at once
+      that did not agree: the card's words changed in eight milliseconds while
+      the thing they described was still sliding up the screen, and the
+      spotlight chased it — four hundred milliseconds of nothing lining up.
+      Measured against thirty for a step whose target was already in view.
+
+      The page jumping and the spotlight then settling onto it reads as one
+      movement, which is what a step change is.
+    */
+    bringIntoView('auto');
 
     /*
       And again whenever the viewport changes under it.
@@ -387,12 +426,14 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
         a medicine page was excluded from the one placement that suits it best,
         and fell all the way through to the last resort, underneath the card.
 
-        Measured against the hand rather than against a number: comfortably
-        wider and taller than it is, so a shutter button barely bigger than the
-        hand is still excluded. On something this size the hand reads as "tap
-        in here", which is the instruction.
+        Measured against the hand rather than against a number: three times its
+        width and taller than it is. Width is what separates the two cases —
+        the shutter is round and actually *taller* than the dose row, but only
+        twice the hand's width, so a hand inside it covers the button it is
+        pointing at. A row spanning the screen has somewhere for the hand to
+        rest that is not on top of anything.
       */
-      hole.height >= HAND_H + 24 && hole.width >= HAND_W + 40
+      hole.width >= HAND_W * 3 && hole.height >= HAND_H + 20
         ? { top: hole.top + hole.height - HAND_H - 10, left: insideX }
         : null,
       // Just below it, the way a thumb comes up to a button.
@@ -429,7 +470,40 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
       p.top + HAND_H <= cardRect.top || p.top >= cardRect.bottom
       || p.left + HAND_W <= cardRect.left || p.left >= cardRect.right;
 
-    return candidates.find((p) => onScreen(p) && clearOfCard(p))
+    /*
+      And it must not bury the thing it is pointing at.
+
+      A hand is 44 by 50 and the language button is 40 by 40, so any placement
+      that lands on a control that size hides it completely — which is the
+      opposite of what a tour is for. It was covering 77% of that button and
+      31% of the shutter.
+
+      That came from the clamp above. Pulling a placement back inside the
+      screen is right when the control runs to the screen's edge, because then
+      the two edges are the same edge. For a small control sitting near the
+      edge they are not: the clamp dragged a placement that belonged beside the
+      button back on top of it. So a clamped placement has to earn its keep,
+      and this is the test it has to pass.
+
+      A fifth, rather than nothing: resting a hand inside something the size of
+      the viewfinder is the "tap in here" reading, and that covers about one
+      per cent of it. The saved-medicines tab is the case that sets the number
+      — 145 by 72 is wide enough and tall enough to hold a hand, and a hand in
+      it covers a quarter of the tab, which is a hand sitting on a label rather
+      than pointing at one.
+    */
+    const coversTarget = (p: { top: number; left: number }) => {
+      const width = Math.max(0, Math.min(p.left + HAND_W, hole.left + hole.width) - Math.max(p.left, hole.left));
+      const height = Math.max(0, Math.min(p.top + HAND_H, hole.top + hole.height) - Math.max(p.top, hole.top));
+      return (width * height) / (hole.width * hole.height) > 0.2;
+    };
+
+    return candidates.find((p) => onScreen(p) && clearOfCard(p) && !coversTarget(p))
+      // Nothing clears both. Obscuring the card is the lesser harm: the card
+      // can be read around a hand, and a control with a hand on it cannot be
+      // seen at all.
+      || candidates.find((p) => onScreen(p) && !coversTarget(p))
+      || candidates.find((p) => onScreen(p) && clearOfCard(p))
       // Nothing fits: put it where it is at least on screen, rather than
       // hiding it. A hand half behind the card still says which control.
       || candidates.find(onScreen)
@@ -529,8 +603,15 @@ export const CoachMarks: React.FC<CoachMarksProps> = ({ phase, onPhaseComplete }
         the step text and raising Android's Copy / Share / Select all bar over
         the tour — on top of the very buttons that move it along.
       */
+      ref={scrimRef}
       className="fixed inset-0 z-[9997] select-none"
-      style={{ WebkitTouchCallout: 'none' }}
+      /*
+        touch-action stops the browser scrolling the page from a drag that
+        starts here, and overscroll-behavior stops the gesture being handed on
+        to whatever is underneath once it does. Neither is enough on its own,
+        and neither covers a mouse wheel — see the listeners above.
+      */
+      style={{ WebkitTouchCallout: 'none', touchAction: 'none', overscrollBehavior: 'contain' }}
       role="dialog"
       aria-modal="true"
       aria-label={t('tourLabel')}
