@@ -13,7 +13,7 @@ const source = readFileSync(fileURLToPath(new URL('../src/lib/dosageForm.ts', im
 const { outputText } = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 });
-const { dosageFormOf, DOSAGE_FORMS } =
+const { dosageFormOf, isSwallowed, DOSAGE_FORMS } =
   await import(`data:text/javascript,${encodeURIComponent(outputText)}`);
 
 // ── What the model says, when it says anything ──────────────────────────────
@@ -142,4 +142,34 @@ test('every form the list names can be drawn', () => {
   // render as a blank tile.
   assert.ok(DOSAGE_FORMS.includes('unknown'));
   assert.equal(new Set(DOSAGE_FORMS).size, DOSAGE_FORMS.length);
+});
+
+// ── "Take" or "use" ─────────────────────────────────────────────────────────
+
+/*
+  "How to take it" is the wrong heading over a cream. The form is known, so the
+  heading can simply be right rather than generic.
+*/
+test('the things you swallow are taken', () => {
+  for (const form of ['tablet', 'capsule', 'liquid', 'sachet']) {
+    assert.equal(isSwallowed(form), true, form);
+  }
+});
+
+test('the things you do not swallow are used', () => {
+  for (const form of ['cream', 'inhaler', 'injection', 'suppository', 'patch', 'spray', 'drops']) {
+    assert.equal(isSwallowed(form), false, form);
+  }
+});
+
+test('an unknown form keeps the ordinary wording', () => {
+  // Most medicines are swallowed, so "take" reads as neutral where "use"
+  // would read as a claim that this one is not.
+  assert.equal(isSwallowed('unknown'), true);
+});
+
+test('every form is decided one way or the other', () => {
+  for (const form of DOSAGE_FORMS) {
+    assert.equal(typeof isSwallowed(form), 'boolean', form);
+  }
 });

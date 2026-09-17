@@ -4,7 +4,7 @@ import { MarkdownText } from './MarkdownText';
 import { useLocalization } from '../context/LanguageContext';
 import { isMedicationSaved, toggleMedication } from '../lib/medicationStorage';
 import { useReportExport } from '../lib/useReportExport';
-import { dosageFormOf } from '../lib/dosageForm';
+import { dosageFormOf, isSwallowed } from '../lib/dosageForm';
 import { DosageFormIcon } from './DosageFormIcon';
 import { SettingsButton } from './SettingsScreen';
 
@@ -226,6 +226,8 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   const ingredient = drugInfo.canonicalName?.trim();
   const showIngredient = Boolean(ingredient) && ingredient!.toLowerCase() !== brand.toLowerCase();
   const form = dosageFormOf(drugInfo);
+  // Nobody "takes" a cream or a patch.
+  const takingLabel = isSwallowed(form) ? t('howToTakeItLabel') : t('howToUseItLabel');
 
   const quickFacts = [
     { value: drugInfo.quickDose, note: drugInfo.quickDoseNote },
@@ -323,7 +325,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
       {(quickFacts.length > 0 || drugInfo.howToTake?.trim() || drugInfo.dosageAdministration
         || drugInfo.foodDrinkEffect?.trim()) && (
         <>
-          <SectionHeading>{t('howToTakeItLabel')}</SectionHeading>
+          <SectionHeading>{takingLabel}</SectionHeading>
 
           {quickFacts.length > 0 && (
             <div className="grid grid-cols-3 gap-2 px-5" data-tutorial="quick-facts">
