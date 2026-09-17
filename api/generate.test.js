@@ -1157,3 +1157,41 @@ test('the limiter fails open when the database is unavailable', async () => {
   delete require.cache[require.resolve('./db.js')];
   delete require.cache[require.resolve('./_rateLimit.js')];
 });
+
+/*
+  A cache key is only worth having if somebody can look it up again.
+
+  The live database held a clinical answer filed under "recognised true" — a
+  fragment of a JSON answer that had found its way into a prompt and been read
+  as a medicine's name. Nobody will ever type that, so the row was an answer
+  that had been paid for and could never be served.
+
+  Structured punctuation in a name is the readable sign of that, and it is
+  enough for the shape that caused it. Bare words are not distinguishable from a
+  real brand by looking at them, so this does not claim to catch those.
+*/
+test('a name read out of quoted JSON is not used as a key', async () => {
+  const res = await invoke({
+    contents: 'Provide detailed technical information for the drug: {"recognition":"medication"'
+      + '} intended for a healthcare professional.',
+  });
+
+  assert.equal(res.statusCode, 200, 'the caller still gets an answer');
+  assert.equal(
+    await client.db(DB_NAME).collection('professional_medications').countDocuments({}), 0,
+    'but it is not filed under a fragment of JSON',
+  );
+});
+
+test('a name with no letters in it is not used as a key', async () => {
+  // A bare quantity. "500 mg" still gets through — "mg" is a letter as far as
+  // this can tell — and that is the honest limit of a shape check.
+  await invoke({ contents: patientPrompt('500') });
+  assert.equal(await medications().countDocuments({}), 0, 'a number names no medicine');
+});
+
+test('an ordinary name is still perfectly usable', async () => {
+  await invoke({ contents: patientPrompt('Panadol Extra') });
+  const ids = (await medications().find({}).toArray()).map((d) => d._id);
+  assert.deepEqual(ids, ['panadol extra'], 'the guard must not refuse real names');
+});

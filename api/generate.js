@@ -37,9 +37,31 @@ const extractJSON = (text) => {
   return jsonMatch ? jsonMatch[0] : cleaned;
 };
 
+/*
+  The medicine a prompt is about, or null.
+
+  Whatever comes back becomes a cache key, so a bad read is not a bad answer —
+  it is a row nobody can ever look up, holding an answer somebody paid for. The
+  live database had one filed under "recognised true", which is a fragment of a
+  JSON answer that a prompt had quoted back, read as though it were a name.
+
+  So a name that carries punctuation only structured text contains, or that is
+  longer than any medicine is, is treated as no name at all: the answer is still
+  generated and served, it is simply not filed under nonsense.
+*/
+const MAX_DRUG_NAME_LENGTH = 80;
+
 const extractDrugName = (prompt) => {
   const match = prompt.match(/(?:drug|medication):\s*([^.,\n]+)/i);
-  return match ? match[1].trim() : null;
+  if (!match) return null;
+
+  const name = match[1].trim();
+  if (!name || name.length > MAX_DRUG_NAME_LENGTH) return null;
+  if (/["'{}[\]:]/.test(name)) return null;
+  // A name has to contain a letter. "500 mg" and "true" do not name a medicine.
+  if (!/[a-z؀-ۿ]/i.test(name)) return null;
+
+  return name;
 };
 
 /** Patient-facing and professional answers are cached separately. */
