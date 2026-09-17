@@ -244,37 +244,52 @@ const App: React.FC = () => {
     setView('home');
   }, [releasePhoto]);
 
-  // Re-fetches drug info ONLY when the language actually changes while
-  // viewing results or professional screen. Uses a ref to track the previous
-  // language and a stale-closure guard to prevent race conditions from rapid toggles.
+  /*
+    A medicine is fetched again when the language changes.
+
+    The answer itself is generated in English and translated on the way to the
+    screen, so the words on a medicine page are not reactive the way the app's
+    own labels are: nothing about switching language rewrites what is already
+    in state. This effect is what does it.
+
+    It used to run only while the medicine was the screen being looked at —
+    which was true of every way of changing the language, until the settings
+    gear arrived on the medicine page itself. From there the language changes
+    while `view` is 'settings', so the guard was false, the refetch was
+    skipped, and the remembered language was updated anyway. Coming back to the
+    medicine there was nothing left to notice: the page was right to left with
+    Arabic headings around an answer still in English.
+
+    So the condition is now the one that was always meant: a medicine is
+    loaded. Which screen happens to be on top decides only whether to show the
+    spinner, because a spinner over the camera would be answering a question
+    nobody asked.
+  */
   const prevLanguageRef = useRef(language);
   useEffect(() => {
-    // Skip if language hasn't actually changed (e.g. on initial render or view navigation)
     if (prevLanguageRef.current === language) return;
     prevLanguageRef.current = language;
+    if (!originalDrugName || !drugInfo) return;
 
-    if ((view === 'results' || view === 'professional') && originalDrugName) {
-      let cancelled = false;
-      const refetch = async () => {
-        setIsLoading(true);
-        try {
-          const info = await fetchDrugInformation(originalDrugName, language);
-          if (!cancelled) {
-            setDrugInfo(info);
-          }
-        } catch (err: any) {
-          if (!cancelled) {
-            setError(err.message || 'An unexpected error occurred during re-translation.');
-          }
-        } finally {
-          if (!cancelled) {
-            setIsLoading(false);
-          }
+    const showsTheMedicine = view === 'results' || view === 'professional' || view === 'sideEffects'
+      || (view === 'settings' && (settingsFrom === 'results' || settingsFrom === 'professional'));
+
+    let cancelled = false;
+    const refetch = async () => {
+      if (showsTheMedicine) setIsLoading(true);
+      try {
+        const info = await fetchDrugInformation(originalDrugName, language);
+        if (!cancelled) setDrugInfo(info);
+      } catch (err: any) {
+        if (!cancelled && showsTheMedicine) {
+          setError(err.message || 'An unexpected error occurred during re-translation.');
         }
-      };
-      refetch();
-      return () => { cancelled = true; };
-    }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    refetch();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
 

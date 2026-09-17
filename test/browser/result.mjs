@@ -178,8 +178,10 @@ const arabic = await browser.evaluate(`
 check('the result screen is right to left', arabic.dir === 'rtl', arabic.dir);
 check('its section labels are Arabic', arabic.hasArabicLabel);
 check('nothing overflows in Arabic', !arabic.overflows);
+// Contiguous inside whatever Arabic wraps it, rather than equal to the English:
+// comparing to the English only passed while translation was silently failing.
 check('the Latin strength is not reordered by the bidi algorithm',
-  arabic.strength === '20 mg film-coated tablet', String(arabic.strength));
+  /20 mg film-coated tablet/.test(arabic.strength || ''), String(arabic.strength));
 
 // The tile was `rtl:hidden`, so this side of the app had no picture at all.
 const arabicIcon = await browser.evaluate(`

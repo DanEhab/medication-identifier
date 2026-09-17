@@ -167,11 +167,23 @@ const bidi = await browser.evaluate(`
     count: isolated.length,
   };
 `);
-check('the Latin strength is kept in one piece', bidi.strength === '20 mg film-coated tablet', String(bidi.strength));
+/*
+  The Latin run has to survive intact inside the Arabic around it.
+
+  These used to compare against the whole English string, which passed only
+  because translation was silently failing in this harness — the field was
+  never Arabic at all, so "the Latin is unbroken" was trivially true. The
+  check is the same claim made properly: whatever wraps it, the Latin is one
+  contiguous run in the right order.
+*/
+check('the Latin strength is kept in one piece',
+  /20 mg film-coated tablet/.test(bidi.strength || ''), String(bidi.strength));
 // The never-with line is a list now, so each item is isolated on its own
 // rather than the whole ·-separated run being one bdi.
 check('and so is each thing it must not be taken with',
-  bidi.neverWith === 'Grapefruit juice', String(bidi.neverWith));
+  /Grapefruit juice/.test(bidi.neverWith || ''), String(bidi.neverWith));
+check('and the Arabic around it really was translated',
+  /[؀-ۿ]/.test(bidi.strength || ''), String(bidi.strength));
 
 const neverWithList = await browser.evaluate(`
   const items = [...document.querySelectorAll('li bdi')].map(b => b.textContent.trim());
