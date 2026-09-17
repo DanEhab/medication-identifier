@@ -60,6 +60,23 @@ const ClockIcon: React.FC = () => (
 
 const EMPTY_SCHEDULE: MedicationSchedule = { times: [], note: '' };
 
+/**
+ * An Arabic sentence with Latin medicine names dropped into it.
+ *
+ * Each name is isolated on its own rather than the sentence being wrapped in
+ * one <bdi>. A <bdi> takes its direction from the first strong character it
+ * contains, and this sentence begins with a brand name — so wrapping the whole
+ * thing laid the Arabic out left to right and put the clauses in the wrong
+ * order. Isolating only the names leaves the sentence in the page's direction,
+ * which is the one the reader is using.
+ */
+const withNames = (template: string, names: string, ingredient: string) =>
+  template.split(/(\{names\}|\{ingredient\})/).map((part, index) => {
+    if (part === '{names}') return <bdi key={index}>{names}</bdi>;
+    if (part === '{ingredient}') return <bdi key={index}>{ingredient}</bdi>;
+    return <React.Fragment key={index}>{part}</React.Fragment>;
+  });
+
 export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMed, onSelectTab, onOpenSettings }) => {
   const { t } = useLocalization();
   const meLabel = t('profileMe');
@@ -371,11 +388,7 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
               </span>
               <span className="block text-[15px] leading-[1.45] text-clay-deep"
                 style={{ textWrap: 'pretty' }}>
-                <bdi>
-                  {t('sameIngredientBody')
-                    .replace('{names}', duplicate.names.join(' + '))
-                    .replace('{ingredient}', duplicate.ingredient)}
-                </bdi>
+                {withNames(t('sameIngredientBody'), duplicate.names.join(' + '), duplicate.ingredient)}
               </span>
             </span>
           </div>
