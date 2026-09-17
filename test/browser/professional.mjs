@@ -284,4 +284,47 @@ check('its tabs are Arabic', arabic.tabs.every((tab) => /[؀-ۿ]/.test(tab)), JS
 check('nothing overflows in Arabic', !arabic.overflows);
 await screenshot(browser, 'professional-ar', import.meta.url);
 
+// Back to English for the checks that follow, which read English labels.
+await browser.evaluate(`localStorage.setItem('app-language', 'en');`);
+await browser.goto(BASE);
+await reachResult();
+
+/*
+  ── A half-life that is a sentence is not set as a figure ─────────────────
+
+  The schema asks for a bare figure because the screen sets it large: it is the
+  number looked for first. Levothyroxine's came back from the live model as two
+  sentences about steady state, and a hundred and fifty characters at nineteen
+  pixels swamps the card it is meant to lead.
+*/
+await browser.evaluate(`
+  window.__clinicalDelayMs = 0;
+  window.__clinical = {
+    ...window.__clinical,
+    pharmacokinetics: {
+      ...window.__clinical.pharmacokinetics,
+      halfLife: 'The elimination half-life is approximately 6-7 days in euthyroid individuals. Steady state is typically reached within 4-6 weeks of consistent dosing.',
+    },
+  };
+`);
+const longHalfLife = await browser.evaluate(`
+  document.querySelector('[data-tutorial="professional-link"]').click();
+  for (let i = 0; i < 60; i++) {
+    await new Promise(r => setTimeout(r, 250));
+    const pk = document.querySelector('[data-testid="clinical-pk"]');
+    if (pk) {
+      await new Promise(r => setTimeout(r, 300));
+      const sizes = [...pk.querySelectorAll('span, p')]
+        .filter(el => /euthyroid/.test(el.textContent || ''))
+        .map(el => parseFloat(getComputedStyle(el).fontSize));
+      return { shown: /euthyroid/.test(pk.innerText), sizes };
+    }
+  }
+  return { error: document.body.innerText.slice(0, 160) };
+`);
+check('a sentence-length half-life is still shown', longHalfLife.shown, JSON.stringify(longHalfLife));
+check('but set as a passage rather than as a figure',
+  longHalfLife.sizes.length > 0 && longHalfLife.sizes.every((size) => size <= 17),
+  JSON.stringify(longHalfLife.sizes));
+
 await finish(browser);

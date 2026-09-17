@@ -330,8 +330,10 @@ const PROFESSIONAL_SCHEMA = {
         halfLife: {
           type: 'STRING',
           description:
-            'The elimination half-life on its own, e.g. "6-7 days" or "14 h". Add time to steady state '
-            + 'if it matters. This is the number a clinician looks for first.',
+            'The elimination half-life as a bare figure and nothing else: "6-7 days", "14 h", '
+            + '"36-42 hours". No sentence, no verb, no full stop, under 25 characters. This is set '
+            + 'large on screen as the number a clinician looks for first, so anything longer than a '
+            + 'figure does not fit. Put steady state and any caveats in "excretion" instead.',
         },
       },
       required: ['absorption', 'distribution', 'metabolism', 'excretion', 'halfLife'],

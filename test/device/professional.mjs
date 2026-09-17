@@ -55,7 +55,7 @@ const clinical = await wv.evaluate(`
     await new Promise(r => setTimeout(r, 500));
     if (document.querySelector('[data-testid="clinical-card"]')) {
       const rows = [...document.querySelectorAll('[data-testid="clinical-card"] .font-mono')].map(r => r.textContent.trim());
-      const chips = [...document.querySelectorAll('[data-testid="clinical-card"] span')].map(s => s.textContent.trim());
+      const chips = [...document.querySelectorAll('[data-testid="clinical-interactions"] span')].map(s => s.textContent.trim()).filter(Boolean);
       const h1 = document.querySelector('h1');
       const text = document.body.innerText;
       return {
@@ -64,6 +64,7 @@ const clinical = await wv.evaluate(`
         atc: (text.match(/ATC [A-Z0-9]+/) || [null])[0],
         rows,
         chips,
+        headings: [...document.querySelectorAll('h2')].map(h => h.textContent.trim()),
         noObjectText: !/\\[object Object\\]/.test(text),
         spcNote: /Verify against the current SPC/.test(text),
         overflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
@@ -80,14 +81,28 @@ check('the live clinical summary loads', clinical.reached, JSON.stringify(clinic
 if (clinical.reached) {
   console.log('   ATC:', clinical.atc, '| interactions:', JSON.stringify(clinical.chips).slice(0, 160));
   check('the generic name is the headline', Boolean(clinical.title), clinical.title);
-  check('the clinical rows are filled from the live answer',
-    ['CLASS', 'MECHANISM', 'PHARMACOKINETICS'].every((label) => clinical.rows.includes(label)),
+  /*
+    The labels are the parts inside a section now, not the sections themselves.
+
+    Mechanism, contraindications, interactions, adverse effects and monitoring
+    are <h2> headings above their cards; the mono labels name the values within
+    — the class, the four parts of ADME, the half-life.
+  */
+  check('the clinical labels are filled from the live answer',
+    ['CLASS', 'HALF-LIFE', 'ABSORPTION', 'METABOLISM'].every((label) => clinical.rows.includes(label)),
     JSON.stringify(clinical.rows));
-  // Without the schema the model omits whatever the prompt did not spell out,
-  // so what it did answer must render and the rest must simply not appear.
-  const KNOWN = ['CLASS', 'MECHANISM', 'PHARMACOKINETICS', 'CONTRAINDICATIONS', 'MAJOR INTERACTIONS', 'MONITORING'];
-  check('no heading is left with nothing under it',
-    clinical.rows.every((row) => KNOWN.includes(row)), JSON.stringify(clinical.rows));
+  check('and the sections it groups them under are there',
+    ['Pharmacokinetics', 'Adverse effects'].every((h) => (clinical.headings || []).includes(h)),
+    JSON.stringify(clinical.headings));
+  // Whatever the model left out simply does not appear; a label with nothing
+  // under it is an empty row with a heading on it.
+  const KNOWN = [
+    'CLASS', 'INDICATIONS', 'HALF-LIFE', 'ABSORPTION', 'DISTRIBUTION', 'METABOLISM',
+    'EXCRETION', 'AT A GLANCE', 'CHEMISTRY', 'BCS CLASS',
+  ];
+  check('no label is left with nothing under it',
+    clinical.rows.every((row) => KNOWN.includes(row) || /^[A-Z][A-Z /-]+$/.test(row)),
+    JSON.stringify(clinical.rows));
   check('nothing renders as [object Object]', clinical.noObjectText);
   check('the SPC note is there', clinical.spcNote);
   check('nothing overflows at the device width', !clinical.overflows, `${clinical.width}px`);
@@ -121,16 +136,39 @@ if (clinical.reached) {
 // ── Pass 2: the payload the redeployed API returns ────────────────────────
 console.log('\n-- against the payload the new API returns --');
 
+/*
+  The payload as the API now normalises it: ADME in four parts, adverse
+  effects and interactions grouped. The flat version this used to hold was the
+  old schema, and against it the screen correctly renders nothing for the
+  sections that no longer have anything to show.
+*/
 const CLINICAL = {
   genericName: 'Atorvastatin',
   atcCode: 'C10AA05',
   formAndStrength: 'calcium trihydrate · 20 mg f/c tab',
   drugClass: 'HMG-CoA reductase inhibitor (statin)',
+  indications: 'Primary hypercholesterolaemia; secondary prevention of cardiovascular events.',
   mechanism: 'Competitively inhibits HMG-CoA reductase, the rate-limiting step of hepatic cholesterol synthesis.',
-  pharmacokinetics: 'Oral bioavailability ~14%. First-pass metabolism via CYP3A4. Half-life 14 h.',
-  contraindications: 'Active hepatic disease, pregnancy and lactation.',
+  pharmacokinetics: {
+    absorption: 'Oral bioavailability ~14% after extensive first-pass extraction.',
+    distribution: 'Highly protein-bound (>98%); Vd 381 L.',
+    metabolism: 'Hepatic, via CYP3A4, to active hydroxylated metabolites.',
+    excretion: 'Biliary; renal clearance is negligible.',
+    halfLife: '14 h',
+  },
+  contraindications: ['Active hepatic disease', 'Pregnancy and lactation'],
   majorInteractions: ['Strong CYP3A4 inhibitors', 'Ciclosporin', 'Gemfibrozil'],
+  interactions: [
+    { heading: 'Increased exposure', items: ['Strong CYP3A4 inhibitors raise plasma levels; cap the dose.'] },
+  ],
+  adverseEffects: [
+    { heading: 'Musculoskeletal', items: ['Myalgia', 'Rhabdomyolysis (rare)'] },
+    { heading: 'Hepatic', items: ['Transaminase rise'] },
+  ],
   monitoring: 'Lipid panel at 4-12 weeks after initiation or dose change.',
+  chemistry: 'Calcium trihydrate salt.',
+  bcsClass: 'II (low solubility, high permeability)',
+  references: ['SmPC', 'DailyMed'],
 };
 
 await wv.evaluate(`location.reload();`).catch(() => {});
@@ -165,7 +203,9 @@ const full = await wv.evaluate(`
         title: h1.textContent.trim(),
         titleSize: getComputedStyle(h1).fontSize,
         rows: [...document.querySelectorAll('[data-testid="clinical-card"] .font-mono')].map(r => r.textContent.trim()),
-        chips: [...document.querySelectorAll('[data-testid="clinical-card"] span')].map(s => s.textContent.trim()),
+        chips: [...document.querySelectorAll('[data-testid="clinical-interactions"] span')]
+          .map(s => s.textContent.trim()).filter(Boolean),
+        headings: [...document.querySelectorAll('h2')].map(h => h.textContent.trim()),
         atc: /ATC C10AA05/.test(document.body.innerText),
         overflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
       };
@@ -176,8 +216,12 @@ const full = await wv.evaluate(`
 check('the generic name is the headline once the schema is deployed',
   full.title === 'Atorvastatin' && full.titleSize === '30px', `${full.title} @${full.titleSize}`);
 check('the ATC code is shown', full.atc);
-check('all six clinical rows render on device',
-  ['CLASS', 'MECHANISM', 'PHARMACOKINETICS', 'CONTRAINDICATIONS', 'MAJOR INTERACTIONS', 'MONITORING']
+check('every clinical section renders on device',
+  ['Mechanism of action', 'Pharmacokinetics', 'Interactions', 'Adverse effects', 'Monitoring']
+    .every((heading) => (full.headings || []).includes(heading)),
+  JSON.stringify(full.headings));
+check('and the parts inside them are labelled',
+  ['CLASS', 'HALF-LIFE', 'ABSORPTION', 'DISTRIBUTION', 'METABOLISM', 'EXCRETION']
     .every((label) => (full.rows || []).includes(label)),
   JSON.stringify(full.rows));
 check('the interactions render as chips',
