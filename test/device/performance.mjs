@@ -128,6 +128,18 @@ for (const [where, ms] of Object.entries(navigation)) {
   is how that shows up.
 */
 const idle = await wv.evaluate(`
+  /*
+    Let the last tab switch finish first.
+
+    Without this the window opens while the camera screen is still mounting —
+    starting a media stream, measuring its frame — and catches the tail of that
+    as a long task. It was reported intermittently at about 300ms, which is
+    navigation work arriving late, not the main thread being held while nothing
+    happens. Sitting on the camera for twelve seconds produces no long tasks at
+    all, which is what said so.
+  */
+  await new Promise(r => setTimeout(r, 2000));
+
   let frames = 0;
   let longTasks = 0;
   let longest = 0;

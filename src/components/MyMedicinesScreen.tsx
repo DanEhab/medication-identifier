@@ -10,6 +10,7 @@ import {
 } from '../lib/profiles';
 import { useLocalization } from '../context/LanguageContext';
 import { useReminders } from '../hooks/useReminders';
+import { shouldWarnRemindersOff } from '../lib/reminders';
 import { TabBar, type Tab } from './TabBar';
 import { SettingsButton } from './SettingsScreen';
 
@@ -60,7 +61,7 @@ const EMPTY_SCHEDULE: MedicationSchedule = { times: [], note: '' };
 export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMed, onSelectTab, onOpenSettings }) => {
   const { t } = useLocalization();
   const meLabel = t('profileMe');
-  const { rebuild, askPermission } = useReminders();
+  const { permission, rebuild, askPermission } = useReminders();
 
   const [profiles, setProfiles] = useState<Profile[]>(() => getProfiles(meLabel));
   const [activeId, setActiveId] = useState<string>(() => getActiveProfileId());
@@ -283,6 +284,53 @@ export const MyMedicinesScreen: React.FC<MyMedicinesScreenProps> = ({ onSelectMe
           </button>
         )}
       </div>
+
+      {/*
+        Times that cannot arrive, said out loud.
+
+        Saving a time asks Android for permission, and the answer is a system
+        dialog the app does not control. Answer it with "Don't allow" — or miss
+        it entirely, which is easy, because the time is already saved and
+        sitting on the card behind it — and every reminder is silently dropped
+        while the screen goes on showing the times as though they were set.
+        That is the failure somebody only discovers by missing a dose.
+      */}
+      {shouldWarnRemindersOff(permission, saved) && (
+        <div className="px-5 pt-3">
+          <div
+            role="status"
+            data-testid="reminders-off"
+            className="bg-saffron-wash border border-saffron-soft rounded-[14px] py-3 px-4
+              flex items-center gap-3 flex-wrap"
+          >
+            <p className="text-[15px] leading-[1.5] text-saffron-body m-0 flex-1 min-w-0"
+              style={{ textWrap: 'pretty' }}>
+              {permission === 'denied' ? t('remindersBlockedHere') : t('remindersOffHere')}
+            </p>
+            {/*
+              The button only appears while Android will still show its dialog.
+
+              Once somebody has said no, requestPermissions stops asking and
+              resolves denied immediately — the button did nothing at all, which
+              is worse than not offering one. There is no way to open the app's
+              notification settings from here without another native plugin, so
+              past that point the message says where to go instead.
+            */}
+            {permission !== 'denied' && (
+              <button
+                type="button"
+                data-testid="reminders-turn-on"
+                onClick={async () => { await askPermission(); await rebuild(); }}
+                className="h-10 px-4 rounded-full bg-saffron-mid font-semibold text-[15px]
+                  active:scale-[0.97] transition-transform shrink-0"
+                style={{ color: 'var(--brand-ground)' }}
+              >
+                {t('remindersTurnOn')}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {profileError && (
         <div className="px-5 pt-3">

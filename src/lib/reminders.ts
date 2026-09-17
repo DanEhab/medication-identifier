@@ -23,6 +23,9 @@ export interface ReminderWords {
   title: (medicine: string) => string;
   /** The line beneath. Receives the person's name, or nothing for the default. */
   body: (person: string | null) => string;
+  /** What Android calls this category in its own notification settings. */
+  channelName: string;
+  channelDescription: string;
 }
 
 /**
@@ -43,6 +46,28 @@ const idFor = (profileId: string, drugName: string, time: string): number => {
   // Positive, and clear of the small numbers a hand-written test might use.
   return (Math.abs(hash) % 2000000000) + 1000;
 };
+
+/**
+ * The channel a reminder arrives on.
+ *
+ * Its own, rather than the plugin's "default". On Android 8 and later the
+ * channel — not the notification — decides whether anything is heard, and the
+ * default one is created at IMPORTANCE_DEFAULT: it lands silently in the shade
+ * with no banner. For a message that says "take your tablet" that is the same
+ * as not arriving, which is exactly what it looked like.
+ *
+ * IMPORTANCE_HIGH is the level that makes a sound and shows a banner over
+ * whatever is on screen. A person can still turn it down in Android settings —
+ * the channel is the thing that gives them that control — but the app should
+ * not choose silence on their behalf.
+ *
+ * The id is versioned because a channel's importance is fixed at creation:
+ * Android ignores later changes, on the principle that once somebody has tuned
+ * a channel the app does not get to tune it back. Changing the id is the only
+ * way to ship a different default, and anyone who has already adjusted the old
+ * one keeps their preference on it.
+ */
+const CHANNEL_ID = 'medication-reminders-v1';
 
 /** Notifications only exist on a phone; the browser build simply does nothing. */
 export const remindersAvailable = (): boolean =>
@@ -111,6 +136,21 @@ export const syncReminders = async (words: ReminderWords, meLabel: string): Prom
   if (!remindersAvailable()) return 0;
 
   try {
+    /*
+      Create the channel before anything is scheduled against it. Creating one
+      that already exists is a no-op, so this is safe to call every time and
+      cheaper than remembering whether it was done.
+    */
+    await LocalNotifications.createChannel({
+      id: CHANNEL_ID,
+      name: words.channelName,
+      description: words.channelDescription,
+      importance: 4,
+      visibility: 1,
+      vibration: true,
+      lights: true,
+    }).catch(() => { /* Older Android has no channels and needs none. */ });
+
     // Clear the app's own first. Cancelling by the ids it is about to write
     // would leave behind anything scheduled under a name that has since
     // changed — a renamed person, a medicine saved under a different spelling.
@@ -158,6 +198,7 @@ export const syncReminders = async (words: ReminderWords, meLabel: string): Prom
           */
           schedule: { on: { hour: at.hour, minute: at.minute }, allowWhileIdle: true },
           isExactNotification: false,
+          channelId: CHANNEL_ID,
           /*
             No smallIcon. The obvious thing to write here is the name from
             Capacitor's own example, ic_stat_icon_config_sample, which this app
@@ -177,6 +218,23 @@ export const syncReminders = async (words: ReminderWords, meLabel: string): Prom
     console.warn('[reminders] could not schedule:', (error as Error)?.message);
     return 0;
   }
+};
+
+/**
+ * Whether the saved-medicines screen has to warn that times will not arrive.
+ *
+ * A pure decision rather than a condition buried in the markup, because it is
+ * the thing that was wrong: a time set while notifications were refused was
+ * saved, shown on the card, and silently never delivered. The rule is only
+ * interesting in its corners — nothing to warn about when no time is set, and
+ * nothing to warn about on a platform that has no notifications to refuse.
+ */
+export const shouldWarnRemindersOff = (
+  permission: ReminderPermission,
+  saved: { schedule?: { times?: string[] } }[],
+): boolean => {
+  if (permission === 'granted' || permission === 'unavailable') return false;
+  return saved.some((entry) => (entry.schedule?.times?.length ?? 0) > 0);
 };
 
 /** Everything the app has scheduled, for reporting and for tests. */
