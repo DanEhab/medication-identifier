@@ -123,12 +123,19 @@ const StorageIcon: React.FC = () => (
   </svg>
 );
 
+/**
+ * The small label that names the one thing directly beneath it.
+ *
+ * Fifteen pixels, not thirteen. At thirteen it was smaller than the seventeen
+ * pixel body text it introduced — so "WHAT IT IS FOR" and "FOOD AND DRINK",
+ * which are what somebody scans for, were the quietest type on the page.
+ */
 const Eyebrow: React.FC<{ children: React.ReactNode; color?: string; className?: string }> = ({
   children,
   color = 'var(--ink-soft)',
   className = '',
 }) => (
-  <div className={`font-mono font-semibold text-[13px] tracking-[0.06em] ${className}`} style={{ color }}>
+  <div className={`font-mono font-semibold text-[15px] tracking-[0.06em] ${className}`} style={{ color }}>
     {children}
   </div>
 );

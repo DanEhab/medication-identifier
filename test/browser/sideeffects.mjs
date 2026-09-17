@@ -66,6 +66,38 @@ check('the side effects screen carries only side effects',
   !screen.hasMissed && !screen.hasStorage,
   `missed=${screen.hasMissed} storage=${screen.hasStorage}`);
 check('and food is not buried in it either', !screen.hasFood);
+
+/*
+  ── The two warning lists do not repeat each other ────────────────────────
+
+  Both are filled from the same knowledge, so the urgent items came back in the
+  gentler list as well, written out as sentences. Two lists that overlap make a
+  reader work out whether the repeated item means something different the
+  second time, and it does not.
+*/
+const warnings = await browser.evaluate(`
+  const cards = [...document.querySelectorAll('[class*="rounded-[16px]"]')];
+  const find = (marker) => {
+    const card = cards.find(c => (c.textContent || '').includes(marker));
+    return card ? [...card.querySelectorAll('div > span:last-child')].map(s => s.innerText.trim()) : null;
+  };
+  const text = document.body.innerText;
+  return {
+    urgent: find('STOP AND GET HELP TODAY'),
+    consult: find('CALL YOUR DOCTOR IF'),
+    repeatShown: /notice muscle pain along with dark urine/i.test(text),
+    ownReasonShown: /You become pregnant/.test(text),
+    // All three lists are three of a kind now, so their headings match.
+    headingSizes: [...document.querySelectorAll('h3')].map(h => getComputedStyle(h).fontSize),
+  };
+`);
+check('the reason that only this list has is kept', warnings.ownReasonShown,
+  JSON.stringify(warnings.consult));
+check('and the one that repeats an urgent effect is dropped', !warnings.repeatShown,
+  JSON.stringify(warnings.consult));
+check('the three lists share one heading size',
+  warnings.headingSizes.length === 3 && new Set(warnings.headingSizes).size === 1,
+  JSON.stringify(warnings.headingSizes));
 check('the share card and the AI note are present', screen.hasStillUnsure && screen.hasAiNote);
 check('nothing overflows sideways', !screen.overflows);
 
@@ -130,6 +162,60 @@ for (const subject of SUBJECTS) {
   check(`and opens at the top, with nothing to scroll past`, landed.scrolled === 0,
     String(landed.scrolled));
 }
+
+/*
+  ── Reached the way a person reaches it ───────────────────────────────────
+
+  The rows are near the foot of a medicine page, so you have scrolled to get
+  to them. Every screen renders into the same scrolling document, and nothing
+  reset the position — so the reference screen opened part of the way down,
+  with its own heading above the fold. It read as a page that opened at the
+  bottom, because it had.
+
+  The checks above never caught it: they clicked the row by selector from a
+  page that happened to be at the top.
+*/
+const afterScrolling = await browser.evaluate(`
+  const chip = document.querySelector('[data-testid="chip-sideEffects"]');
+  chip.scrollIntoView({ block: 'center' });
+  await new Promise(r => setTimeout(r, 400));
+  const before = Math.round(window.scrollY);
+  chip.click();
+  await new Promise(r => setTimeout(r, 800));
+  const heading = document.querySelector('h2');
+  const box = heading ? heading.getBoundingClientRect() : null;
+  const result = {
+    before,
+    after: Math.round(window.scrollY),
+    headingOnScreen: box ? box.top >= 0 && box.top < innerHeight : false,
+  };
+  document.querySelector('.sticky button').click();
+  await new Promise(r => setTimeout(r, 600));
+  return result;
+`);
+check('scrolling down to the row and tapping it still opens at the top',
+  afterScrolling.before > 100 && afterScrolling.after === 0, JSON.stringify(afterScrolling));
+check('so its heading is the first thing on screen', afterScrolling.headingOnScreen,
+  JSON.stringify(afterScrolling));
+
+/*
+  Coming back is a return, not an arrival. Dropping somebody at the top of a
+  page they were halfway down — to make them scroll to the rows they were
+  using — would be its own small rudeness.
+*/
+const returned = await browser.evaluate(`
+  const chip = document.querySelector('[data-testid="chip-storage"]');
+  chip.scrollIntoView({ block: 'center' });
+  await new Promise(r => setTimeout(r, 400));
+  const before = Math.round(window.scrollY);
+  chip.click();
+  await new Promise(r => setTimeout(r, 800));
+  document.querySelector('.sticky button').click();
+  await new Promise(r => setTimeout(r, 800));
+  return { before, backAt: Math.round(window.scrollY) };
+`);
+check('and coming back puts you where you left the medicine',
+  Math.abs(returned.backAt - returned.before) < 40, JSON.stringify(returned));
 
 // ── Saving works from here too ────────────────────────────────────────────
 const saved = await browser.evaluate(`

@@ -35,7 +35,17 @@ export const PATIENT = {
   quickFood: 'Food', quickFoodNote: 'not needed',
   commonSideEffects: ['Headache', 'Stuffy or runny nose', 'Joint or back pain'],
   seriousSideEffects: ['Muscle pain with dark urine', 'Yellowing of the eyes or skin'],
-  consultDoctorWhen: ['You become pregnant'],
+  /*
+    The second entry repeats the urgent list in a longer sentence, which is
+    what the live model actually returns: Eltroxin came back with "Chest pain"
+    under "stop and get help today" and "You experience chest pain or a very
+    fast heart rate" under "call your doctor if". The screen is expected to
+    drop it and keep the first.
+  */
+  consultDoctorWhen: [
+    'You become pregnant',
+    'You notice muscle pain along with dark urine',
+  ],
   storage: 'Below 25 °C, in the original pack.',
   recognition: 'medication',
 };
