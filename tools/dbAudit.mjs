@@ -270,6 +270,20 @@ for (const [collection, normalize, cacheable, hasFields] of [
   report(strays.length === 0, 'every alias reaches an answer that names what was typed',
     strays.slice(0, 6).join(', '));
 
+  /*
+    A pointer for a term that is now an answer in its own right.
+
+    The direct lookup is tried first and wins, so these are never read — but
+    they point at the key the term used to collapse onto, which is the thing
+    that was wrong. Left alone, one comes back to life the day its answer
+    expires and starts routing that term to a different medicine again.
+  */
+  const shadowed = aliases
+    .filter((a) => answersByKey.has(String(a._id)) && a.canonicalKey !== String(a._id))
+    .map((a) => `${a._id} -> ${a.canonicalKey}`);
+  report(shadowed.length === 0, 'no alias is shadowed by an answer of its own',
+    shadowed.slice(0, 6).join(', '));
+
   if (FIX) {
     // Pointers are derived data: deleting one costs the cheap resolution call
     // that created it, and nothing else. Wrong ones are served to everybody.
@@ -278,13 +292,14 @@ for (const [collection, normalize, cacheable, hasFields] of [
       ...orphans.map((entry) => entry.slice(0, entry.indexOf(' -> '))),
       ...unsafe.map((entry) => entry.slice(0, entry.indexOf(' -> '))),
       ...strays.map((entry) => entry.slice(0, entry.indexOf(' -> '))),
+      ...shadowed.map((entry) => entry.slice(0, entry.indexOf(' -> '))),
       ...noKey,
     ];
     if (doomed.length > 0) {
       const { deletedCount } = await db.collection('medication_aliases')
         .deleteMany({ _id: { $in: [...new Set(doomed)] } });
       console.log(`  fix   removed ${deletedCount} bad pointer(s)`);
-      problems -= [selfAliases, orphans, unsafe, strays, noKey]
+      problems -= [selfAliases, orphans, unsafe, strays, shadowed, noKey]
         .filter((list) => list.length > 0).length;
     }
   }
