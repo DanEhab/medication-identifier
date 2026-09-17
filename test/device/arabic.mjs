@@ -79,11 +79,11 @@ const translated = await wv.evaluate(`
   const wash = document.querySelector('[data-tutorial="what-it-is-for"]');
   const purpose = wash ? wash.innerText.split('\\n').slice(1).join(' ').trim() : '';
   const facts = [...document.querySelectorAll('[data-tutorial="quick-facts"] > div')].map(f => f.innerText.replace(/\\n/g, ' '));
-  const howTo = (() => {
-    const labels = [...document.querySelectorAll('.font-mono')];
-    const label = labels.find(l => /\\u0637\\u0631\\u064a\\u0642\\u0629/.test(l.textContent));
-    return label ? label.parentElement.innerText.replace(label.textContent, '').trim() : '';
-  })();
+  // By its own hook, not by finding a label beside it: "how to take it" is a
+  // section heading now rather than the small mono label it used to be, and a
+  // test that looks for the label silently reads an empty string instead.
+  const howToEl = document.querySelector('[data-testid="how-to-take"]');
+  const howTo = howToEl ? howToEl.innerText.trim() : '';
   return {
     purpose,
     purposeIsArabic: arabic.test(purpose),
