@@ -9,7 +9,7 @@
 **In English or Arabic. Free. On Google Play.**
 
 [![Google Play](https://img.shields.io/badge/Google_Play-Live-34A853?style=for-the-badge&logo=googleplay&logoColor=white)](https://play.google.com/store/apps/details?id=com.danehab.medicationidentifier)
-[![Version](https://img.shields.io/badge/version-1.4.0-4F46E5?style=for-the-badge)](android/app/build.gradle)
+[![Version](https://img.shields.io/badge/version-1.5.0-4F46E5?style=for-the-badge)](android/app/build.gradle)
 [![Android 7+](https://img.shields.io/badge/Android-7.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](android/variables.gradle)
 
 ![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
@@ -469,7 +469,7 @@ Release signing reads `android/keystore.properties`, which is git-ignored. Copy
 | Application ID | `com.danehab.medicationidentifier` |
 | Minimum SDK | 24 — Android 7.0 Nougat |
 | Compile / target SDK | 36 |
-| Current version | `versionCode 8`, `versionName 1.4.0` |
+| Current version | `versionCode 9`, `versionName 1.5.0` |
 
 > [!IMPORTANT]
 > `versionCode` must increase for every Play Store upload. `versionName` in
