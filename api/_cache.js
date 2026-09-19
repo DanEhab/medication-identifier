@@ -26,19 +26,68 @@ const cacheMaxAgeMs = () => Number(process.env.CACHE_MAX_AGE_DAYS || 180) * 24 *
 
 let indexesReady = false;
 
+/** Every collection that holds a cached answer or a pointer at one. */
+const CACHED_COLLECTIONS = ['medications', 'professional_medications', ALIAS_COLLECTION];
+
 /**
- * Created once per warm instance. Failure is not fatal: the collections are
- * queried by _id, which is always indexed, so this only adds the secondary
- * index used for maintenance and reporting.
+ * Creates one index per collection so an entry nobody asks for again is
+ * eventually deleted rather than kept forever.
+ *
+ * The six-month limit was already enforced, but only when something was read:
+ * a stale answer was refused and rewritten by the next person who wanted that
+ * medicine. Nobody asks for most medicines twice, so those entries simply
+ * stayed — the store only ever grew, one row per medicine anybody had ever
+ * looked up, including the misspellings.
+ *
+ * Expiring them costs nothing, because a stale entry was already going to be
+ * refetched the moment it was wanted. The only difference is that the row
+ * stops taking up space in between.
+ *
+ * Failure is never fatal. The collections are queried by _id, which is always
+ * indexed, and the age filter on every read is what actually guarantees
+ * nothing stale is served — this is housekeeping, not correctness.
  */
 async function ensureIndexes(db) {
   if (indexesReady) return;
+
+  const maxAgeSeconds = Math.round(cacheMaxAgeMs() / 1000);
+
   try {
     await db.collection(ALIAS_COLLECTION).createIndex({ canonicalKey: 1 });
-    indexesReady = true;
   } catch (error) {
     console.warn('[cache] could not create the alias index:', error.message);
   }
+
+  for (const name of CACHED_COLLECTIONS) {
+    try {
+      await db.collection(name).createIndex(
+        { updatedAt: 1 },
+        { expireAfterSeconds: maxAgeSeconds, name: 'updatedAt_ttl' },
+      );
+    } catch (error) {
+      /*
+        Mongo refuses to recreate a TTL index with a different lifetime, which
+        is what happens the first time CACHE_MAX_AGE_DAYS is changed. Drop the
+        old one and put the new one in its place rather than leaving the store
+        expiring on a number nobody chose any more.
+      */
+      if (/already exists with a different name|different options/i.test(error.message)) {
+        try {
+          await db.collection(name).dropIndex('updatedAt_ttl');
+          await db.collection(name).createIndex(
+            { updatedAt: 1 },
+            { expireAfterSeconds: maxAgeSeconds, name: 'updatedAt_ttl' },
+          );
+        } catch (retryError) {
+          console.warn(`[cache] could not update the TTL on ${name}:`, retryError.message);
+        }
+      } else {
+        console.warn(`[cache] could not create the TTL on ${name}:`, error.message);
+      }
+    }
+  }
+
+  indexesReady = true;
 }
 
 /**
