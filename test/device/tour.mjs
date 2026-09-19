@@ -17,7 +17,7 @@ const check = (name, ok, detail = '') => {
   if (!ok) failures++;
 };
 
-const VERSION = '${APP_VERSION}';
+const VERSION = APP_VERSION;
 const wv = await connectWebView();
 
 /*
