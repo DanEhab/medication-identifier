@@ -9,7 +9,7 @@
 // wrong in an app like this without anyone seeing them: a screen that takes
 // longer to appear than a person will wait, and a render loop that quietly
 // runs for ever because a hook depends on something rebuilt every pass.
-import { connectWebView } from './_webview.mjs';
+import { APP_VERSION, connectWebView } from './_webview.mjs';
 
 let failures = 0;
 const check = (name, ok, detail = '') => {
@@ -33,9 +33,9 @@ const pastIntro = async () => {
 };
 
 await wv.evaluate(`
-  localStorage.setItem('disclaimerAcceptedVersion', '1.4.0');
-  localStorage.setItem('tourSeenVersion1', '1.4.0');
-  localStorage.setItem('tourSeenVersion2', '1.4.0');
+  localStorage.setItem('disclaimerAcceptedVersion', '${APP_VERSION}');
+  localStorage.setItem('tourSeenVersion1', '${APP_VERSION}');
+  localStorage.setItem('tourSeenVersion2', '${APP_VERSION}');
   localStorage.setItem('app-language', 'en');
   localStorage.removeItem('myMedications');
   location.reload();

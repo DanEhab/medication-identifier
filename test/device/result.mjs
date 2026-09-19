@@ -4,7 +4,7 @@
 // fields, so it proves the whole chain end to end: schema, cache, and screen.
 // The second stubs a known payload so the layout can be measured against the
 // design without depending on what the model says today.
-import { connectWebView } from './_webview.mjs';
+import { APP_VERSION, connectWebView } from './_webview.mjs';
 
 let failures = 0;
 const check = (name, ok, detail = '') => {
@@ -39,9 +39,9 @@ const wv = await connectWebView();
 
 const reset = async () => {
   await wv.evaluate(`
-    localStorage.setItem('disclaimerAcceptedVersion', '1.4.0');
-        localStorage.setItem('tourSeenVersion1', '1.4.0');
-    localStorage.setItem('tourSeenVersion2', '1.4.0');
+    localStorage.setItem('disclaimerAcceptedVersion', '${APP_VERSION}');
+        localStorage.setItem('tourSeenVersion1', '${APP_VERSION}');
+    localStorage.setItem('tourSeenVersion2', '${APP_VERSION}');
     localStorage.setItem('app-language', 'en');
     localStorage.removeItem('myMedications');
     location.reload();

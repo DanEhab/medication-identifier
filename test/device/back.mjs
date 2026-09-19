@@ -10,7 +10,7 @@
 // asks two questions: is the app still the window on screen, and which of its
 // screens is on top.
 import { execSync } from 'node:child_process';
-import { connectWebView } from './_webview.mjs';
+import { APP_VERSION, connectWebView } from './_webview.mjs';
 
 const APP_ID = 'com.danehab.medicationidentifier';
 
@@ -74,9 +74,9 @@ const pastIntro = async () => {
 
 const reset = async () => {
   await wv.evaluate(`
-    localStorage.setItem('disclaimerAcceptedVersion', '1.4.0');
-    localStorage.setItem('tourSeenVersion1', '1.4.0');
-    localStorage.setItem('tourSeenVersion2', '1.4.0');
+    localStorage.setItem('disclaimerAcceptedVersion', '${APP_VERSION}');
+    localStorage.setItem('tourSeenVersion1', '${APP_VERSION}');
+    localStorage.setItem('tourSeenVersion2', '${APP_VERSION}');
     localStorage.setItem('app-language', 'en');
     location.reload();
   `).catch(() => {});

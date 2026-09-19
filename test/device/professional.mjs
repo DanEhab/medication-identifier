@@ -6,7 +6,7 @@
 // proving on a device: the screen shows what there is, and never a heading with
 // nothing under it. Pass 2 stubs the payload the redeployed API returns and
 // checks the whole card on real Android.
-import { connectWebView } from './_webview.mjs';
+import { APP_VERSION, connectWebView } from './_webview.mjs';
 
 let failures = 0;
 const check = (name, ok, detail = '') => {
@@ -20,9 +20,9 @@ await wv.evaluate(`location.reload();`).catch(() => {});
 await new Promise((r) => setTimeout(r, 6000));
 
 await wv.evaluate(`
-  localStorage.setItem('disclaimerAcceptedVersion', '1.4.0');
-    localStorage.setItem('tourSeenVersion1', '1.4.0');
-  localStorage.setItem('tourSeenVersion2', '1.4.0');
+  localStorage.setItem('disclaimerAcceptedVersion', '${APP_VERSION}');
+    localStorage.setItem('tourSeenVersion1', '${APP_VERSION}');
+  localStorage.setItem('tourSeenVersion2', '${APP_VERSION}');
   localStorage.setItem('app-language', 'en');
   return 'seeded';
 `);
@@ -175,9 +175,9 @@ await wv.evaluate(`location.reload();`).catch(() => {});
 await new Promise((r) => setTimeout(r, 6000));
 
 const stubbed = await wv.evaluate(`
-  localStorage.setItem('disclaimerAcceptedVersion', '1.4.0');
-    localStorage.setItem('tourSeenVersion1', '1.4.0');
-  localStorage.setItem('tourSeenVersion2', '1.4.0');
+  localStorage.setItem('disclaimerAcceptedVersion', '${APP_VERSION}');
+    localStorage.setItem('tourSeenVersion1', '${APP_VERSION}');
+  localStorage.setItem('tourSeenVersion2', '${APP_VERSION}');
   localStorage.setItem('app-language', 'en');
   window.__realFetch = window.__realFetch || window.fetch;
   window.fetch = async (input, init) => {

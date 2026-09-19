@@ -1,6 +1,6 @@
 // My medicines on the emulator, end to end: save a real medicine from a real
 // lookup, find it in the list, schedule it, and navigate by the tab bar.
-import { connectWebView } from './_webview.mjs';
+import { APP_VERSION, connectWebView } from './_webview.mjs';
 
 let failures = 0;
 const check = (name, ok, detail = '') => {
@@ -16,9 +16,9 @@ await wv.evaluate(`location.reload();`).catch(() => {});
 await new Promise((r) => setTimeout(r, 6000));
 
 const seeded = await wv.evaluate(`
-  localStorage.setItem('disclaimerAcceptedVersion', '1.4.0');
-    localStorage.setItem('tourSeenVersion1', '1.4.0');
-  localStorage.setItem('tourSeenVersion2', '1.4.0');
+  localStorage.setItem('disclaimerAcceptedVersion', '${APP_VERSION}');
+    localStorage.setItem('tourSeenVersion1', '${APP_VERSION}');
+  localStorage.setItem('tourSeenVersion2', '${APP_VERSION}');
   localStorage.setItem('app-language', 'en');
   localStorage.removeItem('myMedications');
   localStorage.removeItem('profiles');

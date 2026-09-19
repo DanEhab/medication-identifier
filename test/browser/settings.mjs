@@ -6,7 +6,7 @@
 // is a line of state that already worked, so what needs proving is not the
 // state but the control: that tapping it reaches the state, and that the screen
 // reports back what is actually in effect.
-import { openApp, check, finish, screenshot, reachCamera, searchFor, BASE } from './_harness.mjs';
+import { openApp, check, finish, screenshot, reachCamera, searchFor, BASE, APP_VERSION } from './_harness.mjs';
 
 const ground = (browser) => browser.evaluate(`
   return getComputedStyle(document.body).backgroundColor;
@@ -219,8 +219,8 @@ await browser.evaluate(`
 // The tour stamps the version it was last finished at. Replaying has to clear
 // both phases, or the half that explains a result would never be seen again.
 const replayed = await browser.evaluate(`
-  localStorage.setItem('tourSeenVersion1', '1.4.0');
-  localStorage.setItem('tourSeenVersion2', '1.4.0');
+  localStorage.setItem('tourSeenVersion1', '${APP_VERSION}');
+  localStorage.setItem('tourSeenVersion2', '${APP_VERSION}');
   document.querySelector('[data-testid="replay-tutorial"]').click();
   await new Promise(r => setTimeout(r, 1200));
   return {
@@ -267,7 +267,7 @@ const dismissed = await browser.evaluate(`
   };
 `);
 check('and accepting it again puts you back in the app', dismissed.gone, JSON.stringify(dismissed));
-check('still stamped with this version', dismissed.stored === '1.4.0', String(dismissed.stored));
+check('still stamped with this version', dismissed.stored === APP_VERSION, String(dismissed.stored));
 
 // ── What it reports ────────────────────────────────────────────────────────
 await browser.goto(BASE);
@@ -296,8 +296,8 @@ check('nothing overflows sideways', !about.overflows);
 */
 await browser.goto(BASE);
 await browser.evaluate(`
-  localStorage.setItem('tourSeenVersion1', '1.4.0');
-  localStorage.setItem('tourSeenVersion2', '1.4.0');
+  localStorage.setItem('tourSeenVersion1', '${APP_VERSION}');
+  localStorage.setItem('tourSeenVersion2', '${APP_VERSION}');
   return 'ok';
 `);
 await browser.goto(BASE);

@@ -11,7 +11,7 @@
 // reminder is set a few seconds ahead and the notification shade is checked
 // for it.
 import { execSync } from 'node:child_process';
-import { connectWebView } from './_webview.mjs';
+import { APP_VERSION, connectWebView } from './_webview.mjs';
 
 const APP_ID = 'com.danehab.medicationidentifier';
 
@@ -66,9 +66,9 @@ const med = (name, times) => ({
 });
 
 await wv.evaluate(`
-  localStorage.setItem('disclaimerAcceptedVersion', '1.4.0');
-  localStorage.setItem('tourSeenVersion1', '1.4.0');
-  localStorage.setItem('tourSeenVersion2', '1.4.0');
+  localStorage.setItem('disclaimerAcceptedVersion', '${APP_VERSION}');
+  localStorage.setItem('tourSeenVersion1', '${APP_VERSION}');
+  localStorage.setItem('tourSeenVersion2', '${APP_VERSION}');
   localStorage.setItem('app-language', 'en');
   localStorage.setItem('profiles', JSON.stringify([{ id: 'me', name: 'Me' }, { id: 'pmum', name: 'Mum' }]));
   localStorage.setItem('activeProfile', 'me');

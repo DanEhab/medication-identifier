@@ -1,7 +1,7 @@
 // Dark mode on the emulator, with the device itself in night mode. Nothing
 // tells the app to be dark: it has to work that out from the phone, which is
 // the whole path a real user takes.
-import { connectWebView } from './_webview.mjs';
+import { APP_VERSION, connectWebView } from './_webview.mjs';
 
 let failures = 0;
 const check = (name, ok, detail = '') => {
@@ -15,9 +15,9 @@ await wv.evaluate(`location.reload();`).catch(() => {});
 await new Promise((r) => setTimeout(r, 6000));
 
 await wv.evaluate(`
-  localStorage.setItem('disclaimerAcceptedVersion', '1.4.0');
-    localStorage.setItem('tourSeenVersion1', '1.4.0');
-  localStorage.setItem('tourSeenVersion2', '1.4.0');
+  localStorage.setItem('disclaimerAcceptedVersion', '${APP_VERSION}');
+    localStorage.setItem('tourSeenVersion1', '${APP_VERSION}');
+  localStorage.setItem('tourSeenVersion2', '${APP_VERSION}');
   localStorage.setItem('app-language', 'en');
   localStorage.removeItem('app-theme');
   localStorage.removeItem('myMedications');

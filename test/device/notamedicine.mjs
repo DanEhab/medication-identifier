@@ -1,6 +1,6 @@
 // Not a medicine, on the emulator, against the live API. Nothing is stubbed:
 // what the real model says about a real non-medicine is the thing under test.
-import { connectWebView } from './_webview.mjs';
+import { APP_VERSION, connectWebView } from './_webview.mjs';
 
 let failures = 0;
 const check = (name, ok, detail = '') => {
@@ -14,9 +14,9 @@ await wv.evaluate(`location.reload();`).catch(() => {});
 await new Promise((r) => setTimeout(r, 6000));
 
 await wv.evaluate(`
-  localStorage.setItem('disclaimerAcceptedVersion', '1.4.0');
-    localStorage.setItem('tourSeenVersion1', '1.4.0');
-  localStorage.setItem('tourSeenVersion2', '1.4.0');
+  localStorage.setItem('disclaimerAcceptedVersion', '${APP_VERSION}');
+    localStorage.setItem('tourSeenVersion1', '${APP_VERSION}');
+  localStorage.setItem('tourSeenVersion2', '${APP_VERSION}');
   localStorage.setItem('app-language', 'en');
   return 'seeded';
 `);
