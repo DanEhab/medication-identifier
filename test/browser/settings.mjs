@@ -276,14 +276,16 @@ await openSettings(browser);
 const about = await browser.evaluate(`
   const text = document.querySelector('[data-testid="settings"]').innerText;
   return {
-    version: /Version\\s+1\\.4\\.0/.test(text),
+    // Captured rather than matched against a literal, so a release does not
+    // fail this and so a failure says which version was actually on screen.
+    version: (text.match(/Version\\s+([0-9]+\\.[0-9]+\\.[0-9]+)/) || [])[1] || '',
     // Claiming analytics that do not exist is the wrong error to make in
     // either direction, so the words are pinned.
     noTracking: /no account and no tracking/i.test(text),
     overflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
   };
 `);
-check('it says which version this is', about.version);
+check('it says which version this is', about.version === APP_VERSION, about.version || 'no version on screen');
 check('and what it does not collect', about.noTracking);
 check('nothing overflows sideways', !about.overflows);
 
