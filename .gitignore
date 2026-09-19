@@ -74,3 +74,14 @@ api/# Code Citations.md
 # The design canvas export. The folder is kept as the redesign's source of
 # truth; the zip beside it is the same content and is not worth versioning.
 Mobile app logo and UI redesign.zip
+
+# ---------------------------------------------------------------
+# Generated output that is not source
+# ---------------------------------------------------------------
+# The launch-video workspace: twenty megabytes of screen recordings, fonts and
+# a rendered mp4, all reproducible from the app itself.
+brag-output/
+# Anything captured while testing on a device or emulator.
+screenshots/
+*.mp4
+*.webm
