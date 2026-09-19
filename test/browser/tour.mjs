@@ -8,9 +8,9 @@
 // So the checks that matter here are not about how it looks. They are: does
 // every step have something on screen to point at, does the spotlight actually
 // land on that thing, and is it shown exactly once per installed version.
-import { openApp, check, finish, screenshot, searchFor, BASE } from './_harness.mjs';
+import { openApp, check, finish, screenshot, searchFor, BASE, APP_VERSION } from './_harness.mjs';
 
-const VERSION = '1.4.0';
+const VERSION = APP_VERSION;
 
 /*
   The screens this has to work on, the same spread the layout suite uses.

@@ -1,6 +1,22 @@
 // Attaches to the app's WebView on the emulator through the adb-forwarded
 // DevTools port, so the real thing can be inspected rather than guessed at.
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 const PORT = process.env.WV_PORT || 9333;
+
+/*
+  The version the build stamps on a dismissed disclaimer or a finished tour.
+
+  Every suite seeds those keys so it can get to the screen it is actually
+  testing. Seeding them with a literal means the suites go on claiming the
+  tour was dismissed by a build that is no longer the one installed — and the
+  whole run opens on a disclaimer instead. Read it from package.json, which is
+  the same file vite injects as __APP_VERSION__.
+*/
+export const APP_VERSION = JSON.parse(
+  readFileSync(fileURLToPath(new URL('../../package.json', import.meta.url)), 'utf8'),
+).version;
 
 async function target() {
   const res = await fetch(`http://127.0.0.1:${PORT}/json/list`);

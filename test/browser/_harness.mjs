@@ -6,10 +6,24 @@
 // lived copied into eight files; a fixture changed in one of them and not the
 // others is a test that passes for the wrong reason.
 
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { launch } from './_cdp.mjs';
 
 export const BASE = process.env.BASE || 'http://localhost:4173';
+
+/*
+  The version the build stamps on a dismissed disclaimer or a finished tour.
+
+  Read from package.json rather than written here, because vite injects that
+  same value as __APP_VERSION__ and the two have to agree. They did not: the
+  harness said 1.4.0, the build said 1.5.0, and every suite suddenly opened on
+  a disclaimer nobody had dismissed. A release should not be able to break the
+  tests by being a release.
+*/
+export const APP_VERSION = JSON.parse(
+  readFileSync(fileURLToPath(new URL('../../package.json', import.meta.url)), 'utf8'),
+).version;
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
 //
@@ -149,13 +163,13 @@ export async function openApp({
 
   await browser.page.send('Page.addScriptToEvaluateOnNewDocument', {
     source: `
-      ${firstRun ? '' : "localStorage.setItem('disclaimerAcceptedVersion', '1.4.0');"}
+      ${firstRun ? '' : `localStorage.setItem('disclaimerAcceptedVersion', ${JSON.stringify(APP_VERSION)});`}
       // Both the disclaimer and the tour are stamped with the version that
       // last dismissed them, so seeding them means writing this build's
       // version. A bare 'true' reads as an older build and they come back.
       ${tour ? '' : `
-      localStorage.setItem('tourSeenVersion1', '1.4.0');
-      localStorage.setItem('tourSeenVersion2', '1.4.0');`}
+      localStorage.setItem('tourSeenVersion1', ${JSON.stringify(APP_VERSION)});
+      localStorage.setItem('tourSeenVersion2', ${JSON.stringify(APP_VERSION)});`}
       if (!localStorage.getItem('app-language')) localStorage.setItem('app-language', ${JSON.stringify(language)});
       ${seeds}
 

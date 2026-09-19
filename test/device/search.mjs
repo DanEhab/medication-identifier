@@ -3,7 +3,7 @@
 // /api/suggest is not deployed yet, so the remote half is expected to come back
 // empty here. That is exactly the case worth proving on a real device: the
 // screen must stay useful when the type-ahead answers nothing at all.
-import { connectWebView } from './_webview.mjs';
+import { APP_VERSION, connectWebView } from './_webview.mjs';
 
 let failures = 0;
 const check = (name, ok, detail = '') => {
@@ -21,9 +21,9 @@ await wv.evaluate(`location.reload();`).catch(() => {});
 await new Promise((r) => setTimeout(r, 6000));
 
 const seeded = await wv.evaluate(`
-  localStorage.setItem('disclaimerAcceptedVersion', '1.4.0');
-    localStorage.setItem('tourSeenVersion1', '1.4.0');
-  localStorage.setItem('tourSeenVersion2', '1.4.0');
+  localStorage.setItem('disclaimerAcceptedVersion', '${APP_VERSION}');
+    localStorage.setItem('tourSeenVersion1', '${APP_VERSION}');
+  localStorage.setItem('tourSeenVersion2', '${APP_VERSION}');
   localStorage.setItem('app-language', 'en');
   localStorage.setItem('recentSearches', JSON.stringify(['Panadol Extra', 'Metformin']));
   localStorage.removeItem('myMedications');

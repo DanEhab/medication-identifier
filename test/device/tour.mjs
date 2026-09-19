@@ -9,7 +9,7 @@
 // It also checks the two things that are properties of the WebView rather than
 // of the code: that the hand is really animating, and that the card is legible
 // against a live camera picture in both themes.
-import { connectWebView } from './_webview.mjs';
+import { APP_VERSION, connectWebView } from './_webview.mjs';
 
 let failures = 0;
 const check = (name, ok, detail = '') => {
@@ -17,7 +17,7 @@ const check = (name, ok, detail = '') => {
   if (!ok) failures++;
 };
 
-const VERSION = '1.4.0';
+const VERSION = '${APP_VERSION}';
 const wv = await connectWebView();
 
 /*

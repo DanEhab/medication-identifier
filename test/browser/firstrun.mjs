@@ -4,7 +4,7 @@
 // on a white ground in dark mode without anything noticing: it is the only
 // screen that is deliberately dark in *both* themes, so it is the only one
 // where using the text colour as a background inverts underneath you.
-import { openApp, check, finish, screenshot, BASE, reachFirstRun } from './_harness.mjs';
+import { openApp, check, finish, screenshot, BASE, reachFirstRun, APP_VERSION } from './_harness.mjs';
 
 const browser = await openApp({ firstRun: true });
 check('the disclaimer is shown on a fresh install', (await reachFirstRun(browser)) === 'ok');
@@ -188,7 +188,7 @@ const accepted = await browser.evaluate(`
   };
 `);
 check('accepting takes you into the app', accepted.gone && accepted.onCamera, JSON.stringify(accepted));
-check('and it is remembered against this version', accepted.remembered === '1.4.0', String(accepted.remembered));
+check('and it is remembered against this version', accepted.remembered === APP_VERSION, String(accepted.remembered));
 check('with the language that was chosen', accepted.language === 'ar', String(accepted.language));
 
 const second = await browser.evaluate(`location.reload();`).catch(() => {});
