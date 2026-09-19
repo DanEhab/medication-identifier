@@ -131,6 +131,41 @@ for (const [collection, normalize, cacheable, hasFields] of [
     }
   }
 
+  /*
+    Something has to delete an entry nobody asks for again.
+
+    The six-month limit is enforced on every read, so nothing stale is ever
+    served — but a refused entry is only rewritten when somebody wants that
+    medicine a second time, and most medicines are looked up once. Without a
+    TTL the store only grows.
+  */
+  const indexes = await db.collection(collection).indexes();
+  const ttl = indexes.find((index) => index.expireAfterSeconds !== undefined);
+  const expectedTtl = MAX_AGE_DAYS * 24 * 60 * 60;
+  report(Boolean(ttl), 'old entries expire on their own', ttl ? ttl.name : 'no TTL index');
+  if (ttl) {
+    report(ttl.expireAfterSeconds === expectedTtl,
+      `and expire at the ${MAX_AGE_DAYS} days the code refuses to serve past`,
+      `index says ${Math.round(ttl.expireAfterSeconds / 86400)} days`);
+  }
+
+  if (FIX && (!ttl || ttl.expireAfterSeconds !== expectedTtl)) {
+    // The server builds this itself on its next cache write, but that only
+    // happens when somebody looks a medicine up. Putting it in now means the
+    // store is bounded from the moment this is run rather than from whenever
+    // the next person searches.
+    try {
+      if (ttl) await db.collection(collection).dropIndex(ttl.name);
+      await db.collection(collection).createIndex(
+        { updatedAt: 1 }, { expireAfterSeconds: expectedTtl, name: 'updatedAt_ttl' },
+      );
+      console.log(`  fix   entries in ${collection} now expire after ${MAX_AGE_DAYS} days`);
+      problems--;
+    } catch (error) {
+      console.log(`  fix   could not set the TTL on ${collection}: ${error.message}`);
+    }
+  }
+
   report(notNormalised.length === 0, 'every key is in the form lookups use',
     notNormalised.slice(0, 5).join(', '));
   report(keyMismatch.length === 0, 'canonicalKey agrees with _id on every document',
@@ -317,6 +352,25 @@ for (const [collection, normalize, cacheable, hasFields] of [
     }
   }
   // Only used by the type-ahead, so a missing one costs a suggestion, not a lookup.
+  const aliasIndexes = await db.collection('medication_aliases').indexes();
+  const aliasTtl = aliasIndexes.find((index) => index.expireAfterSeconds !== undefined);
+  const aliasExpected = MAX_AGE_DAYS * 24 * 60 * 60;
+  report(Boolean(aliasTtl), 'old pointers expire on their own',
+    aliasTtl ? aliasTtl.name : 'no TTL index');
+
+  if (FIX && (!aliasTtl || aliasTtl.expireAfterSeconds !== aliasExpected)) {
+    try {
+      if (aliasTtl) await db.collection('medication_aliases').dropIndex(aliasTtl.name);
+      await db.collection('medication_aliases').createIndex(
+        { updatedAt: 1 }, { expireAfterSeconds: aliasExpected, name: 'updatedAt_ttl' },
+      );
+      console.log(`  fix   pointers now expire after ${MAX_AGE_DAYS} days`);
+      problems--;
+    } catch (error) {
+      console.log(`  fix   could not set the pointer TTL: ${error.message}`);
+    }
+  }
+
   report(true, `${noName.length} carry no resolvedName, so they cannot be suggested`,
     noName.slice(0, 6).join(', '));
   console.log('');
