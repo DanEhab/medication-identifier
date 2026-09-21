@@ -186,5 +186,46 @@ Arabic (ar):
 
 ## Promo video
 
-Play does not accept a video file. The field takes a **YouTube URL only**.
-See `docs/RELEASING.md` for what the video itself has to satisfy.
+```
+https://www.youtube.com/watch?v=eWmdxYRiuOo
+```
+
+Checked on 21 Sep 2026: unlisted, 35 seconds, 1920x1080 landscape, 1080p
+available, no ad module on the player. All four are what the field needs.
+
+Play does not accept a video file — the field takes a YouTube URL only.
+
+---
+
+## Data safety answers
+
+The form currently declares **Personal info** as collected. Read against the
+live privacy policy that is wrong: the name, age and sex a user may type for a
+report are stored on the device and never sent anywhere. Declaring collection
+that does not happen is its own compliance problem, because Play checks the
+form against the policy.
+
+What actually leaves the device, and how to declare it:
+
+| What the app does | Declare | Purpose | Notes |
+| --- | --- | --- | --- |
+| Sends the typed medicine name to the API | App activity → **Search history** | App functionality | Not linked to any identity — there is no account |
+| Sends the first letters for type-ahead | same as above | App functionality | Nothing is stored about who typed them |
+| Sends a photo of the pack to be read | Photos and videos → **Photos** | App functionality | Mark it **processed ephemerally** — the policy says it is not stored, by you or by Google |
+| Hashes the caller's network address | App info and performance → nothing, or Device IDs if Play insists | **Fraud prevention, security and compliance** | The address itself is never written down; only a salted, irreversible hash plus a timestamp |
+| Saved medicines, people, reminder times, language, theme | **Do not declare** | — | Device-only storage is not collection |
+| Patient name, age, sex for a report | **Do not declare** | — | Device-only. This is the field that is wrong today |
+
+Answer **yes** to "Is all of the user data collected by your app encrypted in
+transit?" — everything goes over HTTPS.
+
+Answer **no** to "Do you provide a way for users to request that their data is
+deleted?" only if that is true; there is no account to delete, and uninstalling
+removes everything held on the device. Play accepts that, but say it the way
+the form asks.
+
+Two of these are judgement calls rather than facts — whether the Gemini API
+counts as sharing with a third party (it is a service provider processing on
+your behalf, so "not shared" is defensible), and whether a salted hash of an
+address needs declaring at all. Read Play's own definition on each screen
+before you tick it.
