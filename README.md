@@ -18,7 +18,7 @@
 ![Vite 6](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)
 ![Gemini 2.5 Flash](https://img.shields.io/badge/Gemini-2.5%20Flash-8E75B2?logo=googlegemini&logoColor=white)
 ![MongoDB Atlas](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)
-![tests 221 passing](https://img.shields.io/badge/tests-221%20passing-brightgreen)
+![tests 223 passing](https://img.shields.io/badge/tests-223%20passing-brightgreen)
 
 </div>
 
@@ -400,7 +400,7 @@ npm run test:device    # the same screens on a real Android device.
 <details>
 <summary><b>What each layer actually checks</b></summary>
 
-### `npm test` — 221 tests
+### `npm test` — 223 tests
 
 Runs the serverless functions against a **real in-memory MongoDB** with Gemini stubbed. It
 covers cache keying, alias safety, prose repair, dosage-form detection, duplicate-ingredient
