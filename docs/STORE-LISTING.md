@@ -139,15 +139,15 @@ Identifier!", four versions later. Replace it.
 ```
 The biggest update since launch.
 
-• Redesigned answer screen — clear headings, readable lists, artwork for every dosage form
+• Redesigned answer screen, with artwork for every dosage form
 • Side effects, missed dose and storage are now three separate pages
-• Rebuilt professional view: ATC, ADME, interactions and adverse effects by system
-• Save medicines for different people, with reminders that survive a restart
+• Rebuilt professional view: ATC, ADME, interactions, adverse effects
+• Save medicines per person, with reminders that survive a restart
 • Warns you when two saved medicines share an active ingredient
 • Full Arabic content, not just Arabic headings
 • Faster, and a smaller download
 ```
-498 characters.
+447 characters, and 455 if Play counts CRLF line endings — both under 500.
 
 Arabic (ar):
 ```
