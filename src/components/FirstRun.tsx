@@ -141,7 +141,7 @@ export const FirstRun: React.FC<FirstRunProps> = ({ onAccept }) => {
             boxShadow: '0 6px 20px rgba(0,0,0,.32)',
           }}
         >
-          <img src="/app-icon.png" alt="" className="w-full h-full object-cover" />
+          <img src="/app-icon.webp" alt="" className="w-full h-full object-cover" />
         </div>
 
         <div className="text-center">

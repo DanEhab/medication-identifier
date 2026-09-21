@@ -265,7 +265,7 @@ export const CameraHome: React.FC<CameraHomeProps> = ({ onIdentify, onTypeInstea
       <header className="flex items-center justify-between px-4 py-3 shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-[9px] bg-surface overflow-hidden shrink-0">
-            <img src="/app-icon.png" alt="" className="w-full h-full object-cover" />
+            <img src="/app-icon.webp" alt="" className="w-full h-full object-cover" />
           </div>
           <span className="font-semibold text-[18px] text-ink tracking-[-0.01em] truncate">
             {t('appName')}

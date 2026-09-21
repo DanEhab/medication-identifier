@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/app-icon.png" alt="Medication Identifier" width="132" />
+<img src="public/app-icon.webp" alt="Medication Identifier" width="132" />
 
 # Medication Identifier
 
