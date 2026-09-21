@@ -87,6 +87,25 @@ check('the ground is the brand colour, not the inverting ink',
 check('every word on it is legible in light mode', light.bad.length === 0, JSON.stringify(light.bad));
 check('nothing overflows', !light.overflows);
 
+/*
+  A broken image is silent. It occupies its box, breaks no layout, fails no
+  contrast check, and throws nothing a suite would see — the first screen of
+  the app simply has a hole where the logo was. Asking the decoder is the only
+  way to tell the difference between "drawn" and "404".
+
+  Worth a check because the file has been renamed once, from a 337KB PNG to a
+  10KB WebP, and the next rename will be just as quiet.
+*/
+const logo = await browser.evaluate(`
+  const img = document.querySelector('img[src*="app-icon"]');
+  if (!img) return { found: false };
+  if (!img.complete) await img.decode().catch(() => {});
+  return { found: true, src: img.getAttribute('src'), width: img.naturalWidth, height: img.naturalHeight };
+`);
+check('the logo is on the first screen', logo.found, logo.src || 'no img matching app-icon');
+check('and it actually decoded', logo.width > 0 && logo.height > 0,
+  `${logo.src} — ${logo.width}x${logo.height}`);
+
 await screenshot(browser, 'firstrun-en', import.meta.url);
 
 // ── The language buttons keep their places ────────────────────────────────
