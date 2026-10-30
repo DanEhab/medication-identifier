@@ -37,6 +37,13 @@ const TEXT = /\.(js|mjs|cjs|css|html|json|map|txt|svg|webmanifest)$/i;
  */
 const SECRETS = [
   { what: 'a Google / Gemini API key', pattern: /AIza[0-9A-Za-z_-]{35}/ },
+  /*
+    AI Studio issues a second shape — "AQ." then about fifty characters — and
+    the AIza pattern above does not match it. Found the hard way: the key this
+    project actually uses is one of these, so the scanner would have let it
+    through the whole time it was claiming the bundle was clean.
+  */
+  { what: 'a Google / Gemini API key (AQ. format)', pattern: /\bAQ\.[A-Za-z0-9_-]{30,}/ },
   { what: 'a MongoDB connection string', pattern: /mongodb(\+srv)?:\/\/[^\s"'`]+/i },
   { what: 'an OpenAI-style secret key', pattern: /\bsk-[A-Za-z0-9_-]{20,}/ },
   { what: 'a private key block', pattern: /-----BEGIN [A-Z ]*PRIVATE KEY-----/ },
